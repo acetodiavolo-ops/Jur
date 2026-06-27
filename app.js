@@ -228,6 +228,12 @@ _aiPanel.innerHTML =
     '<button class="_chip" data-chip="lidhjet">Lidhjet</button>' +
     '<button class="_chip" data-chip="risk">Rreziku</button>' +
     '<button class="_chip" data-chip="args">Pro/Kundër</button>' +
+    '<button class="_chip" data-chip="procedura">Procedura</button>' +
+    '<button class="_chip" data-chip="shkelje">Shkelje</button>' +
+    '<button class="_chip" data-chip="jurisprudence">Jurisprudencë</button>' +
+    '<button class="_chip" data-chip="kushtet">Kushtet</button>' +
+    '<button class="_chip" data-chip="ndrysho">Ndryshimet</button>' +
+    '<button class="_chip" data-chip="eu">EU Krahasim</button>' +
   '</div>' +
   '<div id="_ai-msgs"></div>' +
   '<div class="_ai-foot"><input id="_ai-input" type="text" placeholder="Shkruaj pyetjen…" autocomplete="off"><button id="_ai-send">&#8594;</button></div>';
@@ -320,7 +326,13 @@ const _chipPrompts = {
   obligimet:  'Për ligjin "' + _lawTitle + '", listo të gjitha detyrimet ligjore si matricë.\nForma: "• [Kush]: [çfarë] — [kur/si]"\nGrupo sipas subjektit: shteti, individi, biznesi, gjykata. Bëhu konkret dhe i plotë.',
   lidhjet:    'Ligji aktual është "' + _lawTitle + '". Nga ky koleksion ligjesh shqiptare: Kushtetuta, Kodi Civil, Kodi Penal, Kodi i Procedurës Civile, Kodi i Procedurës Penale, Kodi i Familjes, Kodi Rrugor, Kodi Ajror, Kodi Doganor, Kodi i Drejtësisë Penale për të Mitur, Dispozita Zbatuese të Kodit Doganor, Ligji për Shoqëritë Tregtare, Ligji për Falimentimin, Statusi i Gjyqtarëve dhe Prokurorëve, Organizimi i Pushtetit Gjyqësor, Ligji për Noterinë, Shërbimi Përmbarimor Gjyqësor Privat — cilat kanë lidhje me ligjin aktual dhe pse? Listo 3-5 me emër të plotë dhe 1 fjali shpjeguese secili.',
   risk:       'Për ligjin "' + _lawTitle + '", cilat janë 5 dispozitat me sanksionet më të rënda ose detyrimet më strikte? Listoja kështu:\n"Neni X — [veprimi ose detyrimi] — [sanksioni konkret]"\nRenditi nga sanksioni më i rëndë te ai më i lehtë.',
-  args:       'Për ligjin "' + _lawTitle + '", gjej 3 çështje juridike kryesore ku palë të ndryshme kanë pozicione kontradiktore. Për secilën:\n"Çështja X: [titulli]\nPRO: [argumentet ligjore që mbrojnë palën e favorshme]\nKUNDËR: [argumentet ligjore të palës tjetër]\nNenet: [lista e neneve konkrete]"'
+  args:       'Për ligjin "' + _lawTitle + '", gjej 3 çështje juridike kryesore ku palë të ndryshme kanë pozicione kontradiktore. Për secilën:\n"Çështja X: [titulli]\nPRO: [argumentet ligjore që mbrojnë palën e favorshme]\nKUNDËR: [argumentet ligjore të palës tjetër]\nNenet: [lista e neneve konkrete]"',
+  procedura:    'Për ligjin "' + _lawTitle + '", shpjego procedurën zyrtare hap pas hapi: kush e inicijon, çfarë afatesh ka, cilat organe janë kompetente, dhe çfarë dokumentesh lëvizen. Bëhu konkret dhe praktik.',
+  shkelje:      'Jep 4-5 shembuj konkretë dhe realë të si shkelet ligji "' + _lawTitle + '" në praktikë. Për secilin: situata, kush shkel, pasoja ligjore (gjobë / burg / pezullim).',
+  jurisprudence:'Si e kanë interpretuar gjykatat shqiptare dhe GJEDNJ-ja ligjin "' + _lawTitle + '"? Trego parimet kryesore jurisprudenciale, mënyrën e zbatimit praktik, dhe debatet kryesore ligjore.',
+  kushtet:  'Për ligjin "' + _lawTitle + '", cilat janë kushtet e detyrueshme (elementët paraprakë) që duhet të ekzistojnë që ky ligj të zbatohet? Listo si matricë: "• Kushti X: [çfarë duhet të jetë e vërtetë]". Përqendrohu vetëm te parakushtet — jo te pasojat.',
+  ndrysho:  'Çfarë ndryshimesh dhe amendamentesh janë bërë ligjit "' + _lawTitle + '" pas miratimit origjinal? Trego çfarë u ndryshua, kur (nëse dihet), dhe pse. Nëse nuk ke të dhëna specifike, trego tendencën e reformave ligjore shqiptare në këtë fushë.',
+  eu:       'Krahaso ligjin "' + _lawTitle + '" me standardet dhe direktivat e BE-së në të njëjtën fushë. Trego: çfarë kërkon BE-ja, çfarë parashikon ligji shqiptar, ku janë boshllëqet kryesore, dhe çfarë reformash nevojiten për afrimin europian.'
 };
 
 document.getElementById('_ai-chips').addEventListener('click', e => {

@@ -153,6 +153,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   grid-template-columns: var(--sidebar) 1fr;
   min-height: 100vh;
   padding-top: calc(var(--topbar) + 2px);
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* ── Sidebar ───────────────────────────────────── */
@@ -445,9 +448,25 @@ h4:hover .art-ai-trigger,
 }
 #_sel-toolbar button:hover { background: rgba(255,255,255,0.18); }
 
+@media (max-width: 760px) {
+  #_ai-panel { width: calc(100vw - 32px); right: 16px; }
+  #_hl-panel { width: calc(100vw - 32px); right: 16px; }
+}
+
 @media (max-width: 480px) {
   #_ai-panel { width: calc(100vw - 24px); right: 12px; bottom: 76px; }
   #_ai-btn   { bottom: 20px; right: 20px; }
+  #_hl-panel { width: calc(100vw - 24px); right: 12px; top: 62px; }
+  ._memo-inner, ._bm-inner, ._comp-inner {
+    width: 100%; max-width: 100%; max-height: 100vh;
+    height: 100vh; border-radius: 0; margin: 0;
+  }
+  #_sel-toolbar button, #_hl-sel-btn { padding: 8px 11px; }
+  ._chip { padding: 5px 8px; font-size: 0.63rem; }
+  #_memo-body { padding: 16px 18px; }
+  ._memo-head  { padding: 12px 16px; }
+  #_comp-body  { padding: 14px 16px; }
+  ._comp-head  { padding: 12px 16px; }
 }
 
 /* ── Plain-language toggle ──────────────────────── */
@@ -559,7 +578,7 @@ h4:hover .art-ai-trigger,
 
 /* ── AI Reading Recap Toast ─────────────────────── */
 #_ai-toast {
-  position: fixed; bottom: 90px; right: 28px; z-index: 998;
+  position: fixed; bottom: 90px; right: 28px; z-index: 1001;
   background: #fff; border: 1px solid var(--border); border-radius: 10px;
   padding: 13px 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.12);
   display: flex; align-items: center; gap: 10px;
@@ -669,7 +688,7 @@ h4:hover .art-ai-trigger,
   position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
   font-family: var(--font); font-size: 0.68rem; background: none;
   border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
-  padding: 2px 7px; color: var(--muted); transition: all 0.1s;
+  padding: 5px 9px; color: var(--muted); transition: all 0.1s;
 }
 ._bm-del:hover { background: #fee; color: #c00; border-color: #c00; }
 
@@ -787,6 +806,24 @@ h4:hover .art-ai-trigger,
   .topbar-title { display: none; }
   #search-input { width: 140px; }
   #search-input:focus { width: 180px; }
+  .law-header h1 { font-size: 2.1rem; }
+  .law-header { margin-bottom: 40px; }
+}
+
+@media (max-width: 600px) {
+  .content-wrap { padding: 22px 16px 72px; }
+  .law-header h1 { font-size: 1.75rem; line-height: 1.15; }
+  .law-header { margin-bottom: 24px; padding-bottom: 16px; }
+  .plain-lang-btn, .memo-btn, .hdr-action-btn { font-size: 0.62rem; padding: 5px 8px; margin-top: 8px; margin-right: 4px; }
+  .back-link { padding: 0 10px; font-size: 0.62rem; letter-spacing: 0.1em; }
+  #search-input { width: 90px; }
+  #search-input:focus { width: 120px; }
+  #content h3 { font-size: 0.95rem; margin-top: 36px; }
+  #content h4 { font-size: 0.98rem; margin-top: 24px; }
+  #content p  { font-size: 0.94rem; line-height: 1.88; }
+  .situation-form { padding: 14px; }
+  .situation-input-row { flex-direction: column; }
+  input, select, textarea { font-size: 16px !important; }
 }
 
 /* ── Personal Highlights ───────────────────────── */
@@ -825,7 +862,7 @@ mark.user-hl:hover { background: #ffe066; }
 ._hl-note { font-size: 0.75rem; color: var(--muted); margin-top: 3px; font-style: italic; }
 ._hl-del {
   font-size: 0.72rem; color: var(--muted); cursor: pointer;
-  flex-shrink: 0; padding: 2px 4px; background: none; border: none; line-height: 1;
+  flex-shrink: 0; padding: 5px 8px; background: none; border: none; line-height: 1;
 }
 ._hl-del:hover { color: #c00; }
 
