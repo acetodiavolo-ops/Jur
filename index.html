@@ -31,9 +31,22 @@
 
     /* ── Hero ──────────────────────────────────── */
     .hero {
-      border-bottom: 2px solid var(--text);
+      border-bottom: none;
       padding-bottom: 40px;
       margin-bottom: 44px;
+      position: relative;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 5px;
+      background:
+        linear-gradient(to bottom,
+          var(--text) 0px, var(--text) 1px,
+          transparent 1px, transparent 3px,
+          var(--text) 3px, var(--text) 5px
+        );
     }
 
     .nation {
@@ -71,11 +84,24 @@
     /* ── Law of the Day ────────────────────────── */
     .law-of-day {
       border: none;
-      border-left: 3px solid var(--text);
+      border-left: 3px solid #b8923a;
       border-radius: 0;
       padding: 24px 28px;
       background: #fafafa;
       margin-bottom: 44px;
+      position: relative;
+      overflow: hidden;
+    }
+    .law-of-day::before {
+      content: '§';
+      position: absolute;
+      top: -6px; right: 12px;
+      font-family: var(--font-serif);
+      font-size: 6rem;
+      line-height: 1;
+      color: rgba(15,15,13,0.05);
+      pointer-events: none;
+      user-select: none;
     }
 
     .lotd-label {
@@ -187,7 +213,7 @@
       color: var(--text);
       transition: background 0.15s, border-color 0.15s, padding-left 0.15s;
     }
-    .law-row a:hover { background: #f0ede8; border-left-color: var(--text); padding-left: 7px; }
+    .law-row a:hover { background: #f0ede8; border-left-color: #b8923a; padding-left: 7px; }
 
     .badge {
       font-size: 0.6rem;
@@ -776,6 +802,39 @@
       color: #111; white-space: pre-wrap; border-top: 1px solid var(--border); padding-top: 14px;
     }
 
+    /* ── Button lift override ───────────────────── */
+    #ai-ask, #wizard-free-send, .compare-btn, #cs-btn, #dd-btn, #ed-btn,
+    #pen-btn, #sol-btn, #ca-btn, #rights-btn, #court-btn, #evidence-btn,
+    #timeline-btn, #nego-btn, #inherit-btn, #biz-btn, #consumer-btn,
+    #glossary-lookup {
+      transition: opacity 0.12s, transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    #ai-ask:hover:not(:disabled), #wizard-free-send:hover:not(:disabled),
+    .compare-btn:hover:not(:disabled), #cs-btn:hover:not(:disabled),
+    #dd-btn:hover:not(:disabled), #ed-btn:hover:not(:disabled),
+    #pen-btn:hover:not(:disabled), #sol-btn:hover:not(:disabled),
+    #ca-btn:hover:not(:disabled), #rights-btn:hover:not(:disabled),
+    #court-btn:hover:not(:disabled), #evidence-btn:hover:not(:disabled),
+    #timeline-btn:hover:not(:disabled), #nego-btn:hover:not(:disabled),
+    #inherit-btn:hover:not(:disabled), #biz-btn:hover:not(:disabled),
+    #consumer-btn:hover:not(:disabled), #glossary-lookup:hover:not(:disabled),
+    #ca-btn:hover:not(:disabled) {
+      opacity: 1;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.14);
+    }
+    #ai-ask:active:not(:disabled), #wizard-free-send:active:not(:disabled),
+    .compare-btn:active:not(:disabled), #cs-btn:active:not(:disabled),
+    #dd-btn:active:not(:disabled), #ed-btn:active:not(:disabled),
+    #pen-btn:active:not(:disabled), #sol-btn:active:not(:disabled),
+    #rights-btn:active:not(:disabled), #court-btn:active:not(:disabled),
+    #evidence-btn:active:not(:disabled), #timeline-btn:active:not(:disabled),
+    #nego-btn:active:not(:disabled), #inherit-btn:active:not(:disabled),
+    #biz-btn:active:not(:disabled), #consumer-btn:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
     /* ── Unified AI result containers ──────────── */
     #ai-answer, .compare-result,
     #wizard-free-answer,
@@ -784,21 +843,72 @@
     #nego-result, #inherit-result, #biz-result, #consumer-result {
       background: #f5f4f0;
       border: 1px solid var(--border);
-      border-left: 3px solid var(--text);
+      border-left: 3px solid #b8923a;
       border-radius: 0 8px 8px 0;
       padding: 14px 16px;
       margin-top: 14px;
-      font-size: 0.88rem;
-      line-height: 1.8;
+      font-family: var(--font-serif);
+      font-size: 1.02rem;
+      line-height: 1.88;
+      font-style: normal;
       color: #111;
       white-space: pre-wrap;
       opacity: 0;
       transition: opacity 0.25s ease;
     }
 
+    /* ── Section label gold hairline ───────────── */
+    .lotd-label, .wizard-label, .compare-label, .case-study-label,
+    .doc-drafter-label, .email-drafter-label, .glossary-label, .penalty-label,
+    .sol-label, .contract-analyzer-label, .rights-label, .court-label,
+    .evidence-label, .timeline-label, .nego-label, .inherit-label,
+    .biz-label, .consumer-label, .ai-teaser-label, .domain-label {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .lotd-label::before, .wizard-label::before, .compare-label::before,
+    .case-study-label::before, .doc-drafter-label::before,
+    .email-drafter-label::before, .glossary-label::before,
+    .penalty-label::before, .sol-label::before,
+    .contract-analyzer-label::before, .rights-label::before,
+    .court-label::before, .evidence-label::before, .timeline-label::before,
+    .nego-label::before, .inherit-label::before, .biz-label::before,
+    .consumer-label::before, .ai-teaser-label::before,
+    .domain-label::before {
+      content: '';
+      display: inline-block;
+      width: 14px;
+      height: 1px;
+      background: #b8923a;
+      flex-shrink: 0;
+    }
+
     /* ── Global focus ring ──────────────────────── */
     input:focus, textarea:focus, select:focus {
       box-shadow: 0 0 0 3px rgba(15, 15, 13, 0.07);
+    }
+
+    /* ── Page grain overlay ─────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.022;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+      background-repeat: repeat;
+    }
+    .hero, .controls, .domain-section, .law-of-day, .ai-teaser,
+    .law-wizard, .compare-section, .case-study-section, .doc-drafter-section,
+    .email-drafter-section, .glossary-section, .penalty-section, .sol-section,
+    .contract-analyzer-section, .rights-section, .court-section,
+    .evidence-section, .timeline-section, .nego-section, .inherit-section,
+    .biz-section, .consumer-section, footer {
+      position: relative;
+      z-index: 1;
     }
 
     /* ── Mid-tablet ──────────────────────────── */
