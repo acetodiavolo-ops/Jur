@@ -181,12 +181,13 @@
       align-items: center;
       gap: 14px;
       padding: 16px 10px;
+      border-left: 3px solid transparent;
       border-bottom: 1px solid var(--border);
       text-decoration: none;
       color: var(--text);
-      transition: background 0.1s, padding-left 0.14s;
+      transition: background 0.15s, border-color 0.15s, padding-left 0.15s;
     }
-    .law-row a:hover { background: #f5f5f5; padding-left: 18px; }
+    .law-row a:hover { background: #f0ede8; border-left-color: var(--text); padding-left: 7px; }
 
     .badge {
       font-size: 0.6rem;
@@ -775,6 +776,31 @@
       color: #111; white-space: pre-wrap; border-top: 1px solid var(--border); padding-top: 14px;
     }
 
+    /* ── Unified AI result containers ──────────── */
+    #ai-answer, .compare-result,
+    #wizard-free-answer,
+    #cs-result, #dd-result, #ed-result, #pen-result, #sol-result, #ca-result,
+    #rights-result, #court-result, #evidence-result, #timeline-result,
+    #nego-result, #inherit-result, #biz-result, #consumer-result {
+      background: #f5f4f0;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--text);
+      border-radius: 0 8px 8px 0;
+      padding: 14px 16px;
+      margin-top: 14px;
+      font-size: 0.88rem;
+      line-height: 1.8;
+      color: #111;
+      white-space: pre-wrap;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    /* ── Global focus ring ──────────────────────── */
+    input:focus, textarea:focus, select:focus {
+      box-shadow: 0 0 0 3px rgba(15, 15, 13, 0.07);
+    }
+
     /* ── Tablet ───────────────────────────────── */
     @media (max-width: 768px) {
       h1 { font-size: 2.4rem; }
@@ -1166,7 +1192,7 @@
           <button class="sc-btn" data-q="Punëdhënësi nuk më pagoi rrogën. Çfarë thotë ligji shqiptar?">Kontestë pune</button>
           <button class="sc-btn" data-q="Çfarë thotë ligji shqiptar për trashëgiminë dhe testamentin?">Trashëgimi</button>
         </div>
-        <div id="ai-answer" hidden style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+        <div id="ai-answer" hidden>
           <p class="ai-answer-text"></p>
         </div>
       </div>
@@ -1576,8 +1602,10 @@
 
       aiAsk.disabled = true;
       aiAsk.textContent = 'Duke menduar…';
+      aiAnswer.style.opacity = '0';
       aiAnswer.hidden = false;
       aiText.textContent = '';
+      requestAnimationFrame(function () { aiAnswer.style.opacity = '1'; });
 
       fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -1794,7 +1822,7 @@
       var q = _wizFreeQ.value.trim();
       if (!q) return;
       _wizFreeSend.disabled = true;
-      _wizFreeAnswer.style.display = 'block';
+      _wizFreeAnswer.style.opacity = '0'; _wizFreeAnswer.style.display = 'block'; requestAnimationFrame(function () { _wizFreeAnswer.style.opacity = '1'; });
       _wizFreeAnswer.textContent = 'Duke menduar…';
 
       fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1830,7 +1858,7 @@
       var btn    = document.getElementById('cmp-btn');
       var result = document.getElementById('cmp-result');
       btn.disabled = true;
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke krahasuar…';
 
       fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1861,7 +1889,7 @@
       var result = document.getElementById('cs-result');
       btn.disabled = true;
       btn.textContent = 'Duke gjeneruar…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke krijuar rastin…';
 
       fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1892,7 +1920,7 @@
       var btn     = document.getElementById('dd-btn');
       var result  = document.getElementById('dd-result');
       btn.disabled = true; btn.textContent = 'Duke gjeneruar…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke hartuar dokumentin…';
 
       fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1923,7 +1951,7 @@
       var btn     = document.getElementById('ed-btn');
       var result  = document.getElementById('ed-result');
       btn.disabled = true; btn.textContent = 'Duke shkruar…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke hartuar emailin…';
 
       fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -2014,7 +2042,7 @@
       var btn    = document.getElementById('pen-btn');
       var result = document.getElementById('pen-result');
       btn.disabled = true; btn.textContent = 'Duke llogaritur…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke analizuar shkeljen…';
 
       fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -2047,7 +2075,7 @@
       var d      = new Date(date);
       var fmt    = d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear();
       btn.disabled = true; btn.textContent = 'Duke kontrolluar…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke llogaritur afatin e parashkrimit…';
 
       fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -2077,7 +2105,7 @@
       var btn    = document.getElementById('ca-btn');
       var result = document.getElementById('ca-result');
       btn.disabled = true; btn.textContent = 'Duke analizuar…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke analizuar kontratën…';
 
       fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -2107,7 +2135,7 @@
       var btn    = document.getElementById('rights-btn');
       var result = document.getElementById('rights-result');
       btn.disabled = true; btn.textContent = 'Duke kërkuar…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke analizuar të drejtat tuaja…';
       fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -2136,7 +2164,7 @@
       var btn    = document.getElementById('court-btn');
       var result = document.getElementById('court-result');
       btn.disabled = true; btn.textContent = 'Duke kërkuar…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke identifikuar autoritetin kompetent…';
       fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -2166,7 +2194,7 @@
       var btn    = document.getElementById('evidence-btn');
       var result = document.getElementById('evidence-result');
       btn.disabled = true; btn.textContent = 'Duke gjeneruar…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke hartuar listën e provave…';
       fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -2196,7 +2224,7 @@
       var btn     = document.getElementById('timeline-btn');
       var result  = document.getElementById('timeline-result');
       btn.disabled = true; btn.textContent = 'Duke gjeneruar…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke hartuar vijën kohore…';
       fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -2227,7 +2255,7 @@
       var btn    = document.getElementById('nego-btn');
       var result = document.getElementById('nego-result');
       btn.disabled = true; btn.textContent = 'Duke analizuar…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke gjetur strategjinë e negocimit…';
       fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -2259,7 +2287,7 @@
       var btn      = document.getElementById('inherit-btn');
       var result   = document.getElementById('inherit-result');
       btn.disabled = true; btn.textContent = 'Duke llogaritur…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke analizuar trashëgiminë ligjore…';
       fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -2289,7 +2317,7 @@
       var btn      = document.getElementById('biz-btn');
       var result   = document.getElementById('biz-result');
       btn.disabled = true; btn.textContent = 'Duke kontrolluar…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke analizuar kërkesat ligjore…';
       fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -2319,7 +2347,7 @@
       var btn  = document.getElementById('consumer-btn');
       var result = document.getElementById('consumer-result');
       btn.disabled = true; btn.textContent = 'Duke kërkuar…';
-      result.style.display = 'block';
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke analizuar të drejtat si konsumator…';
       fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',

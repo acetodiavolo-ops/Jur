@@ -375,7 +375,14 @@ mark.current {
   align-self: flex-end; background: #111; color: #fff;
   padding: 7px 12px; border-radius: 12px 12px 2px 12px; white-space: normal;
 }
-._ai-msg.b { align-self: flex-start; color: #111; }
+._ai-msg.b {
+  align-self: flex-start; color: #111;
+  background: #f5f4f0;
+  border-left: 2px solid var(--border);
+  border-radius: 0 6px 6px 0;
+  padding: 10px 13px;
+  max-width: 94%;
+}
 ._ai-msg.load { color: #aaa; font-style: italic; }
 
 ._ai-foot {
