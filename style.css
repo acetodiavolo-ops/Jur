@@ -212,13 +212,13 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 
 /* ── Main content wrapper ──────────────────────── */
 .content-wrap {
-  padding: 68px 80px 160px;
+  padding: 56px 68px 120px;
 }
 
 /* ── Law page header ───────────────────────────── */
 .law-header {
   max-width: var(--content);
-  margin-bottom: 56px;
+  margin-bottom: 48px;
   padding-bottom: 28px;
   border-bottom: 1px solid var(--text);
 }
@@ -251,7 +251,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   text-transform: uppercase;
   font-weight: 700;
   color: #aaa;
-  margin-top: 72px;
+  margin-top: 56px;
   margin-bottom: 20px;
   padding-bottom: 0;
   border-bottom: none;
@@ -301,7 +301,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 
 #content p {
   font-size: 1rem;
-  line-height: 1.96;
+  line-height: 1.9;
   margin-bottom: 16px;
   color: #1a1a18;
 }
@@ -333,7 +333,7 @@ mark.current {
 
 #_ai-panel {
   position: fixed; bottom: 90px; right: 28px;
-  width: 340px; max-height: 560px;
+  width: 356px; max-height: 560px;
   background: #fff; border: 1px solid var(--border);
   border-radius: 13px; box-shadow: 0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08);
   display: flex; flex-direction: column; z-index: 999;
@@ -809,7 +809,7 @@ h4:hover .art-ai-trigger,
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; }
   .sidebar { display: none; }
-  .content-wrap { padding: 36px 24px 100px; }
+  .content-wrap { padding: 32px 28px 80px; }
   .topbar-title { display: none; }
   #search-input { width: 140px; }
   #search-input:focus { width: 180px; }
@@ -818,7 +818,7 @@ h4:hover .art-ai-trigger,
 }
 
 @media (max-width: 600px) {
-  .content-wrap { padding: 22px 16px 72px; }
+  .content-wrap { padding: 24px 20px 72px; }
   .law-header h1 { font-size: 1.75rem; line-height: 1.15; }
   .law-header { margin-bottom: 24px; padding-bottom: 16px; }
   .plain-lang-btn, .memo-btn, .hdr-action-btn { font-size: 0.62rem; padding: 5px 8px; margin-top: 8px; margin-right: 4px; }
