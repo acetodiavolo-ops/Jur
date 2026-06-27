@@ -1,0 +1,11 @@
+# API key — never commit this
+config.js
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

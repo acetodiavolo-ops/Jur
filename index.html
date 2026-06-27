@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Legjislacioni Shqiptar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-serif: 'EB Garamond', Georgia, 'Times New Roman', serif;
+      --text: #0f0f0d;
+      --muted: #737068;
+      --border: #e0ddd8;
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      font-family: var(--font);
+      background: #fdfdf9;
+      color: var(--text);
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 64px 24px 96px;
+    }
+
+    /* ── Hero ──────────────────────────────────── */
+    .hero {
+      border-bottom: 2px solid var(--text);
+      padding-bottom: 48px;
+      margin-bottom: 48px;
+    }
+
+    .nation {
+      font-size: 0.68rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 3.4rem;
+      font-weight: 500;
+      font-style: italic;
+      letter-spacing: 0;
+      line-height: 1.08;
+      margin-bottom: 18px;
+    }
+
+    .tagline {
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.78;
+      margin-bottom: 24px;
+    }
+
+    .stats {
+      font-size: 0.73rem;
+      color: #aaa;
+      letter-spacing: 0.04em;
+      margin-top: 8px;
+    }
+
+    /* ── Law of the Day ────────────────────────── */
+    .law-of-day {
+      border: none;
+      border-left: 3px solid var(--text);
+      border-radius: 0;
+      padding: 28px 32px;
+      background: #fafafa;
+      margin-bottom: 44px;
+    }
+
+    .lotd-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #c0c0c0;
+      margin-bottom: 16px;
+    }
+
+    .lotd-text {
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.78;
+      margin-bottom: 18px;
+    }
+
+    .lotd-link {
+      font-size: 0.8rem;
+      color: var(--text);
+      text-decoration: none;
+      border-bottom: 1px solid var(--text);
+      padding-bottom: 1px;
+      transition: opacity 0.12s;
+    }
+    .lotd-link:hover { opacity: 0.55; }
+
+    /* ── Controls ──────────────────────────────── */
+    .controls {
+      margin-bottom: 44px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .filter-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .pill {
+      font-family: var(--font);
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      padding: 6px 15px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--muted);
+      transition: border-color 0.12s, color 0.12s, background 0.12s;
+    }
+    .pill:hover { border-color: #aaa; color: var(--text); }
+    .pill.active { border-color: var(--text); background: var(--text); color: #fff; }
+
+    #law-search {
+      font-family: var(--font);
+      font-size: 0.88rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 16px;
+      width: 100%;
+      outline: none;
+      color: var(--text);
+      background: #fafafa;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    #law-search:focus { border-color: var(--text); background: #fff; }
+    #law-search::placeholder { color: #c0c0c0; }
+
+    /* ── Domain sections ───────────────────────── */
+    .domain-section { margin-bottom: 44px; }
+
+    .domain-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    .domain-label {
+      font-size: 0.58rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #c0c0c0;
+      flex-shrink: 0;
+    }
+
+    .domain-divider {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Law rows ──────────────────────────────── */
+    .law-list ul { list-style: none; }
+
+    .law-row a {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 10px;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none;
+      color: var(--text);
+      transition: background 0.1s, padding-left 0.14s;
+    }
+    .law-row a:hover { background: #f5f5f5; padding-left: 18px; }
+
+    .badge {
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: 1px solid #ddd;
+      color: #bbb;
+      padding: 3px 0;
+      border-radius: 3px;
+      flex-shrink: 0;
+      width: 80px;
+      text-align: center;
+    }
+
+    .row-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .law-title {
+      font-family: var(--font-serif);
+      display: block;
+      font-size: 1.05rem;
+      font-weight: 500;
+      font-style: normal;
+      letter-spacing: 0;
+      line-height: 1.3;
+    }
+
+    .law-ref {
+      display: block;
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .law-desc {
+      display: block;
+      font-size: 0.7rem;
+      color: #aaa;
+      margin-top: 5px;
+      line-height: 1.42;
+    }
+
+    .arrow {
+      color: #d0d0d0;
+      font-size: 1rem;
+      flex-shrink: 0;
+      transition: color 0.12s, transform 0.12s;
+    }
+    .law-row a:hover .arrow { color: var(--text); transform: translateX(3px); }
+
+    /* ── AI Teaser ─────────────────────────────── */
+    .ai-teaser {
+      margin-top: 52px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 28px 30px;
+      background: #fafafa;
+    }
+
+    .ai-teaser-label {
+      font-size: 0.58rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #c0c0c0;
+      margin-bottom: 16px;
+    }
+
+    .ai-teaser h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+
+    .ai-teaser p {
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 22px;
+    }
+
+    .ai-input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    #ai-question {
+      flex: 1;
+      font-family: var(--font);
+      font-size: 0.88rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      outline: none;
+      color: var(--text);
+      background: #fff;
+      transition: border-color 0.15s;
+    }
+    #ai-question:focus { border-color: var(--text); }
+    #ai-question::placeholder { color: #c0c0c0; }
+
+    #ai-ask {
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 500;
+      padding: 10px 18px;
+      background: var(--text);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.12s;
+    }
+    #ai-ask:hover { opacity: 0.75; }
+    #ai-ask:disabled { opacity: 0.4; cursor: default; }
+
+    /* ── Scenario buttons ──────────────────────── */
+    .scenarios {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+
+    .sc-btn {
+      font-family: var(--font);
+      font-size: 0.72rem;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .sc-btn:hover { background: var(--text); color: #fff; border-color: var(--text); }
+
+    #ai-answer {
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+      margin-top: 4px;
+    }
+
+    .ai-answer-text {
+      font-size: 0.875rem;
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    /* ── Law Finder Wizard ──────────────────────── */
+    .law-wizard {
+      margin-top: 52px; border: 1px solid var(--border);
+      border-radius: 10px; padding: 30px 34px; background: #fafafa;
+    }
+    .wizard-label {
+      font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: #c0c0c0; margin-bottom: 20px; display: block;
+    }
+    .wizard-step { display: none; }
+    .wizard-step.active { display: block; }
+    .wizard-step h3 {
+      font-size: 1.1rem; font-weight: 600; margin-bottom: 10px; letter-spacing: -0.01em;
+    }
+    .wizard-question { font-size: 0.9rem; color: var(--muted); line-height: 1.75; margin-bottom: 16px; }
+    .wizard-pills { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 18px; }
+    .w-pill {
+      font-family: var(--font); font-size: 0.75rem;
+      padding: 7px 16px; border: 1px solid var(--border); border-radius: 999px;
+      background: transparent; color: var(--muted); cursor: pointer; transition: all 0.12s;
+    }
+    .w-pill:hover { background: #111; color: #fff; border-color: #111; }
+    .wizard-back {
+      font-family: var(--font); font-size: 0.75rem; background: none; border: none;
+      color: var(--muted); cursor: pointer; padding: 0; margin-bottom: 14px;
+      text-decoration: underline; display: block;
+    }
+    .wizard-result {
+      font-size: 0.9rem; color: #111; line-height: 1.8; margin-bottom: 14px;
+      white-space: pre-wrap; min-height: 40px;
+    }
+    .wizard-restart {
+      font-family: var(--font); font-size: 0.75rem; background: none; border: none;
+      color: var(--muted); cursor: pointer; padding: 0; text-decoration: underline;
+    }
+    .wizard-also {
+      margin-top: 18px; border-top: 1px solid var(--border); padding-top: 18px;
+    }
+    .wizard-also-label { font-size: 0.75rem; color: var(--muted); margin-bottom: 10px; display: block; }
+    .wizard-also-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    #wizard-free-q {
+      flex: 1; font-family: var(--font); font-size: 0.88rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 14px; outline: none; background: #fff; color: var(--text);
+      transition: border-color 0.15s;
+    }
+    #wizard-free-q:focus { border-color: var(--text); }
+    #wizard-free-q::placeholder { color: #c0c0c0; }
+    #wizard-free-send {
+      font-family: var(--font); font-size: 0.82rem; font-weight: 500;
+      padding: 10px 18px; background: var(--text); color: #fff; border: none;
+      border-radius: 8px; cursor: pointer; white-space: nowrap; transition: opacity 0.12s;
+    }
+    #wizard-free-send:hover { opacity: 0.75; }
+    #wizard-free-answer {
+      display: none; font-size: 0.9rem; line-height: 1.8; color: #111;
+      white-space: pre-wrap; border-top: 1px solid var(--border); padding-top: 12px;
+    }
+
+    /* ── Two-Law Comparison ─────────────────────── */
+    .compare-section {
+      margin-top: 32px; border: 1px solid var(--border); border-radius: 10px;
+      padding: 26px 30px; background: #fafafa;
+    }
+    .compare-label {
+      font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: #c0c0c0; margin-bottom: 20px; display: block;
+    }
+    .compare-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .compare-select {
+      flex: 1; min-width: 160px; font-family: var(--font); font-size: 0.84rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; background: #fff; color: #111; outline: none;
+      transition: border-color 0.15s; cursor: pointer;
+    }
+    .compare-select:focus { border-color: var(--text); }
+    .compare-btn {
+      font-family: var(--font); font-size: 0.82rem; font-weight: 500;
+      padding: 10px 18px; background: var(--text); color: #fff; border: none;
+      border-radius: 8px; cursor: pointer; white-space: nowrap; transition: opacity 0.12s;
+    }
+    .compare-btn:hover { opacity: 0.75; }
+    .compare-btn:disabled { opacity: 0.4; cursor: default; }
+    .compare-result {
+      display: none; margin-top: 12px; font-size: 0.9rem; line-height: 1.8;
+      color: #111; white-space: pre-wrap;
+      border-top: 1px solid var(--border); padding-top: 14px;
+    }
+
+    /* ── Case Study Generator ──────────────────── */
+    .case-study-section {
+      margin-top: 32px; border: 1px solid var(--border); border-radius: 10px;
+      padding: 26px 30px; background: #fafafa;
+    }
+    .case-study-label {
+      font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: #c0c0c0; margin-bottom: 20px; display: block;
+    }
+    .case-study-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    #cs-law {
+      flex: 1; min-width: 200px; font-family: var(--font); font-size: 0.84rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; background: #fff; color: #111; outline: none;
+      transition: border-color 0.15s; cursor: pointer;
+    }
+    #cs-law:focus { border-color: var(--text); }
+    #cs-btn {
+      font-family: var(--font); font-size: 0.82rem; font-weight: 500;
+      padding: 10px 18px; background: var(--text); color: #fff; border: none;
+      border-radius: 8px; cursor: pointer; white-space: nowrap; transition: opacity 0.12s;
+    }
+    #cs-btn:hover { opacity: 0.75; }
+    #cs-btn:disabled { opacity: 0.4; cursor: default; }
+    #cs-result {
+      display: none; margin-top: 12px; font-size: 0.9rem; line-height: 1.8;
+      color: #111; white-space: pre-wrap;
+      border-top: 1px solid var(--border); padding-top: 14px;
+    }
+
+    /* ── Footer ────────────────────────────────── */
+    footer {
+      margin-top: 80px;
+      font-size: 0.62rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #b8b4ae;
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+      text-align: center;
+    }
+
+    /* ── Document Drafter ─────────────────────── */
+    .doc-drafter-section {
+      margin-top: 32px; border: 1px solid var(--border); border-radius: 10px;
+      padding: 26px 30px; background: #fafafa;
+    }
+    .doc-drafter-label {
+      font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: #c0c0c0; margin-bottom: 20px; display: block;
+    }
+    .doc-drafter-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+    #dd-type {
+      flex: 1; min-width: 200px; font-family: var(--font); font-size: 0.84rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; background: #fff; color: #111; outline: none;
+      transition: border-color 0.15s; cursor: pointer;
+    }
+    #dd-type:focus { border-color: var(--text); }
+    #dd-btn {
+      font-family: var(--font); font-size: 0.82rem; font-weight: 500;
+      padding: 10px 18px; background: var(--text); color: #fff; border: none;
+      border-radius: 8px; cursor: pointer; white-space: nowrap; transition: opacity 0.12s;
+    }
+    #dd-btn:hover { opacity: 0.75; }
+    #dd-btn:disabled { opacity: 0.4; cursor: default; }
+    #dd-details {
+      width: 100%; font-family: var(--font); font-size: 0.84rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 14px; background: #fff; color: var(--text);
+      resize: vertical; min-height: 70px; outline: none;
+      transition: border-color 0.15s; display: block; box-sizing: border-box;
+    }
+    #dd-details:focus { border-color: var(--text); }
+    #dd-details::placeholder { color: #c0c0c0; }
+    #dd-result {
+      display: none; margin-top: 14px; font-size: 0.88rem; line-height: 1.8;
+      color: #111; white-space: pre-wrap;
+      border-top: 1px solid var(--border); padding-top: 14px;
+    }
+
+    /* ── Legal Email Drafter ───────────────────── */
+    .email-drafter-section {
+      margin-top: 32px; border: 1px solid var(--border); border-radius: 10px;
+      padding: 26px 30px; background: #fafafa;
+    }
+    .email-drafter-label {
+      font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: #c0c0c0; margin-bottom: 20px; display: block;
+    }
+    .email-drafter-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+    #ed-type {
+      flex: 1; min-width: 200px; font-family: var(--font); font-size: 0.84rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; background: #fff; color: #111; outline: none;
+      transition: border-color 0.15s; cursor: pointer;
+    }
+    #ed-type:focus { border-color: var(--text); }
+    #ed-btn {
+      font-family: var(--font); font-size: 0.82rem; font-weight: 500;
+      padding: 10px 18px; background: var(--text); color: #fff; border: none;
+      border-radius: 8px; cursor: pointer; white-space: nowrap; transition: opacity 0.12s;
+    }
+    #ed-btn:hover { opacity: 0.75; }
+    #ed-btn:disabled { opacity: 0.4; cursor: default; }
+    #ed-details {
+      width: 100%; font-family: var(--font); font-size: 0.84rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 14px; background: #fff; color: var(--text);
+      resize: vertical; min-height: 70px; outline: none;
+      transition: border-color 0.15s; display: block; box-sizing: border-box;
+    }
+    #ed-details:focus { border-color: var(--text); }
+    #ed-details::placeholder { color: #c0c0c0; }
+    #ed-result {
+      display: none; margin-top: 14px; font-size: 0.88rem; line-height: 1.8;
+      color: #111; white-space: pre-wrap;
+      border-top: 1px solid var(--border); padding-top: 14px;
+    }
+
+    /* ── Legal Glossary ────────────────────────── */
+    .glossary-section {
+      margin-top: 32px; border: 1px solid var(--border); border-radius: 10px;
+      padding: 26px 30px; background: #fafafa;
+    }
+    .glossary-label {
+      font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: #c0c0c0; margin-bottom: 16px; display: block;
+    }
+    #glossary-search {
+      font-family: var(--font); font-size: 0.88rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 9px 14px; width: 100%; outline: none;
+      color: var(--text); background: #fff; transition: border-color 0.15s;
+      box-sizing: border-box;
+    }
+    #glossary-search:focus { border-color: var(--text); }
+    #glossary-search::placeholder { color: #c0c0c0; }
+    #glossary-terms { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+    .gl-term {
+      font-family: var(--font); font-size: 0.72rem;
+      padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+      background: transparent; color: var(--muted); cursor: pointer; transition: all 0.12s;
+    }
+    .gl-term:hover { background: var(--text); color: #fff; border-color: var(--text); }
+    .gl-term.active { background: var(--text); color: #fff; border-color: var(--text); }
+    #glossary-result {
+      margin-top: 16px; font-size: 0.9rem; line-height: 1.8; color: #111;
+      white-space: pre-wrap; border-top: 1px solid var(--border); padding-top: 14px;
+    }
+
+    /* ── Penalty Estimator ─────────────────────── */
+    .penalty-section {
+      margin-top: 32px; border: 1px solid var(--border); border-radius: 10px;
+      padding: 26px 30px; background: #fafafa;
+    }
+    .penalty-label {
+      font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: #c0c0c0; margin-bottom: 20px; display: block;
+    }
+    .penalty-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+    #pen-type {
+      flex: 1; min-width: 200px; font-family: var(--font); font-size: 0.84rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; background: #fff; color: #111; outline: none;
+      transition: border-color 0.15s; cursor: pointer;
+    }
+    #pen-type:focus { border-color: var(--text); }
+    #pen-btn {
+      font-family: var(--font); font-size: 0.82rem; font-weight: 500;
+      padding: 10px 18px; background: var(--text); color: #fff; border: none;
+      border-radius: 8px; cursor: pointer; white-space: nowrap; transition: opacity 0.12s;
+    }
+    #pen-btn:hover { opacity: 0.75; }
+    #pen-btn:disabled { opacity: 0.4; cursor: default; }
+    #pen-sit {
+      width: 100%; font-family: var(--font); font-size: 0.84rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 14px; background: #fff; color: var(--text);
+      resize: vertical; min-height: 70px; outline: none;
+      transition: border-color 0.15s; display: block; box-sizing: border-box;
+    }
+    #pen-sit:focus { border-color: var(--text); }
+    #pen-sit::placeholder { color: #c0c0c0; }
+    #pen-result {
+      display: none; margin-top: 14px; font-size: 0.88rem; line-height: 1.8;
+      color: #111; white-space: pre-wrap;
+      border-top: 1px solid var(--border); padding-top: 14px;
+    }
+
+    /* ── Statute of Limitations ─────────────────── */
+    .sol-section {
+      margin-top: 32px; border: 1px solid var(--border); border-radius: 10px;
+      padding: 26px 30px; background: #fafafa;
+    }
+    .sol-label {
+      font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: #c0c0c0; margin-bottom: 20px; display: block;
+    }
+    .sol-row { display: flex; gap: 8px; margin-bottom: 0; flex-wrap: wrap; }
+    #sol-type {
+      flex: 1; min-width: 200px; font-family: var(--font); font-size: 0.84rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; background: #fff; color: #111; outline: none;
+      transition: border-color 0.15s; cursor: pointer;
+    }
+    #sol-type:focus { border-color: var(--text); }
+    #sol-date {
+      font-family: var(--font); font-size: 0.84rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; background: #fff; color: #111; outline: none;
+      transition: border-color 0.15s; cursor: pointer;
+    }
+    #sol-date:focus { border-color: var(--text); }
+    #sol-btn {
+      font-family: var(--font); font-size: 0.82rem; font-weight: 500;
+      padding: 10px 18px; background: var(--text); color: #fff; border: none;
+      border-radius: 8px; cursor: pointer; white-space: nowrap; transition: opacity 0.12s;
+    }
+    #sol-btn:hover { opacity: 0.75; }
+    #sol-btn:disabled { opacity: 0.4; cursor: default; }
+    #sol-result {
+      display: none; margin-top: 14px; font-size: 0.88rem; line-height: 1.8;
+      color: #111; white-space: pre-wrap;
+      border-top: 1px solid var(--border); padding-top: 14px;
+    }
+
+    /* ── Contract Analyzer ──────────────────────── */
+    .contract-analyzer-section {
+      margin-top: 32px; border: 1px solid var(--border); border-radius: 10px;
+      padding: 26px 30px; background: #fafafa;
+    }
+    .contract-analyzer-label {
+      font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: #c0c0c0; margin-bottom: 20px; display: block;
+    }
+    #ca-text {
+      width: 100%; font-family: var(--font); font-size: 0.84rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 14px; background: #fff; color: var(--text);
+      resize: vertical; min-height: 140px; outline: none;
+      transition: border-color 0.15s; display: block; box-sizing: border-box;
+    }
+    #ca-text:focus { border-color: var(--text); }
+    #ca-text::placeholder { color: #c0c0c0; }
+    .ca-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-top: 10px; flex-wrap: wrap;
+    }
+    #ca-btn {
+      font-family: var(--font); font-size: 0.82rem; font-weight: 500;
+      padding: 10px 18px; background: var(--text); color: #fff; border: none;
+      border-radius: 8px; cursor: pointer; white-space: nowrap; transition: opacity 0.12s;
+    }
+    #ca-btn:hover { opacity: 0.75; }
+    #ca-btn:disabled { opacity: 0.4; cursor: default; }
+    .ca-hint { font-size: 0.74rem; color: #c0c0c0; }
+    #ca-result {
+      display: none; margin-top: 14px; font-size: 0.88rem; line-height: 1.8;
+      color: #111; white-space: pre-wrap;
+      border-top: 1px solid var(--border); padding-top: 14px;
+    }
+
+    /* ── Mobile ────────────────────────────────── */
+    @media (max-width: 540px) {
+      body { padding: 40px 16px 72px; }
+      h1 { font-size: 1.85rem; }
+      .badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <main>
+
+    <header class="hero">
+      <p class="nation">Republika e Shqipërisë</p>
+      <h1>Legjislacioni Shqiptar</h1>
+      <p class="tagline">Biblioteka digjitale e legjislacionit të Shqipërisë: tekste zyrtare ligjore, të lexueshme dhe të kërkueshme.</p>
+      <p class="stats">18 akte ligjore &nbsp;&middot;&nbsp; 9 kode &nbsp;&middot;&nbsp; 8 ligje &nbsp;&middot;&nbsp; 1 kushtetutë</p>
+    </header>
+
+    <!-- Law of the Day -->
+    <section class="law-of-day" id="lotd">
+      <p class="lotd-label">Ligji i Ditës</p>
+      <p class="lotd-text">Duke ngarkuar…</p>
+      <a class="lotd-link" href="#" hidden>Lexo ligjin &#8594;</a>
+    </section>
+
+    <div class="controls">
+      <div class="filter-pills" role="group" aria-label="Filtro sipas fushës ligjore">
+        <button class="pill active" data-domain="all">Të gjitha</button>
+        <button class="pill" data-domain="kushtetuese">Kushtetuese</button>
+        <button class="pill" data-domain="civile">Civile</button>
+        <button class="pill" data-domain="penale">Penale</button>
+        <button class="pill" data-domain="tregtare">Tregtare</button>
+        <button class="pill" data-domain="doganore">Doganore</button>
+        <button class="pill" data-domain="gjyqesore">Gjyqësore</button>
+      </div>
+      <input id="law-search" type="search" placeholder="Kërko ligj…" autocomplete="off" spellcheck="false" aria-label="Kërko ligj">
+    </div>
+
+    <div class="law-list">
+
+      <section class="domain-section">
+        <div class="domain-header">
+          <span class="domain-label">Kushtetuese</span>
+          <div class="domain-divider"></div>
+        </div>
+        <ul>
+          <li class="law-row" data-domain="kushtetuese" data-title="kushtetuta e republikës së shqipërisë">
+            <a href="kushtetuta.html">
+              <span class="badge">Kushtetuese</span>
+              <span class="row-body">
+                <span class="law-title">Kushtetuta e Republikës së Shqipërisë</span>
+                <span class="law-ref">Ligj Nr. 8417 &middot; 21.10.1998</span>
+                <span class="law-desc">Ligji themelor i shtetit: rregullon të drejtat kushtetuese, ndarjen e pushteteve dhe rendin kushtetues.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="domain-section">
+        <div class="domain-header">
+          <span class="domain-label">Civile</span>
+          <div class="domain-divider"></div>
+        </div>
+        <ul>
+          <li class="law-row" data-domain="civile" data-title="kodi civil">
+            <a href="kodi-civil.html">
+              <span class="badge">Civile</span>
+              <span class="row-body">
+                <span class="law-title">Kodi Civil</span>
+                <span class="law-ref">Ligj Nr. 7850 &middot; 29.7.1994</span>
+                <span class="law-desc">Rregullon marrëdhëniet private: pronën, kontratat, detyrimet dhe trashëgiminë.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="civile" data-title="kodi i familjes">
+            <a href="kodi-familjes.html">
+              <span class="badge">Civile</span>
+              <span class="row-body">
+                <span class="law-title">Kodi i Familjes</span>
+                <span class="law-ref">Ligj Nr. 9062 &middot; 8.5.2003</span>
+                <span class="law-desc">Rregullon martesën, divorcin, kujdestarinë e fëmijëve, birësimin dhe marrëdhëniet familjare.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="civile" data-title="kodi i procedurës civile">
+            <a href="kodi-procedure-civile.html">
+              <span class="badge">Civile</span>
+              <span class="row-body">
+                <span class="law-title">Kodi i Procedurës Civile</span>
+                <span class="law-ref">Ligj Nr. 8116 &middot; 29.3.1996</span>
+                <span class="law-desc">Përcakton rregullat e procesit gjyqësor civil dhe ekzekutimit të vendimeve gjyqësore.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="civile" data-title="ligj për falimentimin">
+            <a href="falimentimi.html">
+              <span class="badge">Civile</span>
+              <span class="row-body">
+                <span class="law-title">Ligj për Falimentimin</span>
+                <span class="law-ref">Ligj Nr. 110/2016</span>
+                <span class="law-desc">Rregullon procedurat e falimentimit dhe ristrukturimit të borxheve të personave dhe bizneseve.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="civile" data-title="ligj për noterinë">
+            <a href="noteria.html">
+              <span class="badge">Civile</span>
+              <span class="row-body">
+                <span class="law-title">Ligj për Noterinë</span>
+                <span class="law-ref">Ligj Nr. 110/2018</span>
+                <span class="law-desc">Rregullon ushtrimin e profesionit noter dhe vlefshmërinë juridike të akteve noteriale.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="civile" data-title="shërbimi përmbarimor gjyqësor privat">
+            <a href="sherbimi-permbarimor.html">
+              <span class="badge">Civile</span>
+              <span class="row-body">
+                <span class="law-title">Shërbimi Përmbarimor Gjyqësor Privat</span>
+                <span class="law-ref">Ligj Nr. 10031 &middot; 11.12.2008</span>
+                <span class="law-desc">Rregullon zbatimin e detyrueshëm të vendimeve gjyqësore dhe titujve ekzekutivë.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="domain-section">
+        <div class="domain-header">
+          <span class="domain-label">Penale</span>
+          <div class="domain-divider"></div>
+        </div>
+        <ul>
+          <li class="law-row" data-domain="penale" data-title="kodi penal">
+            <a href="kodi-penal.html">
+              <span class="badge">Penale</span>
+              <span class="row-body">
+                <span class="law-title">Kodi Penal</span>
+                <span class="law-ref">Ligj Nr. 7895 &middot; 27.1.1995</span>
+                <span class="law-desc">Përcakton veprat penale, dënimet dhe rrethanat rënduese sipas legjislacionit shqiptar.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="penale" data-title="kodi i procedurës penale">
+            <a href="kodi-procedure-penale.html">
+              <span class="badge">Penale</span>
+              <span class="row-body">
+                <span class="law-title">Kodi i Procedurës Penale</span>
+                <span class="law-ref">Ligj Nr. 7905 &middot; 21.3.1995</span>
+                <span class="law-desc">Rregullon hetimin, ndjekjen penale dhe gjykimin; garanton të drejtat e të pandehurit.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="penale" data-title="kodi i drejtësisë penale për të mitur">
+            <a href="drejtesia-penale-mitur.html">
+              <span class="badge">Penale</span>
+              <span class="row-body">
+                <span class="law-title">Kodi i Drejtësisë Penale për të Mitur</span>
+                <span class="law-ref">Ligj Nr. 37/2017</span>
+                <span class="law-desc">Rregullon trajtimin ligjor të personave nën 18 vjeç të akuzuar penalisht.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="domain-section">
+        <div class="domain-header">
+          <span class="domain-label">Tregtare</span>
+          <div class="domain-divider"></div>
+        </div>
+        <ul>
+          <li class="law-row" data-domain="tregtare" data-title="ligj për tregtarët dhe shoqëritë tregtare">
+            <a href="shoqerite-tregtare.html">
+              <span class="badge">Tregtare</span>
+              <span class="row-body">
+                <span class="law-title">Ligj për Tregtarët dhe Shoqëritë Tregtare</span>
+                <span class="law-ref">Ligj Nr. 9901 &middot; 14.4.2008</span>
+                <span class="law-desc">Rregullon themelimin, funksionimin dhe likuidimin e shoqërive tregtare: sh.p.k., sh.a. dhe forma të tjera.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="domain-section">
+        <div class="domain-header">
+          <span class="domain-label">Doganore &amp; Transport</span>
+          <div class="domain-divider"></div>
+        </div>
+        <ul>
+          <li class="law-row" data-domain="doganore" data-title="kodi doganor">
+            <a href="kodi-doganor.html">
+              <span class="badge">Doganore</span>
+              <span class="row-body">
+                <span class="law-title">Kodi Doganor</span>
+                <span class="law-ref">Ligj Nr. 102/2014</span>
+                <span class="law-desc">Rregullon importin, eksportin, tarifat doganore dhe procedurat e kontrollit kufitar.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="doganore" data-title="dispozita zbatuese të kodit doganor">
+            <a href="dispozita-zbatuese-kodi-doganor.html">
+              <span class="badge">Doganore</span>
+              <span class="row-body">
+                <span class="law-title">Dispozita Zbatuese të Kodit Doganor</span>
+                <span class="law-ref">Rregullore zbatuese</span>
+                <span class="law-desc">Rregullore zbatuese e Kodit Doganor me procedura të detajuara për operatorët doganorë.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="doganore" data-title="kodi ajror">
+            <a href="kodi-ajror.html">
+              <span class="badge">Doganore</span>
+              <span class="row-body">
+                <span class="law-title">Kodi Ajror</span>
+                <span class="law-ref">Ligj Nr. 96/2020</span>
+                <span class="law-desc">Rregullon aviacionin civil, fluturimet, lejet e operimit dhe detyrimet e linjave ajrore.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="doganore" data-title="kodi rrugor">
+            <a href="kodi-rrugor.html">
+              <span class="badge">Doganore</span>
+              <span class="row-body">
+                <span class="law-title">Kodi Rrugor</span>
+                <span class="law-ref">Ligj Nr. 8378 &middot; 22.7.1998</span>
+                <span class="law-desc">Rregullon qarkullimin rrugor, lejet e drejtimit, aksidentet dhe sanksionet e trafikut.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="domain-section">
+        <div class="domain-header">
+          <span class="domain-label">Gjyqësore</span>
+          <div class="domain-divider"></div>
+        </div>
+        <ul>
+          <li class="law-row" data-domain="gjyqesore" data-title="statusi i gjyqtarëve dhe prokurorëve">
+            <a href="statusi-gjyqtareve-prokuroreve.html">
+              <span class="badge">Gjyqësore</span>
+              <span class="row-body">
+                <span class="law-title">Statusi i Gjyqtarëve dhe Prokurorëve</span>
+                <span class="law-ref">Ligj Nr. 96/2016</span>
+                <span class="law-desc">Rregullon emërimin, karrierën, imunitetin dhe shkarkimin e gjyqtarëve dhe prokurorëve.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="gjyqesore" data-title="organizimi i pushtetit gjyqësor">
+            <a href="organizimi-pushtetit-gjyqesor.html">
+              <span class="badge">Gjyqësore</span>
+              <span class="row-body">
+                <span class="law-title">Organizimi i Pushtetit Gjyqësor</span>
+                <span class="law-ref">Ligj Nr. 98/2016</span>
+                <span class="law-desc">Rregullon strukturën, kompetencat dhe funksionimin e gjykatave shqiptare.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="gjyqesore" data-title="organizimi i pushtetit gjyqësor i përditësuar">
+            <a href="organizimi-pushtetit-gjyqesor-v2.html">
+              <span class="badge">Gjyqësore</span>
+              <span class="row-body">
+                <span class="law-title">Organizimi i Pushtetit Gjyqësor <span style="font-weight:400;color:var(--muted)">(i përditësuar)</span></span>
+                <span class="law-ref">Ligj Nr. 98/2016 &middot; i përditësuar</span>
+                <span class="law-desc">Versioni i rishikuar pas reformës në drejtësi të vitit 2016.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+        </ul>
+      </section>
+
+    </div>
+
+    <!-- Law Finder Wizard (replaces old AI teaser) -->
+    <section class="law-wizard">
+      <span class="wizard-label">Gjej ligjin e duhur</span>
+
+      <!-- Step 1 -->
+      <div class="wizard-step active" id="w-step1">
+        <h3>Kush jeni?</h3>
+        <p class="wizard-question">Zgjidhni profilin tuaj për të gjetur ligjet më relevante.</p>
+        <div class="wizard-pills">
+          <button class="w-pill" data-role="Individ">Individ</button>
+          <button class="w-pill" data-role="Biznes">Biznes</button>
+          <button class="w-pill" data-role="Avokat / Jurist">Avokat / Jurist</button>
+          <button class="w-pill" data-role="Studiues">Studiues</button>
+        </div>
+        <p style="font-size:0.78rem;color:#c0c0c0;margin-top:4px">Ose parashtroni një pyetje direkt:</p>
+        <div class="ai-input-row" style="margin-top:8px">
+          <input id="ai-question" type="text" placeholder="p.sh. Çfarë thotë ligji për trashëgiminë?" autocomplete="off">
+          <button id="ai-ask">Pyet &#8594;</button>
+        </div>
+        <div class="scenarios" style="margin-top:8px">
+          <button class="sc-btn" data-q="Dua të hap një biznes. Cilat ligje dhe procedura zbatohen?">Hap biznes</button>
+          <button class="sc-btn" data-q="Po divorcohem. Cilat janë të drejtat dhe procedurat ligjore?">Divorc</button>
+          <button class="sc-btn" data-q="Dua të blej pronë. Cilat ligje rregullojnë blerjen dhe shitjen?">Blerje prone</button>
+          <button class="sc-btn" data-q="Jam akuzuar penalisht. Cilat janë të drejtat e mia sipas ligjit?">Akuzë penale</button>
+          <button class="sc-btn" data-q="Punëdhënësi nuk më pagoi rrogën. Çfarë thotë ligji shqiptar?">Kontestë pune</button>
+          <button class="sc-btn" data-q="Çfarë thotë ligji shqiptar për trashëgiminë dhe testamentin?">Trashëgimi</button>
+        </div>
+        <div id="ai-answer" hidden style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+          <p class="ai-answer-text"></p>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="wizard-step" id="w-step2">
+        <button class="wizard-back" id="w-back">&#8592; Kthehu</button>
+        <h3>Çfarë ndodhi?</h3>
+        <p class="wizard-question">Zgjidhni kategorinë e situatës suaj.</p>
+        <div class="wizard-pills" id="w-step2-pills"></div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="wizard-step" id="w-step3">
+        <button class="wizard-back" id="w-back2">&#8592; Kthehu</button>
+        <div class="wizard-result" id="w-result">Duke analizuar…</div>
+        <button class="wizard-restart" id="w-restart">Fillo nga e para</button>
+        <div class="wizard-also" id="w-also" hidden>
+          <span class="wizard-also-label">Pyet diçka tjetër:</span>
+          <div class="wizard-also-row">
+            <input id="wizard-free-q" type="text" placeholder="p.sh. Çfarë ndodh nëse nuk paguaj gjobën?" autocomplete="off">
+            <button id="wizard-free-send">Pyet &#8594;</button>
+          </div>
+          <div id="wizard-free-answer"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Two-Law Comparison -->
+    <section class="compare-section">
+      <span class="compare-label">Krahaso dy ligje</span>
+      <div class="compare-row">
+        <select class="compare-select" id="cmp-law1">
+          <option value="">Ligji i parë…</option>
+          <option>Kushtetuta e Republikës së Shqipërisë</option>
+          <option>Kodi Civil</option>
+          <option>Kodi Penal</option>
+          <option>Kodi i Procedurës Civile</option>
+          <option>Kodi i Procedurës Penale</option>
+          <option>Kodi i Familjes</option>
+          <option>Kodi Rrugor</option>
+          <option>Kodi Ajror</option>
+          <option>Kodi Doganor</option>
+          <option>Kodi i Drejtësisë Penale për të Mitur</option>
+          <option>Dispozita Zbatuese të Kodit Doganor</option>
+          <option>Ligj për Tregtarët dhe Shoqëritë Tregtare</option>
+          <option>Ligj për Falimentimin</option>
+          <option>Statusi i Gjyqtarëve dhe Prokurorëve</option>
+          <option>Organizimi i Pushtetit Gjyqësor</option>
+          <option>Organizimi i Pushtetit Gjyqësor (i përditësuar)</option>
+          <option>Ligj për Noterinë</option>
+          <option>Shërbimi Përmbarimor Gjyqësor Privat</option>
+        </select>
+        <select class="compare-select" id="cmp-law2">
+          <option value="">Ligji i dytë…</option>
+          <option>Kushtetuta e Republikës së Shqipërisë</option>
+          <option>Kodi Civil</option>
+          <option>Kodi Penal</option>
+          <option>Kodi i Procedurës Civile</option>
+          <option>Kodi i Procedurës Penale</option>
+          <option>Kodi i Familjes</option>
+          <option>Kodi Rrugor</option>
+          <option>Kodi Ajror</option>
+          <option>Kodi Doganor</option>
+          <option>Kodi i Drejtësisë Penale për të Mitur</option>
+          <option>Dispozita Zbatuese të Kodit Doganor</option>
+          <option>Ligj për Tregtarët dhe Shoqëritë Tregtare</option>
+          <option>Ligj për Falimentimin</option>
+          <option>Statusi i Gjyqtarëve dhe Prokurorëve</option>
+          <option>Organizimi i Pushtetit Gjyqësor</option>
+          <option>Organizimi i Pushtetit Gjyqësor (i përditësuar)</option>
+          <option>Ligj për Noterinë</option>
+          <option>Shërbimi Përmbarimor Gjyqësor Privat</option>
+        </select>
+        <button class="compare-btn" id="cmp-btn">Krahaso</button>
+      </div>
+      <div class="compare-result" id="cmp-result"></div>
+    </section>
+
+    <!-- Case Study Generator -->
+    <section class="case-study-section">
+      <span class="case-study-label">Gjenero rast ligjor</span>
+      <div class="case-study-row">
+        <select id="cs-law">
+          <option value="">Zgjidhni ligjin…</option>
+          <option>Kushtetuta e Republikës së Shqipërisë</option>
+          <option>Kodi Civil</option>
+          <option>Kodi Penal</option>
+          <option>Kodi i Procedurës Civile</option>
+          <option>Kodi i Procedurës Penale</option>
+          <option>Kodi i Familjes</option>
+          <option>Kodi Rrugor</option>
+          <option>Kodi Ajror</option>
+          <option>Kodi Doganor</option>
+          <option>Kodi i Drejtësisë Penale për të Mitur</option>
+          <option>Dispozita Zbatuese të Kodit Doganor</option>
+          <option>Ligj për Tregtarët dhe Shoqëritë Tregtare</option>
+          <option>Ligj për Falimentimin</option>
+          <option>Statusi i Gjyqtarëve dhe Prokurorëve</option>
+          <option>Organizimi i Pushtetit Gjyqësor</option>
+          <option>Organizimi i Pushtetit Gjyqësor (i përditësuar)</option>
+          <option>Ligj për Noterinë</option>
+          <option>Shërbimi Përmbarimor Gjyqësor Privat</option>
+        </select>
+        <button id="cs-btn">Gjenero &#8594;</button>
+      </div>
+      <div id="cs-result"></div>
+    </section>
+
+    <!-- Document Drafter -->
+    <section class="doc-drafter-section">
+      <span class="doc-drafter-label">Gjenero dokument ligjor</span>
+      <div class="doc-drafter-row">
+        <select id="dd-type">
+          <option value="">Lloji i dokumentit…</option>
+          <option>Kontratë qiraje banesë</option>
+          <option>Kontratë shitjeje</option>
+          <option>Kontratë pune</option>
+          <option>Prokurë e posaçme</option>
+          <option>Ankesë administrative</option>
+          <option>Njoftim ligjor</option>
+          <option>Marrëveshje ndërmjetësimi</option>
+          <option>Testament</option>
+        </select>
+        <button id="dd-btn">Gjenero &#8594;</button>
+      </div>
+      <textarea id="dd-details" placeholder="Detaje specifike: palët, objekti, kushtet… (opsionale)"></textarea>
+      <div id="dd-result"></div>
+    </section>
+
+    <!-- Legal Email Drafter -->
+    <section class="email-drafter-section">
+      <span class="email-drafter-label">Shkruaj email ligjor</span>
+      <div class="email-drafter-row">
+        <select id="ed-type">
+          <option value="">Lloji i emailit…</option>
+          <option>Ankesë ndaj punëdhënësit</option>
+          <option>Kërkesë ndaj qiradhënësit</option>
+          <option>Njoftim kontraktual</option>
+          <option>Kundërshtim ndaj vendimit</option>
+          <option>Kërkesë kompensimi</option>
+          <option>Kërkesë informacioni (LIGJI)</option>
+          <option>Letër paralajmëruese ligjore</option>
+        </select>
+        <button id="ed-btn">Gjenero &#8594;</button>
+      </div>
+      <textarea id="ed-details" placeholder="Çfarë ka ndodhur? (situata juaj)"></textarea>
+      <div id="ed-result"></div>
+    </section>
+
+    <!-- Legal Glossary -->
+    <section class="glossary-section">
+      <span class="glossary-label">Fjalor Juridik</span>
+      <input id="glossary-search" type="search" placeholder="Kërko term juridik…" autocomplete="off">
+      <div id="glossary-terms"></div>
+      <div id="glossary-result" hidden></div>
+    </section>
+
+    <!-- Penalty Estimator -->
+    <section class="penalty-section">
+      <span class="penalty-label">Llogarit dënimin / gjobën</span>
+      <div class="penalty-row">
+        <select id="pen-type">
+          <option value="">Lloji i shkeljes…</option>
+          <option>Shkelje penale</option>
+          <option>Shkelje administrative</option>
+          <option>Shkelje kontraktuale</option>
+          <option>Shkelje doganore</option>
+          <option>Shkelje rrugore</option>
+          <option>Shkelje e marrëdhënies së punës</option>
+        </select>
+        <button id="pen-btn">Llogarit &#8594;</button>
+      </div>
+      <textarea id="pen-sit" placeholder="Përshkruani shkeljen konkrete…"></textarea>
+      <div id="pen-result"></div>
+    </section>
+
+    <!-- Statute of Limitations Calculator -->
+    <section class="sol-section">
+      <span class="sol-label">Kalkulator i parashkrimit</span>
+      <div class="sol-row">
+        <select id="sol-type">
+          <option value="">Lloji i kërkesës…</option>
+          <option>Kërkesë civile (kontratë)</option>
+          <option>Dëmshpërblim civil</option>
+          <option>Akuzë penale</option>
+          <option>Mosmarrëveshje pune</option>
+          <option>Kërkesë pronësore</option>
+          <option>Ankesë administrative</option>
+        </select>
+        <input id="sol-date" type="date" title="Data e ngjarjes">
+        <button id="sol-btn">Kontrollo &#8594;</button>
+      </div>
+      <div id="sol-result"></div>
+    </section>
+
+    <!-- Contract Analyzer -->
+    <section class="contract-analyzer-section">
+      <span class="contract-analyzer-label">Analizo kontratën</span>
+      <textarea id="ca-text" placeholder="Ngjit tekstin e kontratës këtu…" rows="8"></textarea>
+      <div class="ca-row">
+        <button id="ca-btn">Analizo &#8594;</button>
+        <span class="ca-hint">AI identifikon klauzolat problematike dhe ligjet relevante</span>
+      </div>
+      <div id="ca-result"></div>
+    </section>
+
+    <footer>
+      Republika e Shqipërisë &middot; Legjislacioni në fuqi
+    </footer>
+
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+    'use strict';
+
+    // ── GROQ API ── key loaded from config.js ─────
+
+    var aiQuestion = document.getElementById('ai-question');
+    var aiAsk      = document.getElementById('ai-ask');
+    var aiAnswer   = document.getElementById('ai-answer');
+    var aiText     = aiAnswer.querySelector('.ai-answer-text');
+
+    var _SYS_HOME =
+      'Jeni asistent ligjor i specializuar në legjislacionin shqiptar. ' +
+      'Kjo platformë përmban 18 akte ligjore:\n\n' +
+      '1. Kushtetuta e Republikës së Shqipërisë (1998) — të drejtat themelore, ndarje pushtetesh\n' +
+      '2. Kodi Civil — prona, kontratat, detyrimet, trashëgimia\n' +
+      '3. Kodi Penal — veprat penale dhe dënimet\n' +
+      '4. Kodi i Procedurës Civile — procesi gjyqësor civil\n' +
+      '5. Kodi i Procedurës Penale — procesi penal, të drejtat e të pandehurit\n' +
+      '6. Kodi i Familjes — martesa, divorci, kujdestaria, birësimi\n' +
+      '7. Kodi Rrugor — trafiku, lejet e drejtimit, aksidentet\n' +
+      '8. Kodi Ajror — aviacioni civil, operatorët ajrorë\n' +
+      '9. Kodi Doganor — importi, eksporti, tarifat doganore\n' +
+      '10. Kodi i Drejtësisë Penale për të Mitur — personat nën 18 vjeç\n' +
+      '11. Dispozita Zbatuese të Kodit Doganor — procedura doganore të detajuara\n' +
+      '12. Ligj për Tregtarët dhe Shoqëritë Tregtare — sh.p.k., sh.a., bizneset\n' +
+      '13. Ligj për Falimentimin — procedurat e falimentimit\n' +
+      '14. Statusi i Gjyqtarëve dhe Prokurorëve — karriera gjyqësore\n' +
+      '15. Organizimi i Pushtetit Gjyqësor — struktura e gjykatave\n' +
+      '16. Organizimi i Pushtetit Gjyqësor (i përditësuar)\n' +
+      '17. Ligj për Noterinë — aktet noteriale\n' +
+      '18. Shërbimi Përmbarimor Gjyqësor Privat — ekzekutimi i vendimeve\n\n' +
+      'Ndihmoni përdoruesin të gjejë ligjin e duhur dhe kuptojë dispozitat. ' +
+      'Nëse pyetja është shqip, përgjigjuni shqip. Nëse është anglisht, përgjigjuni anglisht. ' +
+      'Jini të saktë dhe konciz (3-5 fjali).';
+
+    function askGroq() {
+      var q = aiQuestion.value.trim();
+      if (!q) return;
+
+      aiAsk.disabled = true;
+      aiAsk.textContent = 'Duke menduar…';
+      aiAnswer.hidden = false;
+      aiText.textContent = '';
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + GROQ_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 450,
+          messages: [
+            { role: 'system', content: _SYS_HOME },
+            { role: 'user',   content: q }
+          ]
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        aiText.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim në përgjigje.';
+      })
+      .catch(function () {
+        aiText.textContent = 'Gabim rrjeti. Kontrolloni lidhjen tuaj.';
+      })
+      .finally(function () {
+        aiAsk.disabled = false;
+        aiAsk.textContent = 'Pyet →';
+      });
+    }
+
+    aiAsk.addEventListener('click', askGroq);
+    aiQuestion.addEventListener('keydown', function (e) { if (e.key === 'Enter') askGroq(); });
+
+    // ── Scenario buttons ──────────────────────────
+    document.querySelectorAll('.sc-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        aiQuestion.value = btn.dataset.q;
+        aiAnswer.hidden = false;
+        aiText.textContent = '';
+        askGroq();
+      });
+    });
+
+    // ── Law of the Day ────────────────────────────
+    var _lotdLaws = [
+      { title: 'Kushtetuta e Republikës së Shqipërisë', file: 'kushtetuta.html' },
+      { title: 'Kodi Civil',                            file: 'kodi-civil.html' },
+      { title: 'Kodi Penal',                            file: 'kodi-penal.html' },
+      { title: 'Kodi i Procedurës Civile',              file: 'kodi-procedure-civile.html' },
+      { title: 'Kodi i Procedurës Penale',              file: 'kodi-procedure-penale.html' },
+      { title: 'Kodi i Familjes',                       file: 'kodi-familjes.html' },
+      { title: 'Kodi Rrugor',                           file: 'kodi-rrugor.html' },
+      { title: 'Kodi Ajror',                            file: 'kodi-ajror.html' },
+      { title: 'Kodi Doganor',                          file: 'kodi-doganor.html' },
+      { title: 'Kodi i Drejtësisë Penale për të Mitur', file: 'drejtesia-penale-mitur.html' },
+      { title: 'Dispozita Zbatuese të Kodit Doganor',   file: 'dispozita-zbatuese-kodi-doganor.html' },
+      { title: 'Ligj për Tregtarët dhe Shoqëritë Tregtare', file: 'shoqerite-tregtare.html' },
+      { title: 'Ligj për Falimentimin',                 file: 'falimentimi.html' },
+      { title: 'Statusi i Gjyqtarëve dhe Prokurorëve', file: 'statusi-gjyqtareve-prokuroreve.html' },
+      { title: 'Organizimi i Pushtetit Gjyqësor',                file: 'organizimi-pushtetit-gjyqesor.html' },
+      { title: 'Organizimi i Pushtetit Gjyqësor (i përditësuar)', file: 'organizimi-pushtetit-gjyqesor-v2.html' },
+      { title: 'Ligj për Noterinë',                              file: 'noteria.html' },
+      { title: 'Shërbimi Përmbarimor Gjyqësor Privat',  file: 'sherbimi-permbarimor.html' }
+    ];
+
+    (function () {
+      var law = _lotdLaws[Math.floor(Math.random() * _lotdLaws.length)];
+      var lotdText = document.querySelector('.lotd-text');
+      var lotdLink = document.querySelector('.lotd-link');
+
+      if (!lotdText || !GROQ_KEY || GROQ_KEY === 'YOUR_GROQ_KEY_HERE') return;
+
+      lotdLink.href = law.file;
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + GROQ_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 120,
+          messages: [
+            { role: 'system', content: 'Jeni asistent ligjor shqiptar. Jepni informacion të shkurtër dhe interesant.' },
+            { role: 'user',   content: 'Jep 2 fjali interesante ose praktike rreth: "' + law.title + '". Fillo drejtpërdrejt me informacionin, jo me "Ky ligj".' }
+          ]
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var txt = data.choices && data.choices[0] && data.choices[0].message.content;
+        if (txt) {
+          lotdText.textContent = txt;
+          lotdLink.hidden = false;
+        } else {
+          lotdText.textContent = law.title;
+        }
+      })
+      .catch(function () {
+        lotdText.textContent = law.title;
+      });
+
+      // ── Daily Legal Tip ──────────────────────────
+      var _tipTopics = [
+        'kontratat gojore', 'lejet e ndërtimit', 'garancitë e produktit', 'pushimet vjetore',
+        'qiraja e banesës', 'trashëgimia ligjore', 'martesa civile', 'divorci dhe kujdestaria',
+        'aksidentet rrugore', 'të drejtat e konsumatorit', 'hapja e biznesit', 'faturimi dhe TVSH',
+        'pronësia e tokës', 'kontratat e punës', 'pushimi nga puna', 'sigurimet shoqërore',
+        'birësimi i fëmijëve', 'testamenti', 'borxhet dhe kreditë', 'denoncimet penale',
+        'privatësia e të dhënave', 'pronësia intelektuale', 'falimentimi personal', 'noterizimi',
+        'ankandi publik', 'lejet e drejtimit', 'regjistrat publik', 'kontratat elektronike',
+        'arbitrazhi', 'ndërmjetësimi ligjor'
+      ];
+      var tipTopic = _tipTopics[new Date().getDate() % _tipTopics.length];
+      var tipEl    = document.createElement('p');
+      tipEl.id     = '_daily-tip';
+      tipEl.style.cssText = 'font-size:0.78rem;color:#999;line-height:1.6;margin-top:10px;font-style:italic;';
+      tipEl.textContent = '…';
+      lotdLink.insertAdjacentElement('beforebegin', tipEl);
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 90,
+          messages: [
+            { role: 'system', content: 'Jeni këshilltar ligjor praktik për qytetarët shqiptarë.' },
+            { role: 'user',   content: 'Jep një këshillë praktike juridike rreth "' + tipTopic + '" për qytetarët shqiptarë. Fillo me "Dini që:". Max 2 fjali.' }
+          ]
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var t = data.choices && data.choices[0] && data.choices[0].message.content;
+        tipEl.textContent = t || '';
+        if (!t) tipEl.remove();
+      })
+      .catch(function () { tipEl.remove(); });
+    }());
+
+    // ── Law Finder Wizard ─────────────────────────
+    var _wRole = '';
+    var _wSit  = '';
+    var _wSituations = {
+      'Individ':         ['Pronë', 'Familje / Divorc', 'Akuzë penale', 'Punë', 'Trashëgimi', 'Aksident rrugor', 'Kontratë'],
+      'Biznes':          ['Regjistrim biznesi', 'Kontratë tregtare', 'Dogana & taksa', 'Punëmarrës', 'Falimentim', 'Shoqëri tregtare'],
+      'Avokat / Jurist': ['Procedurë civile', 'Procedurë penale', 'Ekzekutim vendimi', 'Çështje familjare', 'E drejtë doganore'],
+      'Studiues':        ['E drejtë kushtetuese', 'E drejtë civile', 'E drejtë penale', 'E drejtë tregtare', 'Organizim gjyqësor']
+    };
+
+    function _wSetStep(n) {
+      document.querySelectorAll('.wizard-step').forEach(function (s, i) {
+        s.classList.toggle('active', (i + 1) === n);
+      });
+    }
+
+    document.querySelectorAll('[data-role]').forEach(function (pill) {
+      pill.addEventListener('click', function () {
+        _wRole = pill.dataset.role;
+        var pills2 = document.getElementById('w-step2-pills');
+        pills2.innerHTML = '';
+        (_wSituations[_wRole] || []).forEach(function (sit) {
+          var btn = document.createElement('button');
+          btn.className = 'w-pill';
+          btn.textContent = sit;
+          btn.addEventListener('click', function () { _wSit = sit; _wRunWizard(); });
+          pills2.appendChild(btn);
+        });
+        _wSetStep(2);
+      });
+    });
+
+    document.getElementById('w-back').addEventListener('click',    function () { _wSetStep(1); });
+    document.getElementById('w-back2').addEventListener('click',   function () { _wSetStep(2); });
+    document.getElementById('w-restart').addEventListener('click', function () { _wSetStep(1); });
+
+    function _wRunWizard() {
+      _wSetStep(3);
+      var resultEl = document.getElementById('w-result');
+      var alsoEl   = document.getElementById('w-also');
+      resultEl.textContent = 'Duke analizuar…';
+      alsoEl.hidden = true;
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 350,
+          messages: [
+            { role: 'system', content: _SYS_HOME },
+            { role: 'user',   content: 'Profili: ' + _wRole + '. Situata: ' + _wSit + '. Cilat ligje nga koleksioni janë më relevante dhe pse? Listo 2-3 ligje me emra të plotë dhe shpjego shkurt çfarë rregullon secili.' }
+          ]
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        resultEl.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Nuk u gjet asgjë.';
+        alsoEl.hidden = false;
+      })
+      .catch(function () { resultEl.textContent = 'Gabim rrjeti.'; document.getElementById('w-back2').hidden = false; });
+    }
+
+    var _wizFreeQ      = document.getElementById('wizard-free-q');
+    var _wizFreeSend   = document.getElementById('wizard-free-send');
+    var _wizFreeAnswer = document.getElementById('wizard-free-answer');
+
+    function _wFreeAsk() {
+      var q = _wizFreeQ.value.trim();
+      if (!q) return;
+      _wizFreeSend.disabled = true;
+      _wizFreeAnswer.style.display = 'block';
+      _wizFreeAnswer.textContent = 'Duke menduar…';
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 350,
+          messages: [
+            { role: 'system', content: _SYS_HOME },
+            { role: 'user',   content: 'Kontekst: profil ' + _wRole + ', situatë ' + _wSit + '. Pyetje: ' + q }
+          ]
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        _wizFreeAnswer.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+      })
+      .catch(function () { _wizFreeAnswer.textContent = 'Gabim rrjeti.'; })
+      .finally(function () { _wizFreeSend.disabled = false; });
+    }
+
+    _wizFreeSend.addEventListener('click', _wFreeAsk);
+    _wizFreeQ.addEventListener('keydown', function (e) { if (e.key === 'Enter') _wFreeAsk(); });
+
+    // ── Two-law comparison ────────────────────────
+    document.getElementById('cmp-btn').addEventListener('click', function () {
+      var law1 = document.getElementById('cmp-law1').value;
+      var law2 = document.getElementById('cmp-law2').value;
+      if (!law1 || !law2) { return; }
+      if (law1 === law2) { return; }
+
+      var btn    = document.getElementById('cmp-btn');
+      var result = document.getElementById('cmp-result');
+      btn.disabled = true;
+      result.style.display = 'block';
+      result.textContent = 'Duke krahasuar…';
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 450,
+          messages: [
+            { role: 'system', content: 'Jeni ekspert i legjislacionit shqiptar.' },
+            { role: 'user',   content: 'Krahaso këto dy ligje:\n\n(1) ' + law1 + '\n(2) ' + law2 + '\n\nTrego: fushat e ndryshme të rregullimit, kur zbatohet secili, nëse ka mbivendosje, dhe cilin duhet konsultuar për situata specifike.' }
+          ]
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+      })
+      .catch(function () { result.textContent = 'Gabim rrjeti.'; })
+      .finally(function () { btn.disabled = false; });
+    });
+
+    // ── Case Study Generator ──────────────────────
+    document.getElementById('cs-btn').addEventListener('click', function () {
+      var law = document.getElementById('cs-law').value;
+      if (!law) return;
+      var btn    = document.getElementById('cs-btn');
+      var result = document.getElementById('cs-result');
+      btn.disabled = true;
+      btn.textContent = 'Duke gjeneruar…';
+      result.style.display = 'block';
+      result.textContent = 'Duke krijuar rastin…';
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 500,
+          messages: [
+            { role: 'system', content: 'Jeni jurist shqiptar. Krijoni raste ligjore realiste dhe edukative.' },
+            { role: 'user',   content: 'Shkruaj një rast ligjor realist shqiptar (3-4 paragrafë) ku zbatohet "' + law + '". Përfshi: palët e përfshira (emra shqiptarë), faktet e çështjes, problemin ligjor qendror, dhe si e zgjidh ligji. Situata të jetë realiste dhe e mundshme.' }
+          ]
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+      })
+      .catch(function () { result.textContent = 'Gabim rrjeti.'; })
+      .finally(function () { btn.disabled = false; btn.textContent = 'Gjenero →'; });
+    });
+
+    // ── Document Drafter ──────────────────────────
+    document.getElementById('dd-btn').addEventListener('click', function () {
+      var type    = document.getElementById('dd-type').value;
+      if (!type) return;
+      var details = document.getElementById('dd-details').value.trim();
+      var btn     = document.getElementById('dd-btn');
+      var result  = document.getElementById('dd-result');
+      btn.disabled = true; btn.textContent = 'Duke gjeneruar…';
+      result.style.display = 'block';
+      result.textContent = 'Duke hartuar dokumentin…';
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 900,
+          messages: [
+            { role: 'system', content: 'Jeni noter dhe jurist shqiptar. Hartoni dokumente ligjore formale dhe të plota.' },
+            { role: 'user',   content: 'Shkruaj ' + type + ' formale shqipe.' + (details ? ' Detaje: ' + details + '.' : '') + ' Cito ligjet shqiptare relevante (nene konkrete). Dokumenti të jetë i plotë, profesional dhe gati për t\'u nënshkruar.' }
+          ]
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+      })
+      .catch(function () { result.textContent = 'Gabim rrjeti.'; })
+      .finally(function () { btn.disabled = false; btn.textContent = 'Gjenero →'; });
+    });
+
+    // ── Legal Email Drafter ───────────────────────
+    document.getElementById('ed-btn').addEventListener('click', function () {
+      var type    = document.getElementById('ed-type').value;
+      if (!type) return;
+      var details = document.getElementById('ed-details').value.trim();
+      var btn     = document.getElementById('ed-btn');
+      var result  = document.getElementById('ed-result');
+      btn.disabled = true; btn.textContent = 'Duke shkruar…';
+      result.style.display = 'block';
+      result.textContent = 'Duke hartuar emailin…';
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 600,
+          messages: [
+            { role: 'system', content: 'Jeni këshilltar ligjor shqiptar. Shkruani email profesionale me argumentim ligjor.' },
+            { role: 'user',   content: 'Shkruaj email profesional ligjor shqip për: ' + type + '.' + (details ? ' Situata: ' + details + '.' : '') + ' Email-i të ketë: Subjekt, hyrje formale, trup me argument ligjor (cito nenet relevante), kërkesën konkrete dhe përfundim me nënshkrim. Ton: formal por i qartë.' }
+          ]
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+      })
+      .catch(function () { result.textContent = 'Gabim rrjeti.'; })
+      .finally(function () { btn.disabled = false; btn.textContent = 'Gjenero →'; });
+    });
+
+    // ── Legal Glossary ────────────────────────────
+    (function () {
+      var _glTerms = [
+        'gjykata', 'prokurori', 'gjyqtar', 'paditës', 'i pandehur',
+        'trashëgimtar', 'kreditor', 'debitor', 'noterizim', 'ekzekutim',
+        'apelim', 'rekurs', 'padi', 'vendim', 'urdhër',
+        'neni', 'kreu', 'klauzolë', 'kontratë', 'pronësi',
+        'garanci', 'kaution', 'arbitrazh', 'ndërmjetës'
+      ];
+      var _glCache  = {};
+      var _glActive = null;
+
+      var termsEl  = document.getElementById('glossary-terms');
+      var resultEl = document.getElementById('glossary-result');
+      var searchEl = document.getElementById('glossary-search');
+
+      _glTerms.forEach(function (term) {
+        var btn = document.createElement('button');
+        btn.className = 'gl-term';
+        btn.textContent = term;
+        btn.addEventListener('click', function () {
+          if (_glActive) _glActive.classList.remove('active');
+          _glActive = btn;
+          btn.classList.add('active');
+          resultEl.hidden = false;
+
+          if (_glCache[term]) { resultEl.textContent = _glCache[term]; return; }
+
+          resultEl.textContent = 'Duke kërkuar…';
+          fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'llama-3.3-70b-versatile',
+              max_tokens: 200,
+              messages: [
+                { role: 'system', content: 'Jeni jurist shqiptar. Jepni definicione juridike të qarta dhe praktike.' },
+                { role: 'user',   content: 'Shpjego termin juridik "' + term + '" sipas legjislacionit shqiptar. Jep: 1) Definicion (2 fjali), 2) Ku gjendet zakonisht (ligjet kryesore), 3) Shembull praktik. Max 6 fjali total.' }
+              ]
+            })
+          })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var txt = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+            _glCache[term] = txt;
+            resultEl.textContent = txt;
+          })
+          .catch(function () { resultEl.textContent = 'Gabim rrjeti.'; });
+        });
+        termsEl.appendChild(btn);
+      });
+
+      searchEl.addEventListener('input', function () {
+        var q = searchEl.value.trim().toLowerCase();
+        termsEl.querySelectorAll('.gl-term').forEach(function (b) {
+          b.hidden = q.length > 0 && !b.textContent.toLowerCase().includes(q);
+        });
+      });
+    }());
+
+    // ── Penalty Estimator ─────────────────────────
+    document.getElementById('pen-btn').addEventListener('click', function () {
+      var type = document.getElementById('pen-type').value;
+      if (!type) return;
+      var sit    = document.getElementById('pen-sit').value.trim();
+      var btn    = document.getElementById('pen-btn');
+      var result = document.getElementById('pen-result');
+      btn.disabled = true; btn.textContent = 'Duke llogaritur…';
+      result.style.display = 'block';
+      result.textContent = 'Duke analizuar shkeljen…';
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 400,
+          messages: [
+            { role: 'system', content: 'Jeni jurist shqiptar i specializuar në sanksione dhe dënime ligjore.' },
+            { role: 'user',   content: 'Bazuar në legjislacionin shqiptar, vlerëso dënimin / gjobën për këtë rast:\nLloji i shkeljes: ' + type + (sit ? '\nSituata: ' + sit : '') + '\nJep: 1) Baza ligjore (nenet konkrete), 2) Masa minimale dhe maksimale e dënimit, 3) Faktorët lehtësues / rëndues, 4) Procedura e zbatimit.' }
+          ]
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+      })
+      .catch(function () { result.textContent = 'Gabim rrjeti.'; })
+      .finally(function () { btn.disabled = false; btn.textContent = 'Llogarit →'; });
+    });
+
+    // ── Statute of Limitations ─────────────────────
+    document.getElementById('sol-btn').addEventListener('click', function () {
+      var type   = document.getElementById('sol-type').value;
+      var date   = document.getElementById('sol-date').value;
+      if (!type || !date) return;
+      var btn    = document.getElementById('sol-btn');
+      var result = document.getElementById('sol-result');
+      var d      = new Date(date);
+      var fmt    = d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear();
+      btn.disabled = true; btn.textContent = 'Duke kontrolluar…';
+      result.style.display = 'block';
+      result.textContent = 'Duke llogaritur afatin e parashkrimit…';
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 300,
+          messages: [
+            { role: 'system', content: 'Jeni jurist shqiptar i specializuar në afatet ligjore dhe parashkrimin.' },
+            { role: 'user',   content: 'Data e ngjarjes: ' + fmt + '\nLloji: ' + type + '\nSipas legjislacionit shqiptar, a ka skaduar parashkrimi për këtë rast? Jep:\n1) Afati ligjor i parashkrimit (vitet) dhe neni konkret\n2) Data e skadimit bazuar në datën e dhënë\n3) Nëse ka skaduar — si mund të riaktivizohet (nëse është e mundur)\n4) Nëse nuk ka skaduar — sa kohë ka mbetur' }
+          ]
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+      })
+      .catch(function () { result.textContent = 'Gabim rrjeti.'; })
+      .finally(function () { btn.disabled = false; btn.textContent = 'Kontrollo →'; });
+    });
+
+    // ── Contract Analyzer ──────────────────────────
+    document.getElementById('ca-btn').addEventListener('click', function () {
+      var text   = document.getElementById('ca-text').value.trim();
+      if (!text) return;
+      var btn    = document.getElementById('ca-btn');
+      var result = document.getElementById('ca-result');
+      btn.disabled = true; btn.textContent = 'Duke analizuar…';
+      result.style.display = 'block';
+      result.textContent = 'Duke analizuar kontratën…';
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 900,
+          messages: [
+            { role: 'system', content: 'Jeni avokat shqiptar ekspert në analizën e kontratave. Jeni kritik, specifik dhe praktik.' },
+            { role: 'user',   content: 'Analizoje kontratën shqipe që vijon. Identifiko:\n1) Klauzola problematike ose të rrezikshme (mungesa mbrojtjesh, detyrime të njëanshme, kushte abuzive)\n2) Të drejta të munguara ose të pamjaftueshme\n3) Ligjet shqiptare relevante të shkelura ose cenuara (nenet konkrete)\n4) Rekomandime specifike për ndryshime\n\nKontrata:\n' + text.slice(0, 3000) }
+          ]
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+      })
+      .catch(function () { result.textContent = 'Gabim rrjeti.'; })
+      .finally(function () { btn.disabled = false; btn.textContent = 'Analizo →'; });
+    });
+
+    // ── Filter + search ───────────────────────────
+    (function () {
+      var pills  = document.querySelectorAll('.pill');
+      var rows   = document.querySelectorAll('.law-row');
+      var secs   = document.querySelectorAll('.domain-section');
+      var input  = document.getElementById('law-search');
+      var domain = 'all';
+      var query  = '';
+
+      function apply() {
+        rows.forEach(function (row) {
+          var domainOk = domain === 'all' || row.dataset.domain === domain;
+          var textOk   = query === '' || row.dataset.title.includes(query) || row.dataset.domain.includes(query);
+          row.hidden = !(domainOk && textOk);
+        });
+        secs.forEach(function (sec) {
+          var any = Array.from(sec.querySelectorAll('.law-row')).some(function (r) { return !r.hidden; });
+          sec.hidden = !any;
+        });
+      }
+
+      pills.forEach(function (pill) {
+        pill.addEventListener('click', function () {
+          pills.forEach(function (p) { p.classList.remove('active'); });
+          pill.classList.add('active');
+          domain = pill.dataset.domain;
+          apply();
+        });
+      });
+
+      var t;
+      input.addEventListener('input', function () {
+        clearTimeout(t);
+        t = setTimeout(function () { query = input.value.trim().toLowerCase(); apply(); }, 150);
+      });
+    }());
+  </script>
+
+</body>
+</html>
