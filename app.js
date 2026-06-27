@@ -72,6 +72,33 @@ if (tocList && content) {
   headings.forEach(h => io.observe(h));
 }
 
+// ── Mobile TOC drawer ─────────────────────────────
+(function () {
+  var sidebar = document.querySelector('.sidebar');
+  var topbarLeft = document.querySelector('.topbar-left');
+  if (!sidebar || !topbarLeft) return;
+
+  var btn = document.createElement('button');
+  btn.id = '_toc-toggle';
+  btn.innerHTML = '§ Tabela';
+  btn.setAttribute('aria-label', 'Tabela e Përmbajtjes');
+  topbarLeft.appendChild(btn);
+
+  var backdrop = document.createElement('div');
+  backdrop.id = '_sidebar-backdrop';
+  document.body.appendChild(backdrop);
+
+  function openDrawer()  { sidebar.classList.add('open');    backdrop.classList.add('visible'); }
+  function closeDrawer() { sidebar.classList.remove('open'); backdrop.classList.remove('visible'); }
+
+  btn.addEventListener('click', openDrawer);
+  backdrop.addEventListener('click', closeDrawer);
+
+  sidebar.querySelectorAll('.toc-item a').forEach(function (a) {
+    a.addEventListener('click', closeDrawer);
+  });
+})();
+
 // ── In-page search ────────────────────────────────
 const searchInput  = document.getElementById('search-input');
 const searchCount  = document.getElementById('search-count');

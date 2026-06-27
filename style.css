@@ -313,6 +313,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   scroll-margin-top: calc(var(--topbar) + 20px);
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 14px;
 }
 
@@ -836,11 +837,63 @@ h4:hover .art-ai-trigger,
   color: #111; font-family: var(--font); scrollbar-width: thin;
 }
 
+/* ── Mobile TOC drawer globals ──────────────────── */
+#_sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.28);
+  z-index: 849;
+  cursor: pointer;
+}
+#_sidebar-backdrop.visible { display: block; }
+#_toc-toggle { display: none; }
+
 /* ── Mobile ────────────────────────────────────── */
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
-  .content-wrap { padding: 32px 28px 80px; }
+
+  /* Sidebar → slide-in drawer */
+  .sidebar {
+    position: fixed;
+    top: var(--topbar);
+    left: 0;
+    bottom: 0;
+    width: min(280px, 82vw);
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    border-top: none;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 850;
+    overflow-y: auto;
+    padding-top: 20px;
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  /* TOC toggle button */
+  #_toc-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--text);
+    background: none;
+    border: 1px solid rgba(184,146,58,0.45);
+    border-radius: 4px;
+    padding: 5px 9px;
+    cursor: pointer;
+    margin-left: 10px;
+    white-space: nowrap;
+    transition: border-color 0.12s, color 0.12s;
+  }
+  #_toc-toggle:hover { border-color: #b8923a; color: #b8923a; }
+
+  .content-wrap { padding: 32px 28px 80px; max-width: 720px; margin: 0 auto; }
   .topbar-title { display: none; }
   #search-input { width: 140px; }
   #search-input:focus { width: 180px; }
@@ -851,12 +904,12 @@ h4:hover .art-ai-trigger,
 @media (max-width: 600px) {
   .content-wrap { padding: 24px 20px 72px; }
   .law-header h1 { font-size: 1.75rem; line-height: 1.15; }
-  .law-header { margin-bottom: 24px; padding-bottom: 16px; }
+  .law-header { margin-bottom: 24px; padding-bottom: 20px; }
   .plain-lang-btn, .memo-btn, .hdr-action-btn { font-size: 0.62rem; padding: 5px 8px; margin-top: 8px; margin-right: 4px; }
   .back-link { padding: 0 10px; font-size: 0.62rem; letter-spacing: 0.1em; }
-  #search-input { width: 90px; }
-  #search-input:focus { width: 120px; }
-  #content h3 { font-size: 0.95rem; margin-top: 36px; }
+  #search-input { width: 110px; }
+  #search-input:focus { width: 150px; }
+  #content h3 { font-size: 0.95rem; margin-top: 36px; margin-left: 0; padding-left: 10px; }
   #content h4 { font-size: 0.98rem; margin-top: 24px; }
   #content p  { font-size: 0.94rem; line-height: 1.88; }
   .situation-form { padding: 14px; }
