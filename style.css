@@ -27,7 +27,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   top: 0; left: 0;
   height: 3px;
   width: 0%;
-  background: #000;
+  background: var(--accent);
   z-index: 1000;
   transition: width 80ms linear;
   pointer-events: none;
@@ -41,7 +41,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   background: rgba(253,253,249,0.97);
   backdrop-filter: blur(8px);
   border-top: 2px solid var(--text);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(184,146,58,0.3);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -181,6 +181,17 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   font-weight: 700;
   color: #bbb;
   padding: 0 20px 16px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.toc-label::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 1px;
+  background: #b8923a;
+  flex-shrink: 0;
 }
 
 .toc-list { list-style: none; }
@@ -221,7 +232,19 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   max-width: var(--content);
   margin-bottom: 48px;
   padding-bottom: 28px;
-  border-bottom: 1px solid var(--text);
+  border-bottom: none;
+  position: relative;
+}
+.law-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 5px;
+  background: linear-gradient(to bottom,
+    var(--text) 0px, var(--text) 1px,
+    transparent 1px, transparent 3px,
+    var(--text) 3px, var(--text) 5px
+  );
 }
 
 .law-header h1 {
@@ -235,11 +258,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 
 .law-ref {
   font-family: var(--font);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--muted);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-top: 10px;
+  margin-top: 14px;
 }
 
 /* ── Content body ──────────────────────────────── */
@@ -251,7 +274,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   letter-spacing: 0.24em;
   text-transform: uppercase;
   font-weight: 700;
-  color: #aaa;
+  color: #a09b95;
   margin-top: 56px;
   margin-bottom: 20px;
   padding-bottom: 0;
@@ -261,7 +284,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 #content h2::before {
   content: '';
   display: block;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(184,146,58,0.35);
   margin-bottom: 16px;
 }
 
@@ -275,6 +298,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   margin-top: 48px;
   margin-bottom: 10px;
   scroll-margin-top: calc(var(--topbar) + 20px);
+  border-left: 2px solid #b8923a;
+  padding-left: 12px;
+  margin-left: -14px;
 }
 
 #content h4 {
@@ -292,10 +318,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 
 .art-num {
   font-family: var(--font);
-  font-size: 0.65rem;
-  color: #aaa;
-  font-weight: 500;
-  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  color: #b8923a;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   flex-shrink: 0;
   margin-top: 4px;
 }
