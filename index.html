@@ -1647,7 +1647,11 @@
       var lotdText = document.querySelector('.lotd-text');
       var lotdLink = document.querySelector('.lotd-link');
 
-      if (!lotdText || !GROQ_KEY || GROQ_KEY === 'YOUR_GROQ_KEY_HERE') return;
+      var _key = (typeof GROQ_KEY !== 'undefined') ? GROQ_KEY : '';
+      if (!lotdText || !_key || _key === 'YOUR_GROQ_KEY_HERE') {
+        if (lotdText) lotdText.textContent = law.title;
+        return;
+      }
 
       lotdLink.href = law.file;
 
@@ -1700,7 +1704,7 @@
 
       fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': 'Bearer ' + _key, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
           max_tokens: 90,
