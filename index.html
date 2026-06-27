@@ -16,6 +16,7 @@
       --text: #0f0f0d;
       --muted: #737068;
       --border: #e0ddd8;
+      --accent: #3d706a;
     }
 
     html { font-size: 16px; }
@@ -157,7 +158,7 @@
       transition: border-color 0.12s, color 0.12s, background 0.12s;
     }
     .pill:hover { border-color: #aaa; color: var(--text); }
-    .pill.active { border-color: var(--text); background: var(--text); color: #fff; }
+    .pill.active { border-color: var(--accent); background: var(--accent); color: #fff; }
 
     #law-search {
       font-family: var(--font);
@@ -389,7 +390,7 @@
       padding: 7px 16px; border: 1px solid var(--border); border-radius: 999px;
       background: transparent; color: var(--muted); cursor: pointer; transition: all 0.12s;
     }
-    .w-pill:hover { background: #111; color: #fff; border-color: #111; }
+    .w-pill:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
     .wizard-back {
       font-family: var(--font); font-size: 0.75rem; background: none; border: none;
       color: var(--muted); cursor: pointer; padding: 0; margin-bottom: 14px;
@@ -601,8 +602,8 @@
       padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
       background: transparent; color: var(--muted); cursor: pointer; transition: all 0.12s;
     }
-    .gl-term:hover { background: var(--text); color: #fff; border-color: var(--text); }
-    .gl-term.active { background: var(--text); color: #fff; border-color: var(--text); }
+    .gl-term:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .gl-term.active { background: var(--accent); color: #fff; border-color: var(--accent); }
     #glossary-result {
       margin-top: 16px; font-size: 0.9rem; line-height: 1.8; color: #111;
       white-space: pre-wrap; border-top: 1px solid var(--border); padding-top: 14px;

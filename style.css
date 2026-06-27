@@ -6,6 +6,7 @@
   --text: #0f0f0d;
   --muted: #737068;
   --border: #e0ddd8;
+  --accent: #3d706a;
   --border-strong: #000000;
   --highlight: #fff3b0;
   --highlight-active: #ffc400;
@@ -199,10 +200,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 }
 .toc-item a:hover { color: var(--text); background: var(--toc-hover); }
 .toc-item.active > a {
-  color: var(--text);
+  color: var(--accent);
   font-weight: 600;
-  border-left-color: #000;
-  background: #ebebeb;
+  border-left-color: var(--accent);
+  background: #edf3f2;
 }
 
 /* Indentation by level */
