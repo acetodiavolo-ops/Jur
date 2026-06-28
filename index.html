@@ -3204,7 +3204,7 @@
         var pct=Math.max(0,Math.min(10,score)), col=pct>=7?'#3d706a':pct>=4?'#b8923a':'#b15c44';
         var bar=$('op-strength-bar');
         requestAnimationFrame(function(){ bar.style.width=(pct*10)+'%'; bar.style.background=col; });
-        var el=$('op-strength-score'); el.textContent=pct.toFixed(1)+' / 10'+(s.label?' - '+s.label:''); el.style.color=col;
+        var el=$('op-strength-score'); el.textContent=pct.toFixed(1)+' / 10'+(s.label?' - '+s.label:'')+(s._capped?' · i kufizuar: '+s._capped:''); el.style.color=col;
       }
 
       function renderAnalysis(laws, s){
@@ -3429,6 +3429,19 @@
         .then(function(r7){
           store.opinion=r7; rowDone(7);
           renderMeta($('opinion-type').value);
+          if(store.doctrine&&store.doctrine.kuadri){
+            var hasMissing=false,hasPartial=false;
+            store.doctrine.kuadri.forEach(function(e){
+              var v=String(e&&e.vleresim||'').toLowerCase();
+              if(v.indexOf('mung')===0) hasMissing=true;
+              else if(v.indexOf('plot')!==0) hasPartial=true;
+            });
+            var sc=parseFloat(store.strength.score);
+            if(isFinite(sc)){
+              if(hasMissing&&sc>4){ store.strength.score=4; store.strength._capped='një element thelbësor mungon'; }
+              else if(hasPartial&&sc>6.5){ store.strength.score=6.5; store.strength._capped='një element është vetëm pjesërisht i plotësuar'; }
+            }
+          }
           renderStrength(store.strength);
           renderAnalysis(store.laws,store.strength);
           renderDoctrine(store);
