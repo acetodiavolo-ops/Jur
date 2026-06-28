@@ -1181,6 +1181,12 @@
     .op-ref-label{flex:1;}
     .op-ref-hint{flex-shrink:0;font-size:.6rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:#f2efe7;border-radius:4px;padding:3px 8px;}
     @media (max-width:600px){.op-ref{flex-wrap:wrap;gap:7px;}.op-ref-hint{margin-left:24px;}}
+    .op-ref:has(.op-ref-details){align-items:flex-start;}
+    .op-ref-details{flex:1;}
+    .op-ref-details>summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;}
+    .op-ref-details>summary::-webkit-details-marker{display:none;}
+    .op-ref-details>summary:hover .op-ref-label{color:var(--accent);}
+    .op-ref-text{margin:10px 0 2px;padding:11px 13px;font-size:.84rem;line-height:1.62;color:#3a3833;background:#f7f9f8;border-left:3px solid rgba(61,112,106,.4);border-radius:0 6px 6px 0;}
 
     .opinion-doc-footer{padding:20px 28px;border-top:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
     .opinion-print-btn,.opinion-restart-btn{font-family:var(--font);font-size:.82rem;font-weight:600;padding:10px 18px;border-radius:7px;cursor:pointer;transition:transform .12s,box-shadow .12s;}
@@ -3011,6 +3017,61 @@
       function linkifyText(t){ return t.replace(LAW_RE, function(m){ return '<a href="' + LAW_MAP[m] + '" target="_blank" rel="noopener noreferrer" class="opinion-law-link">' + m + '</a>'; }); }
       function linkifyHtml(html){ return html.replace(/(<[^>]+>)|([^<]+)/g, function(_,tag,text){ return tag ? tag : linkifyText(text); }); }
 
+      // ── Grounding: fetch real article text from data/<slug>.json ─────────────
+      function lawDataPath(htmlFile){ return 'data/'+htmlFile.replace(/\.html$/,'.json'); }
+      var _lawCache={};
+      function fetchLawData(htmlFile){
+        if(_lawCache[htmlFile]) return Promise.resolve(_lawCache[htmlFile]);
+        return fetch(lawDataPath(htmlFile),{signal:abortCtrl?abortCtrl.signal:undefined})
+          .then(function(r){ return r.ok?r.json():{}; })
+          .catch(function(e){ if(e&&e.name==='AbortError') throw e; return {}; })
+          .then(function(d){ _lawCache[htmlFile]=d||{}; return _lawCache[htmlFile]; });
+      }
+      function artKey(s){ var m=String(s).match(/\d+(?:\/[\w]+)?/); return m?m[0]:''; }
+      function artAnchor(num){ return 'neni-'+String(num).replace('/','-'); }
+      function lawHrefFor(name){
+        if(LAW_MAP[name]) return LAW_MAP[name];
+        for(var i=0;i<LAW_NAMES_SORTED.length;i++){
+          var k=LAW_NAMES_SORTED[i];
+          if(name.indexOf(k)!==-1||k.indexOf(name)!==-1) return LAW_MAP[k];
+        }
+        return '';
+      }
+      function retrieveGrounding(laws){
+        laws=laws||[];
+        var jobs=laws.map(function(l){
+          var href=lawHrefFor(String(l.name||''));
+          if(!href) return Promise.resolve({law:l,href:'',data:{}});
+          return fetchLawData(href).then(function(data){ return {law:l,href:href,data:data}; });
+        });
+        return Promise.all(jobs).then(function(rows){
+          var found=[],missing=[],nums={},seen={},blocks=[];
+          rows.forEach(function(row){
+            var name=String(row.law.name||'').trim();
+            (row.law.articles||[]).forEach(function(a){
+              var num=artKey(a);
+              if(!num) return;
+              var key=name+'|'+num;
+              if(seen[key]) return;
+              seen[key]=true;
+              var text=row.data[num];
+              if(text){
+                var clean=String(text).replace(/\s+/g,' ').trim();
+                found.push({law:name,num:num,href:row.href,anchor:'neni-'+String(num).replace('/','-'),text:clean});
+                nums[num.split('/')[0]]=true;
+                blocks.push('Neni '+num+' ('+name+'): «'+clean.slice(0,1200)+'»');
+              } else {
+                missing.push({law:name,num:num});
+              }
+            });
+          });
+          var text=blocks.length
+            ?'TEKSTI ZYRTAR I NENEVE (mbështetu VETËM mbi këto; mos cito nene që nuk janë dhënë këtu):\n\n'+blocks.join('\n\n')
+            :'';
+          return {text:text,found:found,missing:missing,nums:nums};
+        });
+      }
+
       var FORMAL_HEADS = /^(FAKTE|BAZ[ËE] LIGJORE|BAZE LIGJORE|ANALIZ[ËE] LIGJORE|ANALIZE LIGJORE|KUND[ËE]RP[ËE]RGJIGJE|KUNDERPERGJIGJE|KONKLUZIONE|REKOMANDIME)\s*:?\s*$/;
       function inlineMd(t){ return t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/__([^_]+)__/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>'); }
       function mdToHtml(raw){
@@ -3131,92 +3192,79 @@
 
       function renderReferences(store){
         var block=$('op-references-block'),el=$('op-out-references');
+        var g=store.grounding||{found:[],missing:[],nums:{}};
 
-        // Build a lookup of articles already accounted for by Call 1 structured data
-        var knownArticles={};
-        (store.laws||[]).forEach(function(l){
-          (l.articles||[]).forEach(function(a){
-            var norm=String(a).trim().replace(/^[Nn]eni(?:t|n|ve)?\s+/,'Neni ');
-            knownArticles[norm]=true;
-          });
-        });
-
-        // Confirmed laws - those in LAW_MAP (have a real page on the site)
-        var confirmed=[],seenLaw={};
-        (store.laws||[]).forEach(function(l){
-          var name=String(l.name||'').trim();
-          if(!name||seenLaw[name]) return;
-          seenLaw[name]=true;
-          var href=LAW_MAP[name]||null;
-          if(!href){
-            for(var i=0;i<LAW_NAMES_SORTED.length;i++){
-              var key=LAW_NAMES_SORTED[i];
-              if(name.indexOf(key)!==-1||key.indexOf(name)!==-1){href=LAW_MAP[key];break;}
-            }
-          }
-          if(href) confirmed.push({name:name,href:href,articles:l.articles||[]});
-        });
-
-        // Scan free-text for citations the AI produced but we can't confirm
         var corpus=[store.opposition,store.jurisprudence,store.opinion].filter(Boolean).join('\n');
+        var citedNums={},m,artRe=/\b[Nn]eni(?:t|n|ve)?\s+(\d+(?:\/[\w]+)?)/g;
+        while((m=artRe.exec(corpus))!==null) citedNums[m[1].split('/')[0]]=true;
 
-        var artSeen={},m;
-        var artRe=/\b[Nn]eni(?:t|n|ve)?\s+(\d+(?:\/[a-z\d])?)/g;
-        while((m=artRe.exec(corpus))!==null){
-          var norm='Neni '+m[1]; if(!knownArticles[norm]) artSeen[norm]=true;
-        }
-        var articles=Object.keys(artSeen).sort();
+        var confirmed=[],seenHref={};
+        (store.laws||[]).forEach(function(l){
+          var name=String(l.name||'').trim(); if(!name) return;
+          var href=lawHrefFor(name); if(!href||seenHref[href]) return;
+          seenHref[href]=true; confirmed.push({name:name,href:href});
+        });
 
-        var lnSeen={};
-        var lnRe=/Lig[jy](?:it|i|in|et)?\s+[Nn]r\.?\s*([\d]+(?:\/\d{2,4})?)/g;
-        while((m=lnRe.exec(corpus))!==null){ lnSeen['Ligji nr. '+m[1]]=true; }
-        var lawNums=Object.keys(lnSeen).sort();
+        var grounded=g.found||[];
+        var groundedBase=g.nums||{};
+        var unsourced=Object.keys(citedNums)
+          .filter(function(n){ return !groundedBase[n]; })
+          .sort(function(a,b){ return parseInt(a,10)-parseInt(b,10); })
+          .map(function(n){ return 'Neni '+n; });
+        (g.missing||[]).forEach(function(x){
+          var lbl='Neni '+x.num; if(unsourced.indexOf(lbl)===-1) unsourced.push(lbl);
+        });
 
-        var decSeen={};
-        var decRe=/[Vv]endim(?:in|it|et)?\s+(?:[Nn]r\.?\s*)?([\d]+(?:\/\d{2,4})?)/g;
-        while((m=decRe.exec(corpus))!==null){ decSeen['Vendim nr. '+m[1]]=true; }
-        var decisions=Object.keys(decSeen).sort();
+        var decSeen={},decRe=/[Vv]endim(?:in|it|et)?\s+(?:[Nn]r\.?\s*)?(\d+(?:\/\d{2,4})?)/g;
+        while((m=decRe.exec(corpus))!==null) decSeen['Vendim nr. '+m[1]]=true;
+        var decisions=Object.keys(decSeen);
 
-        var unverified=articles.concat(lawNums);
-        var total=confirmed.length+unverified.length+decisions.length;
-        if(!total){block.hidden=true;return;}
+        var total=confirmed.length+grounded.length+unsourced.length+decisions.length;
+        if(!total){ block.hidden=true; el.innerHTML=''; return; }
         block.hidden=false;
 
-        var html='<p class="op-ref-intro"><b>'+total+' referencë ligjore</b> u identifikuan në analizë. '+
-          '<span style="color:#3d706a;font-weight:600">✓ E konfirmuar</span> - klikoni për të lexuar tekstin origjinal. '+
-          '<span style="color:#b8923a;font-weight:600">⚠ Verifiko</span> - citat i gjeneruar nga AI; kontrolloni te '+
-          '<a href="https://qbz.gov.al" target="_blank" rel="noopener noreferrer" class="opinion-law-link">QBZ</a> '+
-          'para se t\'u mbështetni.</p>';
+        var gCount=grounded.length, aCount=grounded.length+(g.missing||[]).length;
+        var html='<p class="op-ref-intro"><b>'+gCount+' nga '+(aCount||gCount)+' nene</b> u mbështetën në tekstin zyrtar të ligjit. '+
+          '<span style="color:#3d706a;font-weight:600">✓ Me tekst</span> — burim i konfirmuar, kliko për ta lexuar. '+
+          '<span style="color:#b8923a;font-weight:600">⚠ Pa burim</span> — cituar nga AI por jo nga teksti i dhënë; verifikoje te '+
+          '<a href="https://qbz.gov.al" target="_blank" rel="noopener noreferrer" class="opinion-law-link">QBZ</a> para se t\'i mbështetesh.</p>';
 
+        if(grounded.length){
+          html+='<div class="op-ref-group"><div class="op-ref-count">Nene me tekst zyrtar — '+grounded.length+'</div><ul class="op-ref-list">';
+          grounded.forEach(function(a){
+            html+='<li class="op-ref op-ref-ok"><details class="op-ref-details"><summary>'+
+              '<span class="op-ref-icon">✓</span>'+
+              '<span class="op-ref-label">Neni '+esc(a.num)+' <span style="color:var(--muted);font-weight:400">— '+esc(a.law)+'</span></span>'+
+              '<a href="'+esc(a.href)+'#'+esc(a.anchor)+'" target="_blank" rel="noopener noreferrer" class="op-ref-hint" style="text-decoration:none">hap nenin →</a>'+
+              '</summary><p class="op-ref-text">'+esc(a.text)+'</p></details></li>';
+          });
+          html+='</ul></div>';
+        }
         if(confirmed.length){
-          html+='<div class="op-ref-group"><div class="op-ref-count">Ligje të konfirmuara - '+confirmed.length+'</div><ul class="op-ref-list">';
+          html+='<div class="op-ref-group"><div class="op-ref-count">Ligje të konfirmuara — '+confirmed.length+'</div><ul class="op-ref-list">';
           confirmed.forEach(function(l){
-            var label=esc(l.name)+(l.articles.length?' <span style="color:#b8923a;font-size:.78rem">'+esc(l.articles.join(', '))+'</span>':'');
             html+='<li class="op-ref op-ref-ok"><span class="op-ref-icon">✓</span>'+
-              '<a href="'+esc(l.href)+'" target="_blank" rel="noopener noreferrer" class="opinion-law-link op-ref-label">'+label+'</a>'+
+              '<a href="'+esc(l.href)+'" target="_blank" rel="noopener noreferrer" class="opinion-law-link op-ref-label">'+esc(l.name)+'</a>'+
               '<span class="op-ref-hint">faqja e ligjit</span></li>';
           });
           html+='</ul></div>';
         }
-
-        if(unverified.length){
-          html+='<div class="op-ref-group"><div class="op-ref-count">Citate për verifikim - '+unverified.length+'</div><ul class="op-ref-list">';
-          unverified.forEach(function(r){
+        if(unsourced.length){
+          html+='<div class="op-ref-group"><div class="op-ref-count">Cituar pa burim — '+unsourced.length+'</div><ul class="op-ref-list">';
+          unsourced.forEach(function(r){
             html+='<li class="op-ref op-ref-warn"><span class="op-ref-icon">⚠</span>'+
               '<span class="op-ref-label">'+esc(r)+'</span><span class="op-ref-hint">verifiko</span></li>';
           });
           html+='</ul></div>';
         }
-
         if(decisions.length){
-          html+='<div class="op-ref-group"><div class="op-ref-count">Vendime gjyqësore të cituara - '+decisions.length+'</div><ul class="op-ref-list">';
+          html+='<div class="op-ref-group"><div class="op-ref-count">Vendime gjyqësore — '+decisions.length+'</div><ul class="op-ref-list">';
           decisions.forEach(function(r){
             html+='<li class="op-ref op-ref-decision"><span class="op-ref-icon">⚠</span>'+
               '<span class="op-ref-label">'+esc(r)+'</span><span class="op-ref-hint">verifiko QBZ</span></li>';
           });
           html+='</ul></div>';
         }
-
         el.innerHTML=html;
       }
 
@@ -3239,38 +3287,46 @@
         var store={};
         rowActive(0);
         runCall(1,'Jeni analist ligjor shqiptar me përvojë. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas dhe pa shenja ```.'+ANTI_HALLUC,
-          ctx+'\n\nIdentifiko 3–5 ligjet shqiptare më relevante dhe nenet kryesore zbatuese.\nJSON: {"laws":[{"name":"...","articles":["..."],"relevance":"..."}],"issues":["..."],"arguments":["..."]}',600,0.15)
+          ctx+'\n\nIdentifiko 3–5 ligjet shqiptare më relevante dhe nenet kryesore zbatuese (ji gjithëpërfshirës: deri në 8 nene gjithsej, vetëm nene për të cilat je i sigurt).\nJSON: {"laws":[{"name":"...","articles":["..."],"relevance":"..."}],"issues":["..."],"arguments":["..."]}',600,0.15)
         .then(function(r1){
-          store.laws=safeJson(r1).laws||[]; store.lawList=lawListText(store.laws); rowDone(0); rowActive(1);
+          store.laws=safeJson(r1).laws||[];
+          store.lawList=lawListText(store.laws);
+          store.groundingP=retrieveGrounding(store.laws);
+          rowDone(0); rowActive(1);
           return runCall(2,'Jeni vlerësues i pavarur ligjor. Përgjigjuni VETËM me JSON të vlefshëm.',
             ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nVlerëso pozicionin ligjor në mënyrë realiste. JSON:\n{"score":7.2,"label":"Pozicion i Fortë","strengths":["..."],"weaknesses":["..."],"missing_evidence":["..."]}',500,0.25);
         })
         .then(function(r2){
           store.strength=safeJson(r2); rowDone(1);
-          [2,3,4,5].forEach(rowActive);
-          var W=store.strength.weaknesses||[];
-          var tasks=[
-            function(){ return runCall(3,'Jeni avokati i palës kundërshtare. Ndërtoni argumentet më të forta kundër pozicionit të dhënë.'+ANTI_HALLUC,
-                ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nDobësitë e palës: '+W.join('; ')+'\n\nGjenero 4–5 argumente të forta. Citoji ligjet konkretisht ku je i sigurt.',700,0.55)
-              .then(function(v){ rowDone(2); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(2); return null; }); },
-            function(){ return runCall(4,'Jeni ekspert i praktikës gjyqësore shqiptare. Përshkruani tendencat e përgjithshme pa shpikur vendime ose numra çështjesh.',
-                'Ligjet: '+store.laws.map(function(l){ return l.name; }).join(', ')+'\nLloji: '+type+'\nSituata: '+facts.slice(0,400)+'\n\nPërshkruaj: (1) si i kanë trajtuar gjykatat shqiptare raste të ngjashme, (2) parimet interpretuese dominuese, (3) çfarë duhet pasur parasysh.',700,0.4)
-              .then(function(v){ rowDone(3); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(3); return null; }); },
-            function(){ return runCall(5,'Jeni analist risku ligjor. Përgjigjuni VETËM me JSON të vlefshëm me vlerësime numerike realiste. Shumat në Lekë (L).',
-                ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nVlerëso rezultatin e mundshëm (win+settle+lose afërsisht 100). JSON:\n{"win":58,"settle":30,"lose":12,"cost_min":80000,"cost_max":220000,"months_min":8,"months_max":18,"settle_min":350000,"settle_max":600000,"currency":"L","drivers":["..."]}',500,0.3)
-              .then(function(v){ rowDone(4); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(4); return null; }); },
-            function(){ return runCall(6,'Jeni strateg ligjor. Përgjigjuni VETËM me JSON të vlefshëm.',
-                ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nKrijo plan veprimi praktik. JSON:\n{"steps":[{"action":"...","priority":"Lartë|Mesatare|Ulët","deadline":"..."}],"evidence":["..."],"deadlines":[{"what":"...","timeframe":"..."}]}',600,0.35)
-              .then(function(v){ rowDone(5); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(5); return null; }); }
-          ];
-          return runLimited(tasks,PARALLEL_LIMIT);
+          return (store.groundingP||Promise.resolve({text:'',found:[],missing:[],nums:{}})).then(function(g){
+            store.grounding=g;
+            store.groundingText=g.text?('\n\n'+g.text):'';
+            var GT=store.groundingText;
+            [2,3,4,5].forEach(rowActive);
+            var W=store.strength.weaknesses||[];
+            var tasks=[
+              function(){ return runCall(3,'Jeni avokati i palës kundërshtare. Ndërtoni argumentet më të forta kundër pozicionit të dhënë. Mbështetu te teksti zyrtar i neneve të dhëna; mos cito nene jashtë tij.',
+                  ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nDobësitë e palës: '+W.join('; ')+GT+'\n\nGjenero 4–5 argumente të forta. Citoji nenet sipas tekstit zyrtar të mësipërm.',700,0.5)
+                .then(function(v){ rowDone(2); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(2); return null; }); },
+              function(){ return runCall(4,'Jeni ekspert i praktikës gjyqësore shqiptare. Përshkruani tendencat e përgjithshme pa shpikur vendime ose numra çështjesh. Mbështetu te teksti zyrtar i neneve të dhëna.',
+                  'Ligjet: '+store.laws.map(function(l){ return l.name; }).join(', ')+'\nLloji: '+type+'\nSituata: '+facts.slice(0,400)+GT+'\n\nPërshkruaj: (1) si i kanë trajtuar gjykatat shqiptare raste të ngjashme, (2) parimet interpretuese dominuese, (3) çfarë duhet pasur parasysh.',700,0.4)
+                .then(function(v){ rowDone(3); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(3); return null; }); },
+              function(){ return runCall(5,'Jeni analist risku ligjor. Përgjigjuni VETËM me JSON të vlefshëm me vlerësime numerike realiste. Shumat në Lekë (L).',
+                  ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nVlerëso rezultatin e mundshëm (win+settle+lose afërsisht 100). JSON:\n{"win":58,"settle":30,"lose":12,"cost_min":80000,"cost_max":220000,"months_min":8,"months_max":18,"settle_min":350000,"settle_max":600000,"currency":"L","drivers":["..."]}',500,0.3)
+                .then(function(v){ rowDone(4); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(4); return null; }); },
+              function(){ return runCall(6,'Jeni strateg ligjor. Përgjigjuni VETËM me JSON të vlefshëm.',
+                  ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nKrijo plan veprimi praktik. JSON:\n{"steps":[{"action":"...","priority":"Lartë|Mesatare|Ulët","deadline":"..."}],"evidence":["..."],"deadlines":[{"what":"...","timeframe":"..."}]}',600,0.35)
+                .then(function(v){ rowDone(5); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(5); return null; }); }
+            ];
+            return runLimited(tasks,PARALLEL_LIMIT);
+          });
         })
         .then(function(res){
           store.opposition=res[0]; store.jurisprudence=res[1]; store.forecast=safeJson(res[2]); store.plan=safeJson(res[3]);
           rowActive(6);
           var S=store.strength;
-          return runCall(7,'Jeni jurist i lartë shqiptar. Shkruani mendim ligjor formal, të strukturuar dhe profesional. Citoni nenet si "Neni X i [Emri i Ligjit]" vetëm ku jeni i sigurt; shmangni shpikjen e numrave.',
-            'SITUATA:\n'+ctx+'\n\nLIGJET ZBATUESE:\n'+store.lawList+'\n\nFORCAT:\n'+((S.strengths||[]).join('\n')||'-')+'\n\nDOBËSITË:\n'+((S.weaknesses||[]).join('\n')||'-')+(store.opposition?'\n\nARGUMENTET KUNDËRSHTARE:\n'+store.opposition:'')+(store.jurisprudence?'\n\nJURISPRUDENCA:\n'+store.jurisprudence:'')+'\n\nDrafto MENDIM LIGJOR formal me seksionet (secili titull në krye rreshti):\nFAKTE\nBAZË LIGJORE\nANALIZË LIGJORE\nKUNDËRPËRGJIGJE\nKONKLUZIONE\nREKOMANDIME\n\nTe KUNDËRPËRGJIGJE, përgjigju argumenteve kundërshtare. Ji i plotë, specifik dhe profesional.',2400,0.45);
+          return runCall(7,'Jeni jurist i lartë shqiptar. Shkruani mendim ligjor formal, të strukturuar dhe profesional. Citoni nenet sipas tekstit zyrtar të dhënë më poshtë dhe, kur është e mundur, përdorni formulimin e tij. MOS citoni nene që nuk janë dhënë.',
+            'SITUATA:\n'+ctx+'\n\nLIGJET ZBATUESE:\n'+store.lawList+'\n\nFORCAT:\n'+((S.strengths||[]).join('\n')||'-')+'\n\nDOBËSITË:\n'+((S.weaknesses||[]).join('\n')||'-')+(store.opposition?'\n\nARGUMENTET KUNDËRSHTARE:\n'+store.opposition:'')+(store.jurisprudence?'\n\nJURISPRUDENCA:\n'+store.jurisprudence:'')+(store.groundingText||'')+'\n\nDrafto MENDIM LIGJOR formal me seksionet (secili titull në krye rreshti):\nFAKTE\nBAZË LIGJORE\nANALIZË LIGJORE\nKUNDËRPËRGJIGJE\nKONKLUZIONE\nREKOMANDIME\n\nTe KUNDËRPËRGJIGJE, përgjigju argumenteve kundërshtare. Ji i plotë, specifik dhe profesional.',2400,0.45);
         })
         .then(function(r7){
           store.opinion=r7; rowDone(6);

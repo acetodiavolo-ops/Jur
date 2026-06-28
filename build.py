@@ -6,6 +6,7 @@ Requirements:
     pip install pdfplumber gdown jinja2
 """
 
+import json
 import os
 import re
 import sys
@@ -76,70 +77,82 @@ def extract_text(pdf_path: str) -> list[str]:
                 lines.append(line)
     return lines
 
-def parse_structure(lines: list[str]) -> str:
+def parse_structure(lines: list[str]) -> tuple[str, dict]:
     """
-    Convert raw text lines into structured HTML.
-    Detects: PJESA (h2), TITULLI/KREU (h3), Neni (h4), paragraphs.
+    Convert raw text lines into structured HTML and a {article_num: body_text} dict.
+    Detects: PJESA (h2), TITULLI/KREU (h3), Neni (h4 with id anchor), paragraphs.
     """
     html_parts = []
     buffer = []
+    articles = {}
+    state = {'num': None, 'parts': []}
 
     def flush_buffer():
         if buffer:
             text = ' '.join(buffer).strip()
             if text:
                 html_parts.append(f'<p>{escape_html(text)}</p>')
+                if state['num']:
+                    state['parts'].append(text)
             buffer.clear()
 
+    def finalize_neni():
+        if state['num'] and state['parts']:
+            articles[state['num']] = ' '.join(state['parts'])
+        state['num'] = None
+        state['parts'] = []
+
     for line in lines:
-        # Skip common header/footer noise
         if RE_FOOTNOTE.match(line):
             continue
 
-        m_pjesa = RE_PJESA.match(line)
+        m_pjesa   = RE_PJESA.match(line)
         m_titulli = RE_TITULLI.match(line)
-        m_kreu = RE_KREU.match(line)
-        m_neni = RE_NENI.match(line)
+        m_kreu    = RE_KREU.match(line)
+        m_neni    = RE_NENI.match(line)
 
         if m_pjesa:
-            flush_buffer()
+            flush_buffer(); finalize_neni()
             label = m_pjesa.group(1)
             rest  = m_pjesa.group(2) or ''
             text  = f"{label} {rest}".strip() if rest else label
             html_parts.append(f'<h2>{escape_html(text)}</h2>')
 
         elif m_titulli:
-            flush_buffer()
+            flush_buffer(); finalize_neni()
             label = m_titulli.group(1)
             rest  = m_titulli.group(2) or ''
             text  = f"{label} {rest}".strip() if rest else label
             html_parts.append(f'<h3>{escape_html(text)}</h3>')
 
         elif m_kreu:
-            flush_buffer()
+            flush_buffer(); finalize_neni()
             label = m_kreu.group(1)
             rest  = m_kreu.group(2) or ''
             text  = f"{label} {rest}".strip() if rest else label
             html_parts.append(f'<h3>{escape_html(text)}</h3>')
 
         elif m_neni:
-            flush_buffer()
-            neni_label = m_neni.group(1)
-            rest = m_neni.group(3) or ''
-            rest_html = f'<span class="art-body">{escape_html(rest)}</span>' if rest else ''
+            flush_buffer(); finalize_neni()
+            neni_label = m_neni.group(1)          # "Neni 698" or "Neni 698/a"
+            neni_num   = neni_label[5:].strip()   # "698" or "698/a"
+            rest       = m_neni.group(3) or ''
+            state['num']   = neni_num
+            state['parts'] = [rest] if rest else []
+            anchor_id  = 'neni-' + neni_num.replace('/', '-')
+            rest_html  = f'<span class="art-body">{escape_html(rest)}</span>' if rest else ''
             html_parts.append(
-                f'<h4><span class="art-num">{escape_html(neni_label)}</span>{rest_html}</h4>'
+                f'<h4 id="{anchor_id}"><span class="art-num">{escape_html(neni_label)}</span>{rest_html}</h4>'
             )
 
         else:
-            # Continuation line — may be a continuation of previous paragraph
-            # or start of a new one. Heuristic: if line ends with punctuation → flush.
             buffer.append(line)
             if line.endswith(('.', ':', ';', '?', '!')):
                 flush_buffer()
 
     flush_buffer()
-    return '\n'.join(html_parts)
+    finalize_neni()
+    return '\n'.join(html_parts), articles
 
 def escape_html(s: str) -> str:
     return (s
@@ -232,17 +245,26 @@ def build_law(law: dict, tmp_dir: str):
 
     print(f"   {len(lines)} lines extracted.")
 
-    # Parse into HTML
-    body_html = parse_structure(lines)
+    # Parse into HTML + collect article text
+    body_html, articles = parse_structure(lines)
 
     # Render template
     html = HTML_TEMPLATE.render(title=title, ref=ref, body=body_html)
 
-    # Write output
+    # Write HTML
     with open(out, 'w', encoding='utf-8') as f:
         f.write(html)
 
     print(f"   ✓ Written → {law['file']}")
+
+    # Emit article JSON for RAG grounding
+    data_dir  = os.path.join(OUT_DIR, 'data')
+    os.makedirs(data_dir, exist_ok=True)
+    slug      = law["file"].replace('.html', '')
+    json_path = os.path.join(data_dir, slug + '.json')
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(articles, f, ensure_ascii=False, separators=(',', ':'))
+    print(f"   → data/{slug}.json ({len(articles)} nene)")
 
 def main():
     # Allow building a single law: python build.py kushtetuta.html
