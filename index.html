@@ -1187,6 +1187,27 @@
     .op-ref-details>summary::-webkit-details-marker{display:none;}
     .op-ref-details>summary:hover .op-ref-label{color:var(--accent);}
     .op-ref-text{margin:10px 0 2px;padding:11px 13px;font-size:.84rem;line-height:1.62;color:#3a3833;background:#f7f9f8;border-left:3px solid rgba(61,112,106,.4);border-radius:0 6px 6px 0;}
+    .op-doc-vepra{font-size:.86rem;margin:0 0 14px;color:#3a3833;}
+    .op-doc-vepra span{font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:.62rem;color:var(--muted);margin-right:6px;}
+    .op-el-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;}
+    .op-el-card{border:1px solid var(--border);border-left:3px solid var(--border);border-radius:8px;padding:13px 15px;background:#fff;}
+    .op-el-ok{border-left-color:#3d706a;}
+    .op-el-part{border-left-color:#b8923a;}
+    .op-el-no{border-left-color:#b15c44;}
+    .op-el-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;}
+    .op-el-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#26241f;}
+    .op-el-badge{font-size:.58rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border:1px solid;border-radius:999px;padding:2px 9px;white-space:nowrap;}
+    .op-el-list{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;}
+    .op-el-list dt{font-size:.62rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding-top:3px;}
+    .op-el-list dd{margin:0;font-size:.84rem;line-height:1.5;color:#2c2a25;}
+    .op-el-note{margin:10px 0 0;font-size:.8rem;line-height:1.55;color:#5a564f;font-style:italic;}
+    .op-qual{margin:10px 0 4px;}
+    .op-qual-row{display:flex;gap:10px;font-size:.84rem;padding:5px 0;border-bottom:1px dashed var(--border);}
+    .op-qual-row:last-child{border-bottom:none;}
+    .op-qual-k{flex-shrink:0;min-width:130px;font-weight:600;color:var(--muted);text-transform:capitalize;}
+    .op-qual-v{color:#2c2a25;}
+    .op-doc-concl{margin-top:14px;padding:12px 14px;background:#fdfaf3;border:1px solid #ecd9ac;border-radius:7px;font-size:.86rem;line-height:1.62;color:#3a3833;}
+    @media (max-width:600px){.op-el-grid{grid-template-columns:1fr;}.op-el-list{grid-template-columns:1fr;}.op-el-list dt{padding-top:7px;}.op-qual-k{min-width:0;}}
 
     .opinion-doc-footer{padding:20px 28px;border-top:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
     .opinion-print-btn,.opinion-restart-btn{font-family:var(--font);font-size:.82rem;font-weight:600;padding:10px 18px;border-radius:7px;cursor:pointer;transition:transform .12s,box-shadow .12s;}
@@ -2016,7 +2037,7 @@
           <div><div class="op-step-label">Vlerësim i pozicionit tuaj</div><div class="op-step-sub">Forcat, dobësitë dhe pikë-vlerësimi i çështjes</div></div>
         </div>
         <div class="op-parallel-group">
-          <div class="op-parallel-tag">Hapat 3–6 kryhen njëkohësisht</div>
+          <div class="op-parallel-tag">Hapat 3–7 kryhen njëkohësisht</div>
           <div class="opinion-step" id="op-step-3">
             <span class="op-step-icon">⚔</span>
             <div><div class="op-step-label">Simulim i kundërshtarit</div><div class="op-step-sub">Argumentet më të forta kundër pozicionit tuaj</div></div>
@@ -2033,8 +2054,12 @@
             <span class="op-step-icon">🧭</span>
             <div><div class="op-step-label">Plan veprimi &amp; prova</div><div class="op-step-sub">Hapat konkretë, provat dhe afatet</div></div>
           </div>
+          <div class="opinion-step" id="op-step-7">
+            <span class="op-step-icon">⚗</span>
+            <div><div class="op-step-label">Përbërja juridike</div><div class="op-step-sub">Dekompozim doktrinor i elementeve përbërëse</div></div>
+          </div>
         </div>
-        <div class="opinion-step" id="op-step-7">
+        <div class="opinion-step" id="op-step-8">
           <span class="op-step-icon">📄</span>
           <div><div class="op-step-label">Mendimi ligjor formal</div><div class="op-step-sub">Dokument i strukturuar bazuar në të gjitha analizat</div></div>
         </div>
@@ -2054,6 +2079,10 @@
             <div class="opinion-strength-score" id="op-strength-score"></div>
           </div>
           <div id="op-out-analysis" class="opinion-section-body"></div>
+        </div>
+        <div class="opinion-section-block opinion-block-doctrine" id="op-doctrine-block" hidden>
+          <div class="opinion-block-label" id="op-doctrine-label">Përbërja Juridike</div>
+          <div id="op-out-doctrine" class="opinion-section-body"></div>
         </div>
         <div class="opinion-section-block opinion-block-b">
           <div class="opinion-block-label">Kundërshtimi i Mundshëm</div>
@@ -3076,6 +3105,32 @@
         });
       }
 
+      function doctrineSpec(type){
+        if(type==='penale'){
+          return {
+            sys:'Jeni profesor i së drejtës penale shqiptare. Analizoni përbërjen e veprës penale sipas teorisë klasike me katër elementë (objekti, ana objektive, subjekti, ana subjektive). Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna; mos shpikni numra nenesh apo emra veprash penale.',
+            tmpl:'{"framework":"penale","vepra":"emri i mundshëm i veprës penale","kuadri":[{"id":"objekti","titull":"Objekti i veprës penale","permbajtja":[{"etikete":"I përgjithshëm","vlera":"..."},{"etikete":"Specifik / i drejtpërdrejtë","vlera":"..."},{"etikete":"Objekti material / subjekti pasiv","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"çfarë e provon ose çfarë mungon"},{"id":"ana_objektive","titull":"Ana objektive","permbajtja":[{"etikete":"Veprimi / mosveprimi","vlera":"..."},{"etikete":"Pasoja","vlera":"..."},{"etikete":"Lidhja shkakësore","vlera":"..."},{"etikete":"Rrethanat (kohë/vend/mjet)","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"subjekti","titull":"Subjekti i veprës penale","permbajtja":[{"etikete":"Lloji i subjektit","vlera":"..."},{"etikete":"Përgjegjshmëria","vlera":"..."},{"etikete":"Mosha","vlera":"..."},{"etikete":"Cilësi të veçanta","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"ana_subjektive","titull":"Ana subjektive","permbajtja":[{"etikete":"Forma e fajit","vlera":"dashje e drejtpërdrejtë/e tërthortë ose pakujdesi (me vetëbesim/nga shkujdesja)"},{"etikete":"Motivi","vlera":"..."},{"etikete":"Qëllimi","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"neni":"neni/paragrafi i mundshëm","forma":"bazë / e kualifikuar / e privilegjuar","stadi":"përgatitje / tentativë / e konsumuar","bashkepunimi":"nëse ka: organizator/ekzekutor/shtytës/ndihmës"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga vepra penale të ngjashme","perfundim":"a përmbushet përbërja e veprës penale dhe ku qëndron pika kyçe"}'
+          };
+        }
+        if(type==='civile'||type==='tregtare'||type==='prone'||type==='konsumator'||type==='pune'){
+          return {
+            sys:'Jeni profesor i së drejtës private shqiptare. Analizoni elementet e përgjegjësisë juridike (veprimi i paligjshëm, dëmi, lidhja shkakësore, faji ose përgjegjësia objektive). Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna.',
+            tmpl:'{"framework":"'+type+'","vepra":"natyra e mosmarrëveshjes","kuadri":[{"id":"veprimi","titull":"Veprimi / mosveprimi i paligjshëm","permbajtja":[{"etikete":"Sjellja","vlera":"..."},{"etikete":"Kundërligjshmëria","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"demi","titull":"Dëmi","permbajtja":[{"etikete":"Dëmi i dalshëm","vlera":"..."},{"etikete":"Fitimi i munguar","vlera":"..."},{"etikete":"Dëmi jopasuror","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"lidhja","titull":"Lidhja shkakësore","permbajtja":[{"etikete":"Shkak → pasojë","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"faji","titull":"Faji / përgjegjësia","permbajtja":[{"etikete":"Forma e fajit","vlera":"..."},{"etikete":"Përgjegjësi objektive (pa faj)?","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji_pergjegjesise":"kontraktore / jashtëkontraktore","parashkrimi":"afati i mundshëm"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga institute të ngjashme","perfundim":"a përmbushen elementet dhe ku qëndron pika kyçe"}'
+          };
+        }
+        return {
+          sys:'Jeni jurist i specializuar shqiptar. Dekompononi çështjen në elementet juridike përbërëse. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna.',
+          tmpl:'{"framework":"'+(type||'juridik')+'","vepra":"natyra juridike e çështjes","kuadri":[{"id":"subjektet","titull":"Subjektet e marrëdhënies","permbajtja":[{"etikete":"Palët / legjitimimi","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"objekti","titull":"Objekti i marrëdhënies","permbajtja":[{"etikete":"E drejta / detyrimi","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"faktet","titull":"Faktet juridike","permbajtja":[{"etikete":"Veprimi / ngjarja","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"pasojat","titull":"Pasojat juridike","permbajtja":[{"etikete":"Efektet","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"baza":"baza ligjore","afatet":"afatet e zbatueshme"},"rrethanat":{"lehtesuese":[],"renduese":[]},"dallimi":"","perfundim":"..."}'
+        };
+      }
+      function doctrineSummaryText(d){
+        if(!d||!d.kuadri||!d.kuadri.length) return '';
+        var lines=d.kuadri.map(function(e){ return '- '+(e.titull||e.id)+': '+(e.vleresim||'')+(e.shenim?(' — '+e.shenim):''); });
+        var q='';
+        if(d.kualifikimi){ q=Object.keys(d.kualifikimi).map(function(k){ return d.kualifikimi[k]?(k.replace(/_/g,' ')+': '+d.kualifikimi[k]):''; }).filter(Boolean).join('; '); }
+        return '\n\nDEKOMPOZIMI DOKTRINOR (përfshije në seksionin ANALIZË LIGJORE):\n'+lines.join('\n')+(q?('\nKualifikimi: '+q):'')+(d.perfundim?('\nPërfundim: '+d.perfundim):'');
+      }
+
       var FORMAL_HEADS = /^(FAKTE|BAZ[ËE] LIGJORE|BAZE LIGJORE|ANALIZ[ËE] LIGJORE|ANALIZE LIGJORE|KUND[ËE]RP[ËE]RGJIGJE|KUNDERPERGJIGJE|KONKLUZIONE|REKOMANDIME)\s*:?\s*$/;
       function inlineMd(t){ return t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/__([^_]+)__/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>'); }
       function mdToHtml(raw){
@@ -3096,7 +3151,7 @@
         closeList(); return linkifyHtml(out);
       }
 
-      var steps = [1,2,3,4,5,6,7].map(function(i){ return $('op-step-'+i); });
+      var steps = [1,2,3,4,5,6,7,8].map(function(i){ return $('op-step-'+i); });
       function rowActive(i){ steps[i].classList.add('active'); steps[i].classList.remove('done','failed'); }
       function rowDone(i){ steps[i].classList.remove('active','failed'); steps[i].classList.add('done'); }
       function rowFail(i){ steps[i].classList.remove('active','done'); steps[i].classList.add('failed'); }
@@ -3272,6 +3327,36 @@
         el.innerHTML=html;
       }
 
+      function renderDoctrine(store){
+        var block=$('op-doctrine-block'),el=$('op-out-doctrine'),labelEl=$('op-doctrine-label');
+        var d=store.doctrine;
+        if(!d||!d.kuadri||!d.kuadri.length){ if(block) block.hidden=true; return; }
+        if(block) block.hidden=false;
+        function txt(s){ return linkifyHtml(esc(String(s==null?'':s))); }
+        if(labelEl){ labelEl.textContent=(d.framework==='penale')?'Përbërja e Veprës Penale':'Elementet e Përgjegjësisë Juridike'; }
+        function assess(v){ v=String(v||'').toLowerCase(); if(v.indexOf('plot')===0) return {c:'#3d706a',t:'Plotësuar',cls:'op-el-ok'}; if(v.indexOf('mung')===0) return {c:'#b15c44',t:'Mungon',cls:'op-el-no'}; return {c:'#b8923a',t:'Pjesërisht',cls:'op-el-part'}; }
+        var html=d.vepra?'<p class="op-doc-vepra"><span>Natyra</span>'+txt(d.vepra)+'</p>':'';
+        html+='<div class="op-el-grid">';
+        d.kuadri.forEach(function(e){
+          if(!e) return;
+          var a=assess(e.vleresim);
+          html+='<div class="op-el-card '+a.cls+'"><div class="op-el-head"><span class="op-el-title">'+esc(e.titull||e.id||'')+'</span><span class="op-el-badge" style="color:'+a.c+';border-color:'+a.c+'">'+a.t+'</span></div>';
+          if(e.permbajtja&&e.permbajtja.length){ html+='<dl class="op-el-list">'; e.permbajtja.forEach(function(p){ if(!p) return; html+='<dt>'+esc(p.etikete||'')+'</dt><dd>'+txt(p.vlera||'—')+'</dd>'; }); html+='</dl>'; }
+          if(e.shenim) html+='<p class="op-el-note">'+txt(e.shenim)+'</p>';
+          html+='</div>';
+        });
+        html+='</div>';
+        if(d.kualifikimi&&typeof d.kualifikimi==='object'){
+          var rows=''; Object.keys(d.kualifikimi).forEach(function(k){ var v=d.kualifikimi[k]; if(!v) return; rows+='<div class="op-qual-row"><span class="op-qual-k">'+esc(k.replace(/_/g,' '))+'</span><span class="op-qual-v">'+txt(v)+'</span></div>'; });
+          if(rows) html+='<div class="op-qual"><p class="op-subhead op-amber">Kualifikimi ligjor</p>'+rows+'</div>';
+        }
+        function chips(title,cls,arr){ if(!arr||!arr.length) return ''; var h='<p class="op-subhead '+cls+'">'+title+'</p><ul class="opinion-md-list">'; arr.forEach(function(x){ if(x) h+='<li>'+txt(x)+'</li>'; }); return h+'</ul>'; }
+        if(d.rrethanat){ html+=chips('Rrethana lehtësuese','op-green',d.rrethanat.lehtesuese); html+=chips('Rrethana rënduese','op-red',d.rrethanat.renduese); }
+        if(d.dallimi) html+='<p class="op-subhead op-amber">Dallimi nga figura të ngjashme</p><p class="op-el-note">'+txt(d.dallimi)+'</p>';
+        if(d.perfundim) html+='<div class="op-doc-concl">'+txt(d.perfundim)+'</div>';
+        el.innerHTML=html;
+      }
+
       var running=false;
       function showError(msg){ var box=$('opinion-form-error'); box.textContent=msg; box.hidden=false; }
       var lawListText=function(laws){ if(!laws.length) return 'Ligjet zbatuese të të drejtës shqiptare.'; return laws.map(function(l){ return '• '+l.name+' ('+((l.articles||[]).join(', ')||'nenet zbatuese')+'): '+(l.relevance||''); }).join('\n'); };
@@ -3306,7 +3391,7 @@
             store.grounding=g;
             store.groundingText=g.text?('\n\n'+g.text):'';
             var GT=store.groundingText;
-            [2,3,4,5].forEach(rowActive);
+            [2,3,4,5,6].forEach(rowActive);
             var W=store.strength.weaknesses||[];
             var tasks=[
               function(){ return runCall(3,'Jeni avokati i palës kundërshtare. Ndërtoni argumentet më të forta kundër pozicionit të dhënë. Mbështetu te teksti zyrtar i neneve të dhëna; mos cito nene jashtë tij.',
@@ -3320,23 +3405,31 @@
                 .then(function(v){ rowDone(4); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(4); return null; }); },
               function(){ return runCall(6,'Jeni strateg ligjor. Përgjigjuni VETËM me JSON të vlefshëm.',
                   ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nKrijo plan veprimi praktik. JSON:\n{"steps":[{"action":"...","priority":"Lartë|Mesatare|Ulët","deadline":"..."}],"evidence":["..."],"deadlines":[{"what":"...","timeframe":"..."}]}',600,0.35)
-                .then(function(v){ rowDone(5); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(5); return null; }); }
+                .then(function(v){ rowDone(5); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(5); return null; }); },
+              function(){
+                var spec=doctrineSpec(type);
+                return runCall(8,spec.sys,
+                  'SITUATA:\n'+ctx+'\n\nBazë ligjore:\n'+store.lawList+GT+
+                  '\n\nKryej dekompozimin doktrinor të çështjes. Për çdo element jep vlerësimin "plotesuar", "pjeserisht" ose "munget" te fusha "vleresim", dhe te "shenim" shpjego shkurt çfarë e provon elementin ose çfarë mungon për ta vërtetuar. Mbështetu te teksti zyrtar i neneve të dhëna; mos shpik numra ose vepra. Përdor SAKTËSISHT këtë strukturë JSON:\n'+spec.tmpl,
+                  1400,0.3)
+                .then(function(v){ rowDone(6); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(6); return null; }); }
             ];
             return runLimited(tasks,PARALLEL_LIMIT);
           });
         })
         .then(function(res){
-          store.opposition=res[0]; store.jurisprudence=res[1]; store.forecast=safeJson(res[2]); store.plan=safeJson(res[3]);
-          rowActive(6);
+          store.opposition=res[0]; store.jurisprudence=res[1]; store.forecast=safeJson(res[2]); store.plan=safeJson(res[3]); store.doctrine=safeJson(res[4]);
+          rowActive(7);
           var S=store.strength;
-          return runCall(7,'Jeni jurist i lartë shqiptar. Shkruani mendim ligjor formal, të strukturuar dhe profesional. Citoni nenet sipas tekstit zyrtar të dhënë më poshtë dhe, kur është e mundur, përdorni formulimin e tij. MOS citoni nene që nuk janë dhënë.',
-            'SITUATA:\n'+ctx+'\n\nLIGJET ZBATUESE:\n'+store.lawList+'\n\nFORCAT:\n'+((S.strengths||[]).join('\n')||'-')+'\n\nDOBËSITË:\n'+((S.weaknesses||[]).join('\n')||'-')+(store.opposition?'\n\nARGUMENTET KUNDËRSHTARE:\n'+store.opposition:'')+(store.jurisprudence?'\n\nJURISPRUDENCA:\n'+store.jurisprudence:'')+(store.groundingText||'')+'\n\nDrafto MENDIM LIGJOR formal me seksionet (secili titull në krye rreshti):\nFAKTE\nBAZË LIGJORE\nANALIZË LIGJORE\nKUNDËRPËRGJIGJE\nKONKLUZIONE\nREKOMANDIME\n\nTe KUNDËRPËRGJIGJE, përgjigju argumenteve kundërshtare. Ji i plotë, specifik dhe profesional.',2400,0.45);
+          return runCall(7,'Jeni jurist i lartë shqiptar. Shkruani mendim ligjor formal, të strukturuar dhe profesional. Citoni nenet sipas tekstit zyrtar të dhënë më poshtë dhe, kur është e mundur, përdorni formulimin e tij. MOS citoni nene që nuk janë dhënë. Përfshi në analizë dekompozimin doktrinor të dhënë (objekti, ana objektive, subjekti, ana subjektive ose elementet e përgjegjësisë), duke vlerësuar nëse secili element përmbushet.',
+            'SITUATA:\n'+ctx+'\n\nLIGJET ZBATUESE:\n'+store.lawList+'\n\nFORCAT:\n'+((S.strengths||[]).join('\n')||'-')+'\n\nDOBËSITË:\n'+((S.weaknesses||[]).join('\n')||'-')+(store.opposition?'\n\nARGUMENTET KUNDËRSHTARE:\n'+store.opposition:'')+(store.jurisprudence?'\n\nJURISPRUDENCA:\n'+store.jurisprudence:'')+(store.groundingText||'')+doctrineSummaryText(store.doctrine)+'\n\nDrafto MENDIM LIGJOR formal me seksionet (secili titull në krye rreshti):\nFAKTE\nBAZË LIGJORE\nANALIZË LIGJORE\nKUNDËRPËRGJIGJE\nKONKLUZIONE\nREKOMANDIME\n\nTe KUNDËRPËRGJIGJE, përgjigju argumenteve kundërshtare. Ji i plotë, specifik dhe profesional.',2400,0.45);
         })
         .then(function(r7){
-          store.opinion=r7; rowDone(6);
+          store.opinion=r7; rowDone(7);
           renderMeta($('opinion-type').value);
           renderStrength(store.strength);
           renderAnalysis(store.laws,store.strength);
+          renderDoctrine(store);
           renderText('op-out-opposition',store.opposition);
           renderText('op-out-jurisprudence',store.jurisprudence);
           renderForecast(store.forecast);
@@ -3363,6 +3456,8 @@
         $('opinion-output').hidden=true; $('opinion-progress').hidden=true; $('opinion-form').hidden=false;
         $('opinion-form-error').hidden=true; resetRows(); $('op-strength-bar').style.width='0';
         $('op-references-block').hidden=true; $('op-out-references').innerHTML='';
+        var _db=$('op-doctrine-block'); if(_db) _db.hidden=true;
+        var _do=$('op-out-doctrine'); if(_do) _do.innerHTML='';
       }
 
       $('opinion-open-btn').addEventListener('click',openModal);
