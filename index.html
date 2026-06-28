@@ -33,17 +33,9 @@
 
     /* ── Hero ──────────────────────────────────── */
     .hero {
-      padding-bottom: 20px;
-      margin-bottom: 36px;
+      padding-bottom: 22px;
+      margin-bottom: 28px;
       border-bottom: 1px solid var(--border);
-    }
-
-    .hero-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 10px;
     }
 
     .nation {
@@ -51,6 +43,7 @@
       letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--muted);
+      margin-bottom: 14px;
     }
 
     h1 {
@@ -60,22 +53,21 @@
       font-style: italic;
       letter-spacing: 0;
       line-height: 1.08;
-      margin-bottom: 14px;
+      margin-bottom: 18px;
     }
 
     .tagline {
-      font-size: 0.72rem;
-      letter-spacing: 0.04em;
-      color: #aaa;
-      margin: 0;
-      line-height: 1;
+      font-size: 0.86rem;
+      color: var(--muted);
+      line-height: 1.65;
+      margin-bottom: 0;
     }
 
     .stats {
       display: flex;
       gap: 0;
-      margin-top: 20px;
-      padding-top: 18px;
+      margin-top: 10px;
+      padding-top: 12px;
       border-top: 1px solid var(--border);
     }
     .stats > div {
@@ -1009,9 +1001,14 @@
     /* CRITICAL: author display rules beat UA [hidden]{display:none}. Must be first. */
     [hidden]{display:none !important;}
 
-    .opinion-open-btn{font-family:var(--font);font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:6px 13px;background:var(--text);color:#fff;border:none;border-radius:0;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:opacity .12s;}
+    .opinion-trigger-wrap{margin-bottom:36px;padding:18px 22px;border-left:3px solid #b8923a;background:#fafaf6;position:relative;overflow:hidden;}
+    .opinion-trigger-wrap::before{content:'§';position:absolute;top:-8px;right:10px;font-family:var(--font-serif);font-size:5rem;line-height:1;color:rgba(15,15,13,.04);pointer-events:none;user-select:none;}
+    .opinion-trigger-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:8px;}
+    .opinion-trigger-label{font-size:.6rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:#a09b95;}
+    .opinion-open-btn{font-family:var(--font);font-size:.75rem;font-weight:600;padding:7px 15px;background:var(--text);color:#fff;border:none;border-radius:0;cursor:pointer;white-space:nowrap;transition:opacity .12s;}
     .opinion-open-btn:hover{opacity:.72;}
     .opinion-open-btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+    .opinion-trigger-sub{font-size:.82rem;color:var(--muted);line-height:1.62;}
 
     .opinion-modal{position:fixed;inset:0;z-index:2000;background:rgba(20,16,10,.55);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);}
     .opinion-modal-inner{background:var(--bg);border-radius:12px;width:100%;max-width:820px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.28);}
@@ -1189,13 +1186,25 @@
   <main>
 
     <header class="hero">
-      <div class="hero-top">
-        <p class="nation">Republika e Shqipërisë</p>
-        <button id="opinion-open-btn" class="opinion-open-btn" type="button">Analizë ligjore &#8594;</button>
-      </div>
+      <p class="nation">Republika e Shqipërisë</p>
       <h1>Legjislacioni Shqiptar</h1>
-      <p class="tagline">18 akte zyrtare &nbsp;&middot;&nbsp; 9 kode &nbsp;&middot;&nbsp; 8 ligje &nbsp;&middot;&nbsp; 1994&ndash;2020</p>
+      <p class="tagline">Fondi i teksteve zyrtare ligjore të Shqipërisë.</p>
+      <dl class="stats">
+        <div><dt>Akte zyrtare</dt><dd>18</dd></div>
+        <div><dt>Kode</dt><dd>9</dd></div>
+        <div><dt>Ligje</dt><dd>8</dd></div>
+        <div><dt>Vit themelues</dt><dd>1994</dd></div>
+      </dl>
     </header>
+
+    <!-- Legal Opinion Engine trigger -->
+    <div class="opinion-trigger-wrap">
+      <div class="opinion-trigger-head">
+        <p class="opinion-trigger-label">Analizë Ligjore e Plotë</p>
+        <button id="opinion-open-btn" class="opinion-open-btn" type="button">Fillo analizën &#8594;</button>
+      </div>
+      <p class="opinion-trigger-sub">Paraqit çështjen tënde dhe merr analizë ligjore me shtatë hapa: identifikim ligjesh, vlerësim pozicioni, parashikim risku dhe mendim të strukturuar.</p>
+    </div>
 
     <!-- Law of the Day -->
     <section class="law-of-day" id="lotd">
