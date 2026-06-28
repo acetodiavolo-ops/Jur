@@ -1,6 +1,9 @@
 # API key — never commit this
 config.js
 
+# PDF download cache (rebuilt by build.py)
+.pdf_cache/
+
 # OS junk
 .DS_Store
 Thumbs.db

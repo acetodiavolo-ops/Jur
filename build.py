@@ -10,7 +10,6 @@ import json
 import os
 import re
 import sys
-import tempfile
 import pdfplumber
 import gdown
 from jinja2 import Template
@@ -51,6 +50,9 @@ RE_FOOTNOTE = re.compile(r'^\d+\s+Ligj\s+nr\.')  # common footnote pattern
 
 def download_pdf(drive_id: str, dest_path: str) -> bool:
     """Download a Google Drive file to dest_path using gdown."""
+    if os.path.exists(dest_path) and os.path.getsize(dest_path) > 1000:
+        print(f"   (cached)")
+        return True
     url = f"https://drive.google.com/uc?id={drive_id}"
     try:
         gdown.download(url, dest_path, quiet=False, fuzzy=True)
@@ -277,9 +279,10 @@ def main():
             print(f"No matching law found for: {targets}")
             sys.exit(1)
 
-    with tempfile.TemporaryDirectory() as tmp:
-        for law in laws:
-            build_law(law, tmp)
+    cache_dir = os.path.join(OUT_DIR, '.pdf_cache')
+    os.makedirs(cache_dir, exist_ok=True)
+    for law in laws:
+        build_law(law, cache_dir)
 
     print(f"\n✅  Done — {len(laws)} file(s) generated in {OUT_DIR}")
 

@@ -24,6 +24,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Cache law PDFs
+        uses: actions/cache@v4
+        with:
+          path: .pdf_cache
+          key: law-pdfs-v1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build law pages + RAG data
+        run: |
+          pip install pdfplumber gdown jinja2
+          python build.py
+
       - name: Inject secrets
         run: |
           echo "const GROQ_KEY = '${{ secrets.GROQ_KEY }}';" > config.js
