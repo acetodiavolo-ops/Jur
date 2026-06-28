@@ -1017,19 +1017,20 @@
 
     /* ── Login overlay ─────────────────────────── */
     #login-overlay{position:fixed;inset:0;z-index:9999;background:#fdfdf9;display:flex;align-items:center;justify-content:center;padding:32px;transition:opacity .25s;}
-    #login-card{width:100%;max-width:360px;position:relative;border-left:3px solid #b8923a;padding-left:26px;}
+    #login-card{width:100%;max-width:360px;position:relative;border-left:3px solid #b8923a;padding:36px 32px 32px 29px;background:#fff;box-shadow:0 2px 32px rgba(15,15,13,.07);}
     #login-card::before{content:'§';position:absolute;top:-40px;right:-16px;font-family:var(--font-serif);font-size:11rem;line-height:1;color:rgba(15,15,13,.045);pointer-events:none;user-select:none;}
     .login-nation{font-size:.6rem;letter-spacing:.22em;text-transform:uppercase;color:#a09b95;margin-bottom:12px;display:flex;align-items:center;gap:10px;}
     .login-nation::before{content:'';display:block;width:20px;height:1px;background:#b8923a;flex-shrink:0;}
     .login-title{font-family:var(--font-serif);font-size:2.5rem;font-weight:500;font-style:italic;line-height:1.06;margin-bottom:6px;}
-    .login-sub{font-size:.78rem;color:var(--muted);margin-bottom:26px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+    .login-sub{font-size:.78rem;color:var(--muted);margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);}
     .login-label{font-size:.56rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#b8b3ac;display:block;margin-bottom:5px;}
     #login-form{display:flex;flex-direction:column;gap:14px;}
     #login-user,#login-pass{font-family:var(--font);font-size:.9rem;border:1px solid var(--border);padding:10px 13px;background:#fafafa;color:var(--text);outline:none;border-radius:0;width:100%;box-sizing:border-box;transition:border-color .15s,background .15s;}
     #login-user:focus,#login-pass:focus{border-color:var(--text);background:#fff;box-shadow:0 0 0 3px rgba(61,112,106,.12);}
     #login-error{font-size:.72rem;color:#b15c44;margin:0;padding:0;}
     .login-submit-row{margin-top:4px;}
-    #login-form button{font-family:var(--font);font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:11px 24px;background:var(--text);color:#fff;border:none;border-radius:0;cursor:pointer;transition:opacity .12s;}
+    .login-footer{font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:#c8c4bc;margin-top:20px;text-align:center;}
+    #login-form button{font-family:var(--font);font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:11px 24px;width:100%;background:var(--text);color:#fff;border:none;border-radius:0;cursor:pointer;transition:opacity .12s;}
     #login-form button:hover{opacity:.72;}
     #login-form button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
     @keyframes login-shake{0%,100%{transform:translateX(0)}25%,75%{transform:translateX(-7px)}50%{transform:translateX(7px)}}
@@ -1231,17 +1232,18 @@
       <form id="login-form" autocomplete="off" novalidate>
         <div>
           <label class="login-label" for="login-user">Emri</label>
-          <input id="login-user" type="text" placeholder="Hao" autocomplete="off" spellcheck="false">
+          <input id="login-user" type="text" autocomplete="off" spellcheck="false">
         </div>
         <div>
           <label class="login-label" for="login-pass">Fjalëkalimi</label>
-          <input id="login-pass" type="password" placeholder="••••••" autocomplete="off">
+          <input id="login-pass" type="password" autocomplete="off">
         </div>
         <p id="login-error" hidden>Kredencialet janë të gabuara.</p>
         <div class="login-submit-row">
           <button type="submit">Hyr &#8594;</button>
         </div>
       </form>
+      <p class="login-footer">2026 &nbsp;&middot;&nbsp; Legjislacioni Shqiptar</p>
     </div>
   </div>
 
