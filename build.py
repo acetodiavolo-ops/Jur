@@ -279,7 +279,7 @@ def main():
             print(f"No matching law found for: {targets}")
             sys.exit(1)
 
-    cache_dir = os.path.join(OUT_DIR, '.pdf_cache')
+    cache_dir = os.environ.get('PDF_CACHE_DIR', os.path.join(OUT_DIR, '.pdf_cache'))
     os.makedirs(cache_dir, exist_ok=True)
     for law in laws:
         build_law(law, cache_dir)

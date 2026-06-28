@@ -27,7 +27,7 @@ jobs:
       - name: Cache law PDFs
         uses: actions/cache@v4
         with:
-          path: .pdf_cache
+          path: /home/runner/.pdf_cache
           key: law-pdfs-v1
 
       - name: Set up Python
@@ -36,6 +36,8 @@ jobs:
           python-version: '3.12'
 
       - name: Build law pages + RAG data
+        env:
+          PDF_CACHE_DIR: /home/runner/.pdf_cache
         run: |
           pip install pdfplumber gdown jinja2
           python build.py
