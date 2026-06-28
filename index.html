@@ -28,7 +28,7 @@
       color: var(--text);
       max-width: 760px;
       margin: 0 auto;
-      padding: 64px 32px 96px;
+      padding: 48px 32px 80px;
     }
 
     /* ── Hero ──────────────────────────────────── */
@@ -104,7 +104,7 @@
       border-radius: 0;
       padding: 24px 28px;
       background: #fafafa;
-      margin-bottom: 44px;
+      margin-bottom: 36px;
       position: relative;
       overflow: hidden;
     }
@@ -148,16 +148,19 @@
 
     /* ── Controls ──────────────────────────────── */
     .controls {
-      margin-bottom: 44px;
+      margin-bottom: 36px;
       display: flex;
-      flex-direction: column;
-      gap: 16px;
+      flex-direction: row;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 10px;
     }
 
     .filter-pills {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+      flex: 1;
     }
 
     .pill {
@@ -181,7 +184,8 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 11px 16px;
-      width: 100%;
+      width: 210px;
+      flex-shrink: 0;
       outline: none;
       color: var(--text);
       background: #fafafa;
@@ -191,7 +195,7 @@
     #law-search::placeholder { color: #a09b95; }
 
     /* ── Domain sections ───────────────────────── */
-    .domain-section { margin-bottom: 44px; }
+    .domain-section { margin-bottom: 36px; }
 
     .domain-header {
       display: flex;
@@ -278,7 +282,7 @@
 
     /* ── AI Teaser ─────────────────────────────── */
     .ai-teaser {
-      margin-top: 68px;
+      margin-top: 44px;
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 28px 32px;
@@ -923,9 +927,11 @@
 
     /* ── Mid-tablet ──────────────────────────── */
     @media (max-width: 660px) {
-      body { padding: 48px 22px 80px; }
+      body { padding: 36px 22px 64px; }
       h1 { font-size: 2.1rem; }
       .badge { display: none; }
+      .controls { flex-direction: column; gap: 12px; }
+      #law-search { width: 100%; }
       .ai-teaser { padding: 22px 20px; }
       .law-wizard,
       .compare-section, .case-study-section,
@@ -953,9 +959,15 @@
 
     /* ── Mobile ────────────────────────────────── */
     @media (max-width: 540px) {
-      body { padding: 40px 18px 72px; }
+      body { padding: 28px 18px 56px; }
       h1 { font-size: 1.75rem; line-height: 1.1; }
       .badge { display: none; }
+      .stats dd { font-size: 1.25rem; }
+      .stats > div { padding-right: 12px; margin-right: 12px; }
+      .law-of-day::before { font-size: 4rem; }
+      .opinion-trigger-wrap { padding: 14px 16px; }
+      .opinion-trigger-wrap::before { font-size: 3.5rem; }
+      .opinion-trigger-head { flex-direction: column; align-items: flex-start; gap: 10px; }
 
       /* Section padding */
       .law-of-day  { padding: 16px 18px; }
@@ -987,7 +999,7 @@
       .ca-hint { display: none; }
 
       /* Law rows - tighter */
-      .law-row a { gap: 10px; padding: 16px 0; }
+      .law-row a { gap: 10px; padding: 14px 8px; }
 
       /* Wizard / scenario */
       .w-pill  { font-size: 0.73rem; padding: 6px 12px; }
@@ -995,6 +1007,12 @@
 
       /* iOS zoom prevention - must be ≥16px */
       input, select, textarea { font-size: 16px !important; }
+    }
+
+    @media (max-width: 380px) {
+      .stats { flex-wrap: wrap; row-gap: 14px; }
+      .stats > div { flex: 0 0 calc(50% - 10px); border-right: none; padding-right: 0; margin-right: 0; }
+      .stats > div:nth-child(odd) { border-right: 1px solid var(--border); padding-right: 10px; margin-right: 10px; }
     }
 
     /* ── Opinion engine ──────────────────────────────────────────────────── */
