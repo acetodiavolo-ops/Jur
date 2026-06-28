@@ -3014,19 +3014,19 @@
       var FORMAL_HEADS = /^(FAKTE|BAZ[ËE] LIGJORE|BAZE LIGJORE|ANALIZ[ËE] LIGJORE|ANALIZE LIGJORE|KUND[ËE]RP[ËE]RGJIGJE|KUNDERPERGJIGJE|KONKLUZIONE|REKOMANDIME)\s*:?\s*$/;
       function inlineMd(t){ return t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/__([^_]+)__/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>'); }
       function mdToHtml(raw){
-        var lines = esc(raw).split('\n'), out = '', listType = null;
+        var lines = esc(raw).split('\n'), out = '', listType = null, olIdx = 0;
         function closeList(){ if(listType){ out += '</'+listType+'>'; listType = null; } }
         for(var i=0;i<lines.length;i++){
           var line=lines[i].trim();
           if(!line){ closeList(); continue; }
           var h=line.match(/^#{1,4}\s+(.*)$/);
-          if(h){ closeList(); out+='<h3 class="opinion-section-head">'+inlineMd(h[1])+'</h3>'; continue; }
-          if(FORMAL_HEADS.test(line)){ closeList(); out+='<h3 class="opinion-section-head">'+line.replace(/:$/,'')+'</h3>'; continue; }
+          if(h){ closeList(); olIdx=0; out+='<h3 class="opinion-section-head">'+inlineMd(h[1])+'</h3>'; continue; }
+          if(FORMAL_HEADS.test(line)){ closeList(); olIdx=0; out+='<h3 class="opinion-section-head">'+line.replace(/:$/,'')+'</h3>'; continue; }
           var ul=line.match(/^[-•*]\s+(.*)$/);
-          if(ul){ if(listType!=='ul'){ closeList(); out+='<ul class="opinion-md-list">'; listType='ul'; } out+='<li>'+inlineMd(ul[1])+'</li>'; continue; }
+          if(ul){ if(listType!=='ul'){ closeList(); olIdx=0; out+='<ul class="opinion-md-list">'; listType='ul'; } out+='<li>'+inlineMd(ul[1])+'</li>'; continue; }
           var ol=line.match(/^\d+[.)]\s+(.*)$/);
-          if(ol){ if(listType!=='ol'){ closeList(); out+='<ol class="opinion-md-list">'; listType='ol'; } out+='<li>'+inlineMd(ol[1])+'</li>'; continue; }
-          closeList(); out+='<p>'+inlineMd(line)+'</p>';
+          if(ol){ if(listType!=='ol'){ closeList(); out+='<ol class="opinion-md-list">'; listType='ol'; } out+='<li value="'+(++olIdx)+'">'+inlineMd(ol[1])+'</li>'; continue; }
+          closeList(); olIdx=0; out+='<p>'+inlineMd(line)+'</p>';
         }
         closeList(); return linkifyHtml(out);
       }
