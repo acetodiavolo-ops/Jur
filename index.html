@@ -1207,6 +1207,7 @@
     .op-qual-k{flex-shrink:0;min-width:130px;font-weight:600;color:var(--muted);text-transform:capitalize;}
     .op-qual-v{color:#2c2a25;}
     .op-doc-concl{margin-top:14px;padding:12px 14px;background:#fdfaf3;border:1px solid #ecd9ac;border-radius:7px;font-size:.86rem;line-height:1.62;color:#3a3833;}
+    .opinion-block-doctrine{background:#fbfbf7;}
     @media (max-width:600px){.op-el-grid{grid-template-columns:1fr;}.op-el-list{grid-template-columns:1fr;}.op-el-list dt{padding-top:7px;}.op-qual-k{min-width:0;}}
 
     .opinion-doc-footer{padding:20px 28px;border-top:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
@@ -3003,10 +3004,9 @@
     (function () {
       'use strict';
 
-      var USE_MOCK       = false;
       var GROQ_URL       = 'https://api.groq.com/openai/v1/chat/completions';
       var MODEL          = 'llama-3.3-70b-versatile';
-      var PARALLEL_LIMIT = 4;
+      var PARALLEL_LIMIT = 5;
       var MAX_RETRIES    = 3;
 
       function $(id){ return document.getElementById(id); }
@@ -3253,7 +3253,8 @@
         var block=$('op-references-block'),el=$('op-out-references');
         var g=store.grounding||{found:[],missing:[],nums:{}};
 
-        var corpus=[store.opposition,store.jurisprudence,store.opinion].filter(Boolean).join('\n');
+        var docText=store.doctrine?JSON.stringify(store.doctrine):'';
+        var corpus=[store.opposition,store.jurisprudence,store.opinion,docText].filter(Boolean).join('\n');
         var citedNums={},m,artRe=/\b[Nn]eni(?:t|n|ve)?\s+(\d+(?:\/[\w]+)?)/g;
         while((m=artRe.exec(corpus))!==null) citedNums[m[1].split('/')[0]]=true;
 
@@ -3333,7 +3334,7 @@
         if(!d||!d.kuadri||!d.kuadri.length){ if(block) block.hidden=true; return; }
         if(block) block.hidden=false;
         function txt(s){ return linkifyHtml(esc(String(s==null?'':s))); }
-        if(labelEl){ labelEl.textContent=(d.framework==='penale')?'Përbërja e Veprës Penale':'Elementet e Përgjegjësisë Juridike'; }
+        if(labelEl){ labelEl.textContent=(store.type==='penale')?'Përbërja e Veprës Penale':'Elementet e Përgjegjësisë Juridike'; }
         function assess(v){ v=String(v||'').toLowerCase(); if(v.indexOf('plot')===0) return {c:'#3d706a',t:'Plotësuar',cls:'op-el-ok'}; if(v.indexOf('mung')===0) return {c:'#b15c44',t:'Mungon',cls:'op-el-no'}; return {c:'#b8923a',t:'Pjesërisht',cls:'op-el-part'}; }
         var html=d.vepra?'<p class="op-doc-vepra"><span>Natyra</span>'+txt(d.vepra)+'</p>':'';
         html+='<div class="op-el-grid">';
@@ -3364,7 +3365,7 @@
       function generate(){
         if(running) return;
         $('opinion-form-error').hidden=true;
-        if(!USE_MOCK&&keyMissing()){ showError('Çelësi i AI mungon.'); return; }
+        if(keyMissing()){ showError('Çelësi i AI mungon.'); return; }
         var type=$('opinion-type').value, facts=$('opinion-facts').value.trim(), parties=$('opinion-parties').value.trim(), goal=$('opinion-goal').value.trim();
         if(!facts){ showError('Përshkruaj faktet dhe situatën për të vazhduar.'); $('opinion-facts').focus(); return; }
         var ctx='Lloji: çështje '+type+'.\nFaktet: '+facts+(parties?'\nPalët: '+parties:'')+(goal?'\nQëllimi: '+goal:'');
@@ -3374,6 +3375,7 @@
         $('opinion-progress').hidden=false;
         resetRows();
         var store={};
+        store.type=type;
         rowActive(0);
         runCall(1,'Jeni analist ligjor shqiptar me përvojë. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas dhe pa shenja ```.'+ANTI_HALLUC,
           ctx+'\n\nIdentifiko 3–5 ligjet shqiptare më relevante dhe nenet kryesore zbatuese (ji gjithëpërfshirës: deri në 8 nene gjithsej, vetëm nene për të cilat je i sigurt).\nJSON: {"laws":[{"name":"...","articles":["..."],"relevance":"..."}],"issues":["..."],"arguments":["..."]}',600,0.15)
@@ -3411,7 +3413,7 @@
                 return runCall(8,spec.sys,
                   'SITUATA:\n'+ctx+'\n\nBazë ligjore:\n'+store.lawList+GT+
                   '\n\nKryej dekompozimin doktrinor të çështjes. Për çdo element jep vlerësimin "plotesuar", "pjeserisht" ose "munget" te fusha "vleresim", dhe te "shenim" shpjego shkurt çfarë e provon elementin ose çfarë mungon për ta vërtetuar. Mbështetu te teksti zyrtar i neneve të dhëna; mos shpik numra ose vepra. Përdor SAKTËSISHT këtë strukturë JSON:\n'+spec.tmpl,
-                  1400,0.3)
+                  1900,0.3)
                 .then(function(v){ rowDone(6); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(6); return null; }); }
             ];
             return runLimited(tasks,PARALLEL_LIMIT);
