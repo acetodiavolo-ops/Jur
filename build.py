@@ -55,7 +55,7 @@ def download_pdf(drive_id: str, dest_path: str) -> bool:
         return True
     url = f"https://drive.google.com/uc?id={drive_id}"
     try:
-        gdown.download(url, dest_path, quiet=False, fuzzy=True)
+        gdown.download(url, dest_path, quiet=False)
         return os.path.exists(dest_path) and os.path.getsize(dest_path) > 1000
     except Exception as e:
         print(f"  ✗ Download failed: {e}", file=sys.stderr)
