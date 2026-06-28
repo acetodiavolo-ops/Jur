@@ -350,14 +350,14 @@ const _chipPrompts = {
   vocab:   'Listo 10 termat juridikë kryesorë nga ky ligj dhe shpjegoji me fjalë të thjeshta.',
   history: 'Pse u miratua ky ligj? Çfarë problemi zgjidhi historikisht dhe kur hyri në fuqi?',
   hard:       'Cilat janë 5 nenet më të vështira ose më të debatueshme të këtij ligji dhe pse?',
-  obligimet:  'Për ligjin "' + _lawTitle + '", listo të gjitha detyrimet ligjore si matricë.\nForma: "• [Kush]: [çfarë] — [kur/si]"\nGrupo sipas subjektit: shteti, individi, biznesi, gjykata. Bëhu konkret dhe i plotë.',
-  lidhjet:    'Ligji aktual është "' + _lawTitle + '". Nga ky koleksion ligjesh shqiptare: Kushtetuta, Kodi Civil, Kodi Penal, Kodi i Procedurës Civile, Kodi i Procedurës Penale, Kodi i Familjes, Kodi Rrugor, Kodi Ajror, Kodi Doganor, Kodi i Drejtësisë Penale për të Mitur, Dispozita Zbatuese të Kodit Doganor, Ligji për Shoqëritë Tregtare, Ligji për Falimentimin, Statusi i Gjyqtarëve dhe Prokurorëve, Organizimi i Pushtetit Gjyqësor, Ligji për Noterinë, Shërbimi Përmbarimor Gjyqësor Privat — cilat kanë lidhje me ligjin aktual dhe pse? Listo 3-5 me emër të plotë dhe 1 fjali shpjeguese secili.',
-  risk:       'Për ligjin "' + _lawTitle + '", cilat janë 5 dispozitat me sanksionet më të rënda ose detyrimet më strikte? Listoja kështu:\n"Neni X — [veprimi ose detyrimi] — [sanksioni konkret]"\nRenditi nga sanksioni më i rëndë te ai më i lehtë.',
+  obligimet:  'Për ligjin "' + _lawTitle + '", listo të gjitha detyrimet ligjore si matricë.\nForma: "• [Kush]: [çfarë] - [kur/si]"\nGrupo sipas subjektit: shteti, individi, biznesi, gjykata. Bëhu konkret dhe i plotë.',
+  lidhjet:    'Ligji aktual është "' + _lawTitle + '". Nga ky koleksion ligjesh shqiptare: Kushtetuta, Kodi Civil, Kodi Penal, Kodi i Procedurës Civile, Kodi i Procedurës Penale, Kodi i Familjes, Kodi Rrugor, Kodi Ajror, Kodi Doganor, Kodi i Drejtësisë Penale për të Mitur, Dispozita Zbatuese të Kodit Doganor, Ligji për Shoqëritë Tregtare, Ligji për Falimentimin, Statusi i Gjyqtarëve dhe Prokurorëve, Organizimi i Pushtetit Gjyqësor, Ligji për Noterinë, Shërbimi Përmbarimor Gjyqësor Privat - cilat kanë lidhje me ligjin aktual dhe pse? Listo 3-5 me emër të plotë dhe 1 fjali shpjeguese secili.',
+  risk:       'Për ligjin "' + _lawTitle + '", cilat janë 5 dispozitat me sanksionet më të rënda ose detyrimet më strikte? Listoja kështu:\n"Neni X - [veprimi ose detyrimi] - [sanksioni konkret]"\nRenditi nga sanksioni më i rëndë te ai më i lehtë.',
   args:       'Për ligjin "' + _lawTitle + '", gjej 3 çështje juridike kryesore ku palë të ndryshme kanë pozicione kontradiktore. Për secilën:\n"Çështja X: [titulli]\nPRO: [argumentet ligjore që mbrojnë palën e favorshme]\nKUNDËR: [argumentet ligjore të palës tjetër]\nNenet: [lista e neneve konkrete]"',
   procedura:    'Për ligjin "' + _lawTitle + '", shpjego procedurën zyrtare hap pas hapi: kush e inicijon, çfarë afatesh ka, cilat organe janë kompetente, dhe çfarë dokumentesh lëvizen. Bëhu konkret dhe praktik.',
   shkelje:      'Jep 4-5 shembuj konkretë dhe realë të si shkelet ligji "' + _lawTitle + '" në praktikë. Për secilin: situata, kush shkel, pasoja ligjore (gjobë / burg / pezullim).',
   jurisprudence:'Si e kanë interpretuar gjykatat shqiptare dhe GJEDNJ-ja ligjin "' + _lawTitle + '"? Trego parimet kryesore jurisprudenciale, mënyrën e zbatimit praktik, dhe debatet kryesore ligjore.',
-  kushtet:  'Për ligjin "' + _lawTitle + '", cilat janë kushtet e detyrueshme (elementët paraprakë) që duhet të ekzistojnë që ky ligj të zbatohet? Listo si matricë: "• Kushti X: [çfarë duhet të jetë e vërtetë]". Përqendrohu vetëm te parakushtet — jo te pasojat.',
+  kushtet:  'Për ligjin "' + _lawTitle + '", cilat janë kushtet e detyrueshme (elementët paraprakë) që duhet të ekzistojnë që ky ligj të zbatohet? Listo si matricë: "• Kushti X: [çfarë duhet të jetë e vërtetë]". Përqendrohu vetëm te parakushtet - jo te pasojat.',
   ndrysho:  'Çfarë ndryshimesh dhe amendamentesh janë bërë ligjit "' + _lawTitle + '" pas miratimit origjinal? Trego çfarë u ndryshua, kur (nëse dihet), dhe pse. Nëse nuk ke të dhëna specifike, trego tendencën e reformave ligjore shqiptare në këtë fushë.',
   eu:       'Krahaso ligjin "' + _lawTitle + '" me standardet dhe direktivat e BE-së në të njëjtën fushë. Trego: çfarë kërkon BE-ja, çfarë parashikon ligji shqiptar, ku janë boshllëqet kryesore, dhe çfarë reformash nevojiten për afrimin europian.'
 };
@@ -419,7 +419,7 @@ if (content) {
         { label: 'Shembull', fn: t => 'Jep një shembull praktik ku zbatohet ky nen: "' + t + '"' },
         { label: 'Lista',    fn: t => 'Kthe këtë nen në listë kontrolli hap-pas-hapi: "' + t + '"' },
         { label: 'Anglisht', fn: t => 'Translate this article to English: "' + t + '"' },
-        { label: 'Citatë',   fn: t => 'Format as Albanian legal citation — ' + _lawTitle + ', ' + _lawRef + '. Text: "' + t.slice(0, 120) + '"' },
+        { label: 'Citatë',   fn: t => 'Format as Albanian legal citation - ' + _lawTitle + ', ' + _lawRef + '. Text: "' + t.slice(0, 120) + '"' },
         { label: 'Detyrime', fn: t => 'Çfarë detyrimesh ligjore krijon ky nen dhe për cilat subjekte: "' + t + '"' },
         { label: 'Afate',    fn: t => 'Cilat afate kohore ose afate parashkrimi përcakton ky nen: "' + t + '"' },
         { label: 'Klauzolë', fn: t => 'Shkruaj një klauzolë kontraktuale profesionale shqipe që zbaton kërkesat e këtij neni: "' + t + '". Klauzola të jetë e plotë, juridikisht e saktë dhe e gatshme për t\'u përdorur.' }
@@ -748,7 +748,7 @@ if (_afateLh && content) {
         max_tokens: 700,
         messages: [
           { role: 'system', content: 'Jepni lista të strukturuara afatesh ligjore në shqip.' },
-          { role: 'user',   content: 'Ekstrakt nga teksti i ligjit "' + _lawTitle + '" të gjitha afatet kohore, afatet e parashkrimit dhe detyrimet me afat specifik.\nFormato si listë: "Neni X — [kush] — [çfarë] — [sa kohë]".\nNëse nuk ka afate, thuaj: "Nuk ka afate të përcaktuara."\n\nTeksti:\n' + content.innerText.slice(0, 6000) }
+          { role: 'user',   content: 'Ekstrakt nga teksti i ligjit "' + _lawTitle + '" të gjitha afatet kohore, afatet e parashkrimit dhe detyrimet me afat specifik.\nFormato si listë: "Neni X - [kush] - [çfarë] - [sa kohë]".\nNëse nuk ka afate, thuaj: "Nuk ka afate të përcaktuara."\n\nTeksti:\n' + content.innerText.slice(0, 6000) }
         ]
       })
     })
@@ -787,7 +787,7 @@ if (_tocLabelEl && _tocListEl) {
         max_tokens: 600,
         messages: [
           { role: 'system', content: 'Jepni përshkrime të shkurtra seksionesh ligjore.' },
-          { role: 'user',   content: 'Për secilin kreu/seksion të ligjit "' + _lawTitle + '", shkruaj 1 fjali (max 10 fjalë).\nFormato: "TITULLI EKZAKT|përshkrimi" — një rresht për titull:\n\n' + labels.join('\n') }
+          { role: 'user',   content: 'Për secilin kreu/seksion të ligjit "' + _lawTitle + '", shkruaj 1 fjali (max 10 fjalë).\nFormato: "TITULLI EKZAKT|përshkrimi" - një rresht për titull:\n\n' + labels.join('\n') }
         ]
       })
     })

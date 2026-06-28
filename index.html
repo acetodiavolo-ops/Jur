@@ -963,7 +963,7 @@
       .rights-section, .court-section, .evidence-section, .timeline-section,
       .nego-section, .inherit-section, .biz-section, .consumer-section { padding: 18px 16px; }
 
-      /* Select / input min-width — prevent overflow */
+      /* Select / input min-width - prevent overflow */
       .compare-select, #cs-law, #dd-type, #ed-type,
       #pen-type, #sol-type, #evidence-type, #timeline-type,
       #nego-type, #inherit-status, #inherit-children, #inherit-parents,
@@ -978,14 +978,14 @@
       #sol-date, #ca-btn { width: 100%; }
       .ca-hint { display: none; }
 
-      /* Law rows — tighter */
+      /* Law rows - tighter */
       .law-row a { gap: 10px; padding: 16px 0; }
 
       /* Wizard / scenario */
       .w-pill  { font-size: 0.73rem; padding: 6px 12px; }
       .sc-btn  { font-size: 0.7rem;  padding: 6px 10px; }
 
-      /* iOS zoom prevention — must be ≥16px */
+      /* iOS zoom prevention - must be ≥16px */
       input, select, textarea { font-size: 16px !important; }
     }
 
@@ -1113,6 +1113,26 @@
     .opinion-law-link{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(61,112,106,.35);}
     .opinion-law-link:hover{border-bottom-color:var(--accent);}
 
+    /* ── Section G - References to verify ── */
+    .opinion-block-g{background:#fcfbf7;}
+    .op-ref-intro{font-size:.8rem;line-height:1.62;color:#5a564f;margin:0 0 16px;}
+    .op-ref-intro b{color:#26241f;font-weight:700;}
+    .op-ref-count{font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+    .op-ref-group{margin-bottom:16px;}
+    .op-ref-group:last-child{margin-bottom:0;}
+    .op-ref-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;}
+    .op-ref{display:flex;align-items:center;gap:10px;font-size:.86rem;line-height:1.45;padding:8px 12px;border:1px solid var(--border);border-radius:7px;background:#fff;}
+    .op-ref-icon{flex-shrink:0;font-size:.84rem;line-height:1;font-weight:700;width:14px;text-align:center;}
+    .op-ref-ok{border-color:rgba(61,112,106,.3);}
+    .op-ref-ok .op-ref-icon{color:#3d706a;}
+    .op-ref-warn{border-color:rgba(184,146,58,.45);background:#fffdf7;}
+    .op-ref-warn .op-ref-icon{color:#b8923a;}
+    .op-ref-decision{border-color:rgba(177,92,68,.45);background:#fdf8f5;}
+    .op-ref-decision .op-ref-icon{color:#b15c44;}
+    .op-ref-label{flex:1;}
+    .op-ref-hint{flex-shrink:0;font-size:.6rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:#f2efe7;border-radius:4px;padding:3px 8px;}
+    @media (max-width:600px){.op-ref{flex-wrap:wrap;gap:7px;}.op-ref-hint{margin-left:24px;}}
+
     .opinion-doc-footer{padding:20px 28px;border-top:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
     .opinion-print-btn,.opinion-restart-btn{font-family:var(--font);font-size:.82rem;font-weight:600;padding:10px 18px;border-radius:7px;cursor:pointer;transition:transform .12s,box-shadow .12s;}
     .opinion-print-btn{background:var(--text);color:#fff;border:none;}
@@ -1166,7 +1186,7 @@
       <button id="opinion-open-btn" class="opinion-open-btn" type="button">
         Analizë Ligjore e Plotë <span class="opinion-badge">AI · 7 hapa</span>
       </button>
-      <p class="opinion-trigger-sub">Identifikim ligjesh · Vlerësim pozicioni · Simulim kundërshtari · Jurisprudencë · Parashikim risku &amp; kostoje · Plan veprimi · Mendim formal — shtatë analiza të lidhura me njëra-tjetrën.</p>
+      <p class="opinion-trigger-sub">Identifikim ligjesh · Vlerësim pozicioni · Simulim kundërshtari · Jurisprudencë · Parashikim risku &amp; kostoje · Plan veprimi · Mendim formal - shtatë analiza të lidhura me njëra-tjetrën.</p>
     </div>
 
     <!-- Law of the Day -->
@@ -1760,8 +1780,8 @@
 
     <section class="nego-section">
       <span class="nego-label">Strategji negocimi</span>
-      <textarea id="nego-pos1" placeholder="Pozicioni yt / kjo palë — çfarë kërkon dhe pretendon" rows="2"></textarea>
-      <textarea id="nego-pos2" placeholder="Pozicioni i palës tjetër — çfarë ata thonë ose pretendojnë" rows="2"></textarea>
+      <textarea id="nego-pos1" placeholder="Pozicioni yt / kjo palë - çfarë kërkon dhe pretendon" rows="2"></textarea>
+      <textarea id="nego-pos2" placeholder="Pozicioni i palës tjetër - çfarë ata thonë ose pretendojnë" rows="2"></textarea>
       <div class="nego-row">
         <select id="nego-type">
           <option value="">Lloji i disputit…</option>
@@ -1803,7 +1823,7 @@
           <option>Asnjë prind gjallë</option>
         </select>
       </div>
-      <textarea id="inherit-details" placeholder="Detaje shtesë — testament, prona specifike, trashëgimtarë të tjerë (opsionale)" rows="2"></textarea>
+      <textarea id="inherit-details" placeholder="Detaje shtesë - testament, prona specifike, trashëgimtarë të tjerë (opsionale)" rows="2"></textarea>
       <div class="inherit-row">
         <button id="inherit-btn">Llogarit trashëgiminë &#8594;</button>
       </div>
@@ -1858,6 +1878,133 @@
 
   </main>
 
+  <!-- Legal Opinion Engine modal -->
+  <div id="opinion-modal" class="opinion-modal" role="dialog" aria-modal="true" aria-labelledby="opinion-modal-title" hidden>
+    <div class="opinion-modal-inner" id="opinion-modal-inner">
+      <div class="opinion-modal-header">
+        <span id="opinion-modal-title">Analizë Ligjore e Plotë - AI</span>
+        <button id="opinion-close" type="button" aria-label="Mbyll">✕</button>
+      </div>
+
+      <!-- INPUT PHASE -->
+      <div id="opinion-form" class="opinion-form">
+        <div class="opinion-form-row">
+          <label for="opinion-type">Lloji i çështjes</label>
+          <select id="opinion-type">
+            <option value="civile">Çështje Civile</option>
+            <option value="penale">Çështje Penale</option>
+            <option value="tregtare">Çështje Tregtare / Biznesi</option>
+            <option value="administrative">Çështje Administrative</option>
+            <option value="familjare">E Drejtë Familjare</option>
+            <option value="pune">E Drejtë Pune</option>
+            <option value="prone">E Drejtë Prone / Pasurie</option>
+            <option value="konsumator">Mbrojtja e Konsumatorit</option>
+          </select>
+        </div>
+        <div class="opinion-form-row">
+          <label for="opinion-facts">Faktet dhe situata</label>
+          <textarea id="opinion-facts" placeholder="Çfarë ndodhi, kur, ku dhe çfarë veprimesh u ndërmorën? Sa më shumë detaje, aq më e saktë analiza." rows="6"></textarea>
+        </div>
+        <div class="opinion-form-row">
+          <label for="opinion-parties">Palët e përfshira (opsionale)</label>
+          <textarea id="opinion-parties" placeholder="Individë, kompani, institucione - dhe marrëdhënia mes tyre." rows="3"></textarea>
+        </div>
+        <div class="opinion-form-row">
+          <label for="opinion-goal">Qëllimi juaj (opsionale)</label>
+          <textarea id="opinion-goal" placeholder="Çfarë doni të arrini? Kompensim, anulim kontrate, mbrojtje penale…" rows="2"></textarea>
+        </div>
+        <div id="opinion-form-error" class="opinion-form-error" hidden></div>
+        <button id="opinion-generate-btn" class="opinion-generate-btn" type="button">Fillo Analizën →</button>
+        <p class="opinion-form-note">Ky mjet krijon një analizë me inteligjencë artificiale, vetëm për qëllime informative. Nuk është këshillë ligjore dhe nuk zëvendëson një avokat të licencuar. Verifikoni gjithmonë nenet dhe vendimet e cituara.</p>
+      </div>
+
+      <!-- PROGRESS PHASE -->
+      <div id="opinion-progress" class="opinion-progress" role="status" aria-live="polite" hidden>
+        <div class="opinion-step" id="op-step-1">
+          <span class="op-step-icon">⚖</span>
+          <div><div class="op-step-label">Identifikim i bazës ligjore</div><div class="op-step-sub">Ligjet dhe nenet zbatuese të të drejtës shqiptare</div></div>
+        </div>
+        <div class="opinion-step" id="op-step-2">
+          <span class="op-step-icon">§</span>
+          <div><div class="op-step-label">Vlerësim i pozicionit tuaj</div><div class="op-step-sub">Forcat, dobësitë dhe pikë-vlerësimi i çështjes</div></div>
+        </div>
+        <div class="op-parallel-group">
+          <div class="op-parallel-tag">Hapat 3–6 kryhen njëkohësisht</div>
+          <div class="opinion-step" id="op-step-3">
+            <span class="op-step-icon">⚔</span>
+            <div><div class="op-step-label">Simulim i kundërshtarit</div><div class="op-step-sub">Argumentet më të forta kundër pozicionit tuaj</div></div>
+          </div>
+          <div class="opinion-step" id="op-step-4">
+            <span class="op-step-icon">⚜</span>
+            <div><div class="op-step-label">Jurisprudencë &amp; praktikë</div><div class="op-step-sub">Si kanë vendosur gjykatat shqiptare në raste të ngjashme</div></div>
+          </div>
+          <div class="opinion-step" id="op-step-5">
+            <span class="op-step-icon">📊</span>
+            <div><div class="op-step-label">Parashikim risku &amp; kostoje</div><div class="op-step-sub">Gjasat e suksesit, kostoja dhe kohëzgjatja e mundshme</div></div>
+          </div>
+          <div class="opinion-step" id="op-step-6">
+            <span class="op-step-icon">🧭</span>
+            <div><div class="op-step-label">Plan veprimi &amp; prova</div><div class="op-step-sub">Hapat konkretë, provat dhe afatet</div></div>
+          </div>
+        </div>
+        <div class="opinion-step" id="op-step-7">
+          <span class="op-step-icon">📄</span>
+          <div><div class="op-step-label">Mendimi ligjor formal</div><div class="op-step-sub">Dokument i strukturuar bazuar në të gjitha analizat</div></div>
+        </div>
+      </div>
+
+      <!-- OUTPUT PHASE -->
+      <div id="opinion-output" class="opinion-output" hidden>
+        <div class="opinion-doc-banner">Analizë e krijuar nga AI. Mund të përmbajë pasaktësi - verifikoni nenet dhe vendimet para se të veproni, dhe konsultohuni me një avokat, veçanërisht në çështje penale.</div>
+        <div class="opinion-doc-header">
+          <div class="opinion-doc-eyebrow">Analizë Ligjore e Plotë</div>
+          <div class="opinion-doc-meta" id="opinion-doc-meta"></div>
+        </div>
+        <div class="opinion-section-block opinion-block-a">
+          <div class="opinion-block-label">Analiza Paraprake</div>
+          <div class="opinion-strength-wrap">
+            <div class="opinion-strength-track"><div class="opinion-strength-bar" id="op-strength-bar"></div></div>
+            <div class="opinion-strength-score" id="op-strength-score"></div>
+          </div>
+          <div id="op-out-analysis" class="opinion-section-body"></div>
+        </div>
+        <div class="opinion-section-block opinion-block-b">
+          <div class="opinion-block-label">Kundërshtimi i Mundshëm</div>
+          <div id="op-out-opposition" class="opinion-section-body"></div>
+        </div>
+        <div class="opinion-section-block opinion-block-c">
+          <div class="opinion-block-label">Jurisprudenca &amp; Praktika Gjyqësore</div>
+          <div id="op-out-jurisprudence" class="opinion-section-body"></div>
+        </div>
+        <div class="opinion-section-block opinion-block-d">
+          <div class="opinion-block-label">Parashikimi i Riskut &amp; Kostos</div>
+          <div id="op-out-forecast" class="opinion-section-body"></div>
+        </div>
+        <div class="opinion-section-block opinion-block-e">
+          <div class="opinion-block-label">Plani i Veprimit</div>
+          <div id="op-out-plan" class="opinion-section-body"></div>
+        </div>
+        <div class="opinion-section-block opinion-block-f">
+          <div class="opinion-block-label">Mendimi Ligjor</div>
+          <div id="op-out-opinion" class="opinion-section-body opinion-serif"></div>
+        </div>
+
+        <!-- G - References to verify (client-side scan; zero extra API calls) -->
+        <div class="opinion-section-block opinion-block-g" id="op-references-block" hidden>
+          <div class="opinion-block-label">Referencat për Verifikim</div>
+          <div id="op-out-references" class="opinion-section-body"></div>
+        </div>
+
+        <div class="opinion-doc-footer">
+          <button id="opinion-print-btn" class="opinion-print-btn" type="button">Printo / Shkarko PDF</button>
+          <button id="opinion-restart-btn" class="opinion-restart-btn" type="button">Analizë e re</button>
+          <p class="opinion-disclaimer">Dokument informativ i krijuar nga AI · Nuk përbën këshillë ligjore · Verifikoni bazën ligjore me burime zyrtare.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <script src="config.js"></script>
   <script>
     'use strict';
@@ -1872,24 +2019,24 @@
     var _SYS_HOME =
       'Jeni asistent ligjor i specializuar në legjislacionin shqiptar. ' +
       'Kjo platformë përmban 18 akte ligjore:\n\n' +
-      '1. Kushtetuta e Republikës së Shqipërisë (1998) — të drejtat themelore, ndarje pushtetesh\n' +
-      '2. Kodi Civil — prona, kontratat, detyrimet, trashëgimia\n' +
-      '3. Kodi Penal — veprat penale dhe dënimet\n' +
-      '4. Kodi i Procedurës Civile — procesi gjyqësor civil\n' +
-      '5. Kodi i Procedurës Penale — procesi penal, të drejtat e të pandehurit\n' +
-      '6. Kodi i Familjes — martesa, divorci, kujdestaria, birësimi\n' +
-      '7. Kodi Rrugor — trafiku, lejet e drejtimit, aksidentet\n' +
-      '8. Kodi Ajror — aviacioni civil, operatorët ajrorë\n' +
-      '9. Kodi Doganor — importi, eksporti, tarifat doganore\n' +
-      '10. Kodi i Drejtësisë Penale për të Mitur — personat nën 18 vjeç\n' +
-      '11. Dispozita Zbatuese të Kodit Doganor — procedura doganore të detajuara\n' +
-      '12. Ligj për Tregtarët dhe Shoqëritë Tregtare — sh.p.k., sh.a., bizneset\n' +
-      '13. Ligj për Falimentimin — procedurat e falimentimit\n' +
-      '14. Statusi i Gjyqtarëve dhe Prokurorëve — karriera gjyqësore\n' +
-      '15. Organizimi i Pushtetit Gjyqësor — struktura e gjykatave\n' +
+      '1. Kushtetuta e Republikës së Shqipërisë (1998) - të drejtat themelore, ndarje pushtetesh\n' +
+      '2. Kodi Civil - prona, kontratat, detyrimet, trashëgimia\n' +
+      '3. Kodi Penal - veprat penale dhe dënimet\n' +
+      '4. Kodi i Procedurës Civile - procesi gjyqësor civil\n' +
+      '5. Kodi i Procedurës Penale - procesi penal, të drejtat e të pandehurit\n' +
+      '6. Kodi i Familjes - martesa, divorci, kujdestaria, birësimi\n' +
+      '7. Kodi Rrugor - trafiku, lejet e drejtimit, aksidentet\n' +
+      '8. Kodi Ajror - aviacioni civil, operatorët ajrorë\n' +
+      '9. Kodi Doganor - importi, eksporti, tarifat doganore\n' +
+      '10. Kodi i Drejtësisë Penale për të Mitur - personat nën 18 vjeç\n' +
+      '11. Dispozita Zbatuese të Kodit Doganor - procedura doganore të detajuara\n' +
+      '12. Ligj për Tregtarët dhe Shoqëritë Tregtare - sh.p.k., sh.a., bizneset\n' +
+      '13. Ligj për Falimentimin - procedurat e falimentimit\n' +
+      '14. Statusi i Gjyqtarëve dhe Prokurorëve - karriera gjyqësore\n' +
+      '15. Organizimi i Pushtetit Gjyqësor - struktura e gjykatave\n' +
       '16. Organizimi i Pushtetit Gjyqësor (i përditësuar)\n' +
-      '17. Ligj për Noterinë — aktet noteriale\n' +
-      '18. Shërbimi Përmbarimor Gjyqësor Privat — ekzekutimi i vendimeve\n\n' +
+      '17. Ligj për Noterinë - aktet noteriale\n' +
+      '18. Shërbimi Përmbarimor Gjyqësor Privat - ekzekutimi i vendimeve\n\n' +
       'Ndihmoni përdoruesin të gjejë ligjin e duhur dhe kuptojë dispozitat. ' +
       'Nëse pyetja është shqip, përgjigjuni shqip. Nëse është anglisht, përgjigjuni anglisht. ' +
       'Jini të saktë dhe konciz (3-5 fjali).';
@@ -2384,7 +2531,7 @@
           max_tokens: 300,
           messages: [
             { role: 'system', content: 'Jeni jurist shqiptar i specializuar në afatet ligjore dhe parashkrimin.' },
-            { role: 'user',   content: 'Data e ngjarjes: ' + fmt + '\nLloji: ' + type + '\nSipas legjislacionit shqiptar, a ka skaduar parashkrimi për këtë rast? Jep:\n1) Afati ligjor i parashkrimit (vitet) dhe neni konkret\n2) Data e skadimit bazuar në datën e dhënë\n3) Nëse ka skaduar — si mund të riaktivizohet (nëse është e mundur)\n4) Nëse nuk ka skaduar — sa kohë ka mbetur' }
+            { role: 'user',   content: 'Data e ngjarjes: ' + fmt + '\nLloji: ' + type + '\nSipas legjislacionit shqiptar, a ka skaduar parashkrimi për këtë rast? Jep:\n1) Afati ligjor i parashkrimit (vitet) dhe neni konkret\n2) Data e skadimit bazuar në datën e dhënë\n3) Nëse ka skaduar - si mund të riaktivizohet (nëse është e mundur)\n4) Nëse nuk ka skaduar - sa kohë ka mbetur' }
           ]
         })
       })
@@ -2824,7 +2971,7 @@
         var pct=Math.max(0,Math.min(10,score)), col=pct>=7?'#3d706a':pct>=4?'#b8923a':'#b15c44';
         var bar=$('op-strength-bar');
         requestAnimationFrame(function(){ bar.style.width=(pct*10)+'%'; bar.style.background=col; });
-        var el=$('op-strength-score'); el.textContent=pct.toFixed(1)+' / 10'+(s.label?' — '+s.label:''); el.style.color=col;
+        var el=$('op-strength-score'); el.textContent=pct.toFixed(1)+' / 10'+(s.label?' - '+s.label:''); el.style.color=col;
       }
 
       function renderAnalysis(laws, s){
@@ -2863,11 +3010,102 @@
         var html='';
         steps_.forEach(function(s,i){ html+='<div class="op-plan-step"><div class="op-plan-num">'+(i+1)+'</div><div class="op-plan-body"><div class="op-plan-action">'+esc(s.action)+'</div><div class="op-plan-meta">'+priorityPill(s.priority)+(s.deadline?'<span class="op-pill op-pill-deadline">'+esc(s.deadline)+'</span>':'')+'</div></div></div>'; });
         if(p&&p.evidence&&p.evidence.length){ html+='<p class="op-subhead op-amber" style="margin-top:18px;">Prova për t\'u siguruar</p><ul class="op-checklist">'; p.evidence.forEach(function(e){ html+='<li>'+esc(e)+'</li>'; }); html+='</ul>'; }
-        if(p&&p.deadlines&&p.deadlines.length){ html+='<p class="op-subhead op-red" style="margin-top:18px;">Afate kritike</p>'; p.deadlines.forEach(function(d){ html+='<div class="op-deadline-note"><div><strong>'+esc(d.what)+'</strong>'+(d.timeframe?' — '+esc(d.timeframe):'')+'</div></div>'; }); }
+        if(p&&p.deadlines&&p.deadlines.length){ html+='<p class="op-subhead op-red" style="margin-top:18px;">Afate kritike</p>'; p.deadlines.forEach(function(d){ html+='<div class="op-deadline-note"><div><strong>'+esc(d.what)+'</strong>'+(d.timeframe?' - '+esc(d.timeframe):'')+'</div></div>'; }); }
         el.innerHTML=html;
       }
 
       function renderText(elId,raw){ $(elId).innerHTML=raw?mdToHtml(raw):DEGRADED; }
+
+      function renderReferences(store){
+        var block=$('op-references-block'),el=$('op-out-references');
+
+        // Build a lookup of articles already accounted for by Call 1 structured data
+        var knownArticles={};
+        (store.laws||[]).forEach(function(l){
+          (l.articles||[]).forEach(function(a){
+            var norm=String(a).trim().replace(/^[Nn]eni(?:t|n|ve)?\s+/,'Neni ');
+            knownArticles[norm]=true;
+          });
+        });
+
+        // Confirmed laws - those in LAW_MAP (have a real page on the site)
+        var confirmed=[],seenLaw={};
+        (store.laws||[]).forEach(function(l){
+          var name=String(l.name||'').trim();
+          if(!name||seenLaw[name]) return;
+          seenLaw[name]=true;
+          var href=LAW_MAP[name]||null;
+          if(!href){
+            for(var i=0;i<LAW_NAMES_SORTED.length;i++){
+              var key=LAW_NAMES_SORTED[i];
+              if(name.indexOf(key)!==-1||key.indexOf(name)!==-1){href=LAW_MAP[key];break;}
+            }
+          }
+          if(href) confirmed.push({name:name,href:href,articles:l.articles||[]});
+        });
+
+        // Scan free-text for citations the AI produced but we can't confirm
+        var corpus=[store.opposition,store.jurisprudence,store.opinion].filter(Boolean).join('\n');
+
+        var artSeen={},m;
+        var artRe=/\b[Nn]eni(?:t|n|ve)?\s+(\d+(?:\/[a-z\d])?)/g;
+        while((m=artRe.exec(corpus))!==null){
+          var norm='Neni '+m[1]; if(!knownArticles[norm]) artSeen[norm]=true;
+        }
+        var articles=Object.keys(artSeen).sort();
+
+        var lnSeen={};
+        var lnRe=/Lig[jy](?:it|i|in|et)?\s+[Nn]r\.?\s*([\d]+(?:\/\d{2,4})?)/g;
+        while((m=lnRe.exec(corpus))!==null){ lnSeen['Ligji nr. '+m[1]]=true; }
+        var lawNums=Object.keys(lnSeen).sort();
+
+        var decSeen={};
+        var decRe=/[Vv]endim(?:in|it|et)?\s+(?:[Nn]r\.?\s*)?([\d]+(?:\/\d{2,4})?)/g;
+        while((m=decRe.exec(corpus))!==null){ decSeen['Vendim nr. '+m[1]]=true; }
+        var decisions=Object.keys(decSeen).sort();
+
+        var unverified=articles.concat(lawNums);
+        var total=confirmed.length+unverified.length+decisions.length;
+        if(!total){block.hidden=true;return;}
+        block.hidden=false;
+
+        var html='<p class="op-ref-intro"><b>'+total+' referencë ligjore</b> u identifikuan në analizë. '+
+          '<span style="color:#3d706a;font-weight:600">✓ E konfirmuar</span> - klikoni për të lexuar tekstin origjinal. '+
+          '<span style="color:#b8923a;font-weight:600">⚠ Verifiko</span> - citat i gjeneruar nga AI; kontrolloni te '+
+          '<a href="https://qbz.gov.al" target="_blank" rel="noopener noreferrer" class="opinion-law-link">QBZ</a> '+
+          'para se t\'u mbështetni.</p>';
+
+        if(confirmed.length){
+          html+='<div class="op-ref-group"><div class="op-ref-count">Ligje të konfirmuara - '+confirmed.length+'</div><ul class="op-ref-list">';
+          confirmed.forEach(function(l){
+            var label=esc(l.name)+(l.articles.length?' <span style="color:#b8923a;font-size:.78rem">'+esc(l.articles.join(', '))+'</span>':'');
+            html+='<li class="op-ref op-ref-ok"><span class="op-ref-icon">✓</span>'+
+              '<a href="'+esc(l.href)+'" target="_blank" rel="noopener noreferrer" class="opinion-law-link op-ref-label">'+label+'</a>'+
+              '<span class="op-ref-hint">faqja e ligjit</span></li>';
+          });
+          html+='</ul></div>';
+        }
+
+        if(unverified.length){
+          html+='<div class="op-ref-group"><div class="op-ref-count">Citate për verifikim - '+unverified.length+'</div><ul class="op-ref-list">';
+          unverified.forEach(function(r){
+            html+='<li class="op-ref op-ref-warn"><span class="op-ref-icon">⚠</span>'+
+              '<span class="op-ref-label">'+esc(r)+'</span><span class="op-ref-hint">verifiko</span></li>';
+          });
+          html+='</ul></div>';
+        }
+
+        if(decisions.length){
+          html+='<div class="op-ref-group"><div class="op-ref-count">Vendime gjyqësore të cituara - '+decisions.length+'</div><ul class="op-ref-list">';
+          decisions.forEach(function(r){
+            html+='<li class="op-ref op-ref-decision"><span class="op-ref-icon">⚠</span>'+
+              '<span class="op-ref-label">'+esc(r)+'</span><span class="op-ref-hint">verifiko QBZ</span></li>';
+          });
+          html+='</ul></div>';
+        }
+
+        el.innerHTML=html;
+      }
 
       var running=false;
       function showError(msg){ var box=$('opinion-form-error'); box.textContent=msg; box.hidden=false; }
@@ -2919,7 +3157,7 @@
           rowActive(6);
           var S=store.strength;
           return runCall(7,'Jeni jurist i lartë shqiptar. Shkruani mendim ligjor formal, të strukturuar dhe profesional. Citoni nenet si "Neni X i [Emri i Ligjit]" vetëm ku jeni i sigurt; shmangni shpikjen e numrave.',
-            'SITUATA:\n'+ctx+'\n\nLIGJET ZBATUESE:\n'+store.lawList+'\n\nFORCAT:\n'+((S.strengths||[]).join('\n')||'—')+'\n\nDOBËSITË:\n'+((S.weaknesses||[]).join('\n')||'—')+(store.opposition?'\n\nARGUMENTET KUNDËRSHTARE:\n'+store.opposition:'')+(store.jurisprudence?'\n\nJURISPRUDENCA:\n'+store.jurisprudence:'')+'\n\nDrafto MENDIM LIGJOR formal me seksionet (secili titull në krye rreshti):\nFAKTE\nBAZË LIGJORE\nANALIZË LIGJORE\nKUNDËRPËRGJIGJE\nKONKLUZIONE\nREKOMANDIME\n\nTe KUNDËRPËRGJIGJE, përgjigju argumenteve kundërshtare. Ji i plotë, specifik dhe profesional.',2400,0.45);
+            'SITUATA:\n'+ctx+'\n\nLIGJET ZBATUESE:\n'+store.lawList+'\n\nFORCAT:\n'+((S.strengths||[]).join('\n')||'-')+'\n\nDOBËSITË:\n'+((S.weaknesses||[]).join('\n')||'-')+(store.opposition?'\n\nARGUMENTET KUNDËRSHTARE:\n'+store.opposition:'')+(store.jurisprudence?'\n\nJURISPRUDENCA:\n'+store.jurisprudence:'')+'\n\nDrafto MENDIM LIGJOR formal me seksionet (secili titull në krye rreshti):\nFAKTE\nBAZË LIGJORE\nANALIZË LIGJORE\nKUNDËRPËRGJIGJE\nKONKLUZIONE\nREKOMANDIME\n\nTe KUNDËRPËRGJIGJE, përgjigju argumenteve kundërshtare. Ji i plotë, specifik dhe profesional.',2400,0.45);
         })
         .then(function(r7){
           store.opinion=r7; rowDone(6);
@@ -2931,6 +3169,7 @@
           renderForecast(store.forecast);
           renderPlan(store.plan);
           renderText('op-out-opinion',store.opinion);
+          renderReferences(store);
           $('opinion-progress').hidden=true;
           $('opinion-output').hidden=false;
           $('opinion-modal-inner').scrollTop=0;
@@ -2950,6 +3189,7 @@
         if(abortCtrl) abortCtrl.abort(); running=false; $('opinion-generate-btn').disabled=false;
         $('opinion-output').hidden=true; $('opinion-progress').hidden=true; $('opinion-form').hidden=false;
         $('opinion-form-error').hidden=true; resetRows(); $('op-strength-bar').style.width='0';
+        $('op-references-block').hidden=true; $('op-out-references').innerHTML='';
       }
 
       $('opinion-open-btn').addEventListener('click',openModal);
@@ -2961,126 +3201,6 @@
       document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('opinion-modal').hidden) closeModal(); });
     })();
   </script>
-
-  <!-- Legal Opinion Engine modal -->
-  <div id="opinion-modal" class="opinion-modal" role="dialog" aria-modal="true" aria-labelledby="opinion-modal-title" hidden>
-    <div class="opinion-modal-inner" id="opinion-modal-inner">
-      <div class="opinion-modal-header">
-        <span id="opinion-modal-title">Analizë Ligjore e Plotë — AI</span>
-        <button id="opinion-close" type="button" aria-label="Mbyll">✕</button>
-      </div>
-
-      <!-- INPUT PHASE -->
-      <div id="opinion-form" class="opinion-form">
-        <div class="opinion-form-row">
-          <label for="opinion-type">Lloji i çështjes</label>
-          <select id="opinion-type">
-            <option value="civile">Çështje Civile</option>
-            <option value="penale">Çështje Penale</option>
-            <option value="tregtare">Çështje Tregtare / Biznesi</option>
-            <option value="administrative">Çështje Administrative</option>
-            <option value="familjare">E Drejtë Familjare</option>
-            <option value="pune">E Drejtë Pune</option>
-            <option value="prone">E Drejtë Prone / Pasurie</option>
-            <option value="konsumator">Mbrojtja e Konsumatorit</option>
-          </select>
-        </div>
-        <div class="opinion-form-row">
-          <label for="opinion-facts">Faktet dhe situata</label>
-          <textarea id="opinion-facts" placeholder="Çfarë ndodhi, kur, ku dhe çfarë veprimesh u ndërmorën? Sa më shumë detaje, aq më e saktë analiza." rows="6"></textarea>
-        </div>
-        <div class="opinion-form-row">
-          <label for="opinion-parties">Palët e përfshira (opsionale)</label>
-          <textarea id="opinion-parties" placeholder="Individë, kompani, institucione — dhe marrëdhënia mes tyre." rows="3"></textarea>
-        </div>
-        <div class="opinion-form-row">
-          <label for="opinion-goal">Qëllimi juaj (opsionale)</label>
-          <textarea id="opinion-goal" placeholder="Çfarë doni të arrini? Kompensim, anulim kontrate, mbrojtje penale…" rows="2"></textarea>
-        </div>
-        <div id="opinion-form-error" class="opinion-form-error" hidden></div>
-        <button id="opinion-generate-btn" class="opinion-generate-btn" type="button">Fillo Analizën →</button>
-        <p class="opinion-form-note">Ky mjet krijon një analizë me inteligjencë artificiale, vetëm për qëllime informative. Nuk është këshillë ligjore dhe nuk zëvendëson një avokat të licencuar. Verifikoni gjithmonë nenet dhe vendimet e cituara.</p>
-      </div>
-
-      <!-- PROGRESS PHASE -->
-      <div id="opinion-progress" class="opinion-progress" role="status" aria-live="polite" hidden>
-        <div class="opinion-step" id="op-step-1">
-          <span class="op-step-icon">⚖</span>
-          <div><div class="op-step-label">Identifikim i bazës ligjore</div><div class="op-step-sub">Ligjet dhe nenet zbatuese të të drejtës shqiptare</div></div>
-        </div>
-        <div class="opinion-step" id="op-step-2">
-          <span class="op-step-icon">§</span>
-          <div><div class="op-step-label">Vlerësim i pozicionit tuaj</div><div class="op-step-sub">Forcat, dobësitë dhe pikë-vlerësimi i çështjes</div></div>
-        </div>
-        <div class="op-parallel-group">
-          <div class="op-parallel-tag">Hapat 3–6 kryhen njëkohësisht</div>
-          <div class="opinion-step" id="op-step-3">
-            <span class="op-step-icon">⚔</span>
-            <div><div class="op-step-label">Simulim i kundërshtarit</div><div class="op-step-sub">Argumentet më të forta kundër pozicionit tuaj</div></div>
-          </div>
-          <div class="opinion-step" id="op-step-4">
-            <span class="op-step-icon">⚜</span>
-            <div><div class="op-step-label">Jurisprudencë &amp; praktikë</div><div class="op-step-sub">Si kanë vendosur gjykatat shqiptare në raste të ngjashme</div></div>
-          </div>
-          <div class="opinion-step" id="op-step-5">
-            <span class="op-step-icon">📊</span>
-            <div><div class="op-step-label">Parashikim risku &amp; kostoje</div><div class="op-step-sub">Gjasat e suksesit, kostoja dhe kohëzgjatja e mundshme</div></div>
-          </div>
-          <div class="opinion-step" id="op-step-6">
-            <span class="op-step-icon">🧭</span>
-            <div><div class="op-step-label">Plan veprimi &amp; prova</div><div class="op-step-sub">Hapat konkretë, provat dhe afatet</div></div>
-          </div>
-        </div>
-        <div class="opinion-step" id="op-step-7">
-          <span class="op-step-icon">📄</span>
-          <div><div class="op-step-label">Mendimi ligjor formal</div><div class="op-step-sub">Dokument i strukturuar bazuar në të gjitha analizat</div></div>
-        </div>
-      </div>
-
-      <!-- OUTPUT PHASE -->
-      <div id="opinion-output" class="opinion-output" hidden>
-        <div class="opinion-doc-banner">Analizë e krijuar nga AI. Mund të përmbajë pasaktësi — verifikoni nenet dhe vendimet para se të veproni, dhe konsultohuni me një avokat, veçanërisht në çështje penale.</div>
-        <div class="opinion-doc-header">
-          <div class="opinion-doc-eyebrow">Analizë Ligjore e Plotë</div>
-          <div class="opinion-doc-meta" id="opinion-doc-meta"></div>
-        </div>
-        <div class="opinion-section-block opinion-block-a">
-          <div class="opinion-block-label">Analiza Paraprake</div>
-          <div class="opinion-strength-wrap">
-            <div class="opinion-strength-track"><div class="opinion-strength-bar" id="op-strength-bar"></div></div>
-            <div class="opinion-strength-score" id="op-strength-score"></div>
-          </div>
-          <div id="op-out-analysis" class="opinion-section-body"></div>
-        </div>
-        <div class="opinion-section-block opinion-block-b">
-          <div class="opinion-block-label">Kundërshtimi i Mundshëm</div>
-          <div id="op-out-opposition" class="opinion-section-body"></div>
-        </div>
-        <div class="opinion-section-block opinion-block-c">
-          <div class="opinion-block-label">Jurisprudenca &amp; Praktika Gjyqësore</div>
-          <div id="op-out-jurisprudence" class="opinion-section-body"></div>
-        </div>
-        <div class="opinion-section-block opinion-block-d">
-          <div class="opinion-block-label">Parashikimi i Riskut &amp; Kostos</div>
-          <div id="op-out-forecast" class="opinion-section-body"></div>
-        </div>
-        <div class="opinion-section-block opinion-block-e">
-          <div class="opinion-block-label">Plani i Veprimit</div>
-          <div id="op-out-plan" class="opinion-section-body"></div>
-        </div>
-        <div class="opinion-section-block opinion-block-f">
-          <div class="opinion-block-label">Mendimi Ligjor</div>
-          <div id="op-out-opinion" class="opinion-section-body opinion-serif"></div>
-        </div>
-        <div class="opinion-doc-footer">
-          <button id="opinion-print-btn" class="opinion-print-btn" type="button">Printo / Shkarko PDF</button>
-          <button id="opinion-restart-btn" class="opinion-restart-btn" type="button">Analizë e re</button>
-          <p class="opinion-disclaimer">Dokument informativ i krijuar nga AI · Nuk përbën këshillë ligjore · Verifikoni bazën ligjore me burime zyrtare.</p>
-        </div>
-      </div>
-
-    </div>
-  </div>
 
 </body>
 </html>
