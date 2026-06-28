@@ -2104,7 +2104,11 @@
         e.preventDefault();
         var u=document.getElementById('login-user').value.trim();
         var p=document.getElementById('login-pass').value;
-        var ok=(typeof LOGIN_USER!=='undefined')&&u===LOGIN_USER&&p===String(LOGIN_PASS);
+        var ok=(
+          (typeof LOGIN_USER!=='undefined'&&u===LOGIN_USER&&p===String(LOGIN_PASS))||
+          (typeof LOGIN_USER2!=='undefined'&&u===LOGIN_USER2&&p===String(LOGIN_PASS2))||
+          (typeof LOGIN_USER3!=='undefined'&&u===LOGIN_USER3&&p===String(LOGIN_PASS3))
+        );
         if(ok){
           sessionStorage.setItem('jur_auth','1');
           ov.style.opacity='0';

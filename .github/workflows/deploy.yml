@@ -29,6 +29,10 @@ jobs:
           echo "const GROQ_KEY = '${{ secrets.GROQ_KEY }}';" > config.js
           echo "const LOGIN_USER = '${{ secrets.LOGIN_USER }}';" >> config.js
           echo "const LOGIN_PASS = '${{ secrets.LOGIN_PASS }}';" >> config.js
+          echo "const LOGIN_USER2 = '${{ secrets.LOGIN_USER2 }}';" >> config.js
+          echo "const LOGIN_PASS2 = '${{ secrets.LOGIN_PASS2 }}';" >> config.js
+          echo "const LOGIN_USER3 = '${{ secrets.LOGIN_USER3 }}';" >> config.js
+          echo "const LOGIN_PASS3 = '${{ secrets.LOGIN_PASS3 }}';" >> config.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
