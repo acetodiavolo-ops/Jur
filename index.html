@@ -42,13 +42,8 @@
       content: '';
       position: absolute;
       bottom: 0; left: 0; right: 0;
-      height: 5px;
-      background:
-        linear-gradient(to bottom,
-          var(--text) 0px, var(--text) 1px,
-          transparent 1px, transparent 3px,
-          var(--text) 3px, var(--text) 5px
-        );
+      height: 1px;
+      background: var(--border);
     }
 
     .nation {
@@ -77,10 +72,37 @@
     }
 
     .stats {
-      font-size: 0.73rem;
-      color: #aaa;
-      letter-spacing: 0.04em;
-      margin-top: 8px;
+      display: flex;
+      gap: 0;
+      margin-top: 20px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+    }
+    .stats > div {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-right: 18px;
+      border-right: 1px solid var(--border);
+      margin-right: 18px;
+    }
+    .stats > div:last-child { padding-right: 0; border-right: none; margin-right: 0; }
+    .stats dt {
+      font-size: 0.56rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #b8b3ac;
+    }
+    .stats dd {
+      font-family: var(--font-serif);
+      font-size: 1.75rem;
+      font-style: italic;
+      color: #b8923a;
+      font-weight: 400;
+      line-height: 1;
+      margin: 0;
     }
 
     /* ── Law of the Day ────────────────────────── */
@@ -252,13 +274,7 @@
       margin-top: 4px;
     }
 
-    .law-desc {
-      display: block;
-      font-size: 0.7rem;
-      color: #aaa;
-      margin-top: 5px;
-      line-height: 1.42;
-    }
+    .law-desc { display: none; }
 
     .arrow {
       color: #d0d0d0;
@@ -993,7 +1009,7 @@
     /* CRITICAL: author display rules beat UA [hidden]{display:none}. Must be first. */
     [hidden]{display:none !important;}
 
-    .opinion-trigger-wrap{margin-bottom:40px;padding:24px 28px;background:linear-gradient(135deg,#f5f3ed,#ede9e1);border:1px solid #d4c99a;border-left:3px solid #b8923a;border-radius:10px;}
+    .opinion-trigger-wrap{margin-bottom:44px;padding:22px 0 26px;border-top:2px solid var(--text);border-bottom:1px solid var(--border);}
     .opinion-open-btn{font-family:var(--font);font-size:.9rem;font-weight:600;padding:12px 22px;background:var(--text);color:#fff;border:none;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:10px;transition:transform .12s,box-shadow .12s;}
     .opinion-open-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.18);}
     .opinion-open-btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
@@ -1147,7 +1163,7 @@
       .opinion-step.active .op-step-label::after{animation:none;content:'…';}
     }
     @media (max-width:600px){
-      .opinion-trigger-wrap{padding:18px 16px;}
+      .opinion-trigger-wrap{padding:18px 0;}
       .opinion-modal{padding:0;}
       .opinion-modal-inner{border-radius:0;max-height:100vh;}
       .opinion-section-block{padding:20px 16px;}
@@ -1177,8 +1193,13 @@
     <header class="hero">
       <p class="nation">Republika e Shqipërisë</p>
       <h1>Legjislacioni Shqiptar</h1>
-      <p class="tagline">Biblioteka digjitale e legjislacionit të Shqipërisë: tekste zyrtare ligjore, të lexueshme dhe të kërkueshme.</p>
-      <p class="stats">18 akte ligjore &nbsp;&middot;&nbsp; 9 kode &nbsp;&middot;&nbsp; 8 ligje &nbsp;&middot;&nbsp; 1 kushtetutë</p>
+      <p class="tagline">Tekste zyrtare ligjore të Shqipërisë - nga Kushtetuta e vitit 1998 deri te Kodi Ajror i vitit 2020.</p>
+      <dl class="stats">
+        <div><dt>Akte zyrtare</dt><dd>18</dd></div>
+        <div><dt>Kode</dt><dd>9</dd></div>
+        <div><dt>Ligje</dt><dd>8</dd></div>
+        <div><dt>Vit themelues</dt><dd>1994</dd></div>
+      </dl>
     </header>
 
     <!-- Legal Opinion Engine trigger -->
@@ -1186,7 +1207,7 @@
       <button id="opinion-open-btn" class="opinion-open-btn" type="button">
         Analizë Ligjore e Plotë <span class="opinion-badge">AI · 7 hapa</span>
       </button>
-      <p class="opinion-trigger-sub">Identifikim ligjesh · Vlerësim pozicioni · Simulim kundërshtari · Jurisprudencë · Parashikim risku &amp; kostoje · Plan veprimi · Mendim formal - shtatë analiza të lidhura me njëra-tjetrën.</p>
+      <p class="opinion-trigger-sub">Paraqit çështjen tënde dhe merr analizë ligjore formale: sistemi kryen shtatë hapa të lidhur - nga identifikimi i ligjeve dhe vlerësimi i pozicionit deri te mendimi i strukturuar.</p>
     </div>
 
     <!-- Law of the Day -->
