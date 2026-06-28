@@ -1015,6 +1015,22 @@
       .stats > div:nth-child(odd) { border-right: 1px solid var(--border); padding-right: 10px; margin-right: 10px; }
     }
 
+    /* ── Login overlay ─────────────────────────── */
+    #login-overlay{position:fixed;inset:0;z-index:9999;background:#fdfdf9;display:flex;align-items:center;justify-content:center;padding:32px;transition:opacity .25s;}
+    #login-card{width:100%;max-width:340px;position:relative;}
+    #login-card::before{content:'§';position:absolute;top:-50px;right:-10px;font-family:var(--font-serif);font-size:10rem;line-height:1;color:rgba(15,15,13,.04);pointer-events:none;user-select:none;}
+    .login-nation{font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+    .login-title{font-family:var(--font-serif);font-size:2.2rem;font-weight:500;font-style:italic;line-height:1.08;margin-bottom:6px;}
+    .login-sub{font-size:.78rem;color:var(--muted);margin-bottom:28px;padding-bottom:22px;border-bottom:1px solid var(--border);}
+    #login-form{display:flex;flex-direction:column;gap:10px;}
+    #login-user,#login-pass{font-family:var(--font);font-size:.9rem;border:1px solid var(--border);padding:11px 14px;background:#fafafa;color:var(--text);outline:none;border-radius:0;width:100%;box-sizing:border-box;transition:border-color .15s;}
+    #login-user:focus,#login-pass:focus{border-color:var(--text);background:#fff;}
+    #login-error{font-size:.74rem;color:#b15c44;margin:0;padding:0;}
+    #login-form button{font-family:var(--font);font-size:.8rem;font-weight:600;letter-spacing:.04em;padding:10px;background:var(--text);color:#fff;border:none;border-radius:0;cursor:pointer;transition:opacity .12s;margin-top:4px;}
+    #login-form button:hover{opacity:.72;}
+    @keyframes login-shake{0%,100%{transform:translateX(0)}25%,75%{transform:translateX(-7px)}50%{transform:translateX(7px)}}
+    .login-shake{animation:login-shake .35s ease;}
+
     /* ── Opinion engine ──────────────────────────────────────────────────── */
     /* CRITICAL: author display rules beat UA [hidden]{display:none}. Must be first. */
     [hidden]{display:none !important;}
@@ -1201,6 +1217,21 @@
   </style>
 </head>
 <body>
+
+  <!-- Login gate -->
+  <div id="login-overlay">
+    <div id="login-card">
+      <p class="login-nation">Republika e Shqipërisë</p>
+      <h2 class="login-title">Legjislacioni Shqiptar</h2>
+      <p class="login-sub">Fondi i teksteve zyrtare ligjore të Shqipërisë.</p>
+      <form id="login-form" autocomplete="off" novalidate>
+        <input id="login-user" type="text" placeholder="Emri" autocomplete="off" spellcheck="false">
+        <input id="login-pass" type="password" placeholder="Fjalëkalimi" autocomplete="off">
+        <p id="login-error" hidden>Kredencialet janë të gabuara.</p>
+        <button type="submit">Hyr &#8594;</button>
+      </form>
+    </div>
+  </div>
 
   <main>
 
@@ -2044,6 +2075,34 @@
   <script src="config.js"></script>
   <script>
     'use strict';
+
+    // ── Login gate ──────────────────────────────
+    (function(){
+      if(sessionStorage.getItem('jur_auth')==='1'){
+        var ov=document.getElementById('login-overlay');
+        if(ov) ov.hidden=true;
+        return;
+      }
+      var ov=document.getElementById('login-overlay');
+      if(!ov) return;
+      document.body.style.overflow='hidden';
+      document.getElementById('login-form').addEventListener('submit',function(e){
+        e.preventDefault();
+        var u=document.getElementById('login-user').value.trim();
+        var p=document.getElementById('login-pass').value;
+        var ok=(typeof LOGIN_USER!=='undefined')&&u===LOGIN_USER&&p===String(LOGIN_PASS);
+        if(ok){
+          sessionStorage.setItem('jur_auth','1');
+          ov.style.opacity='0';
+          setTimeout(function(){ov.hidden=true;document.body.style.overflow='';},260);
+        } else {
+          document.getElementById('login-error').hidden=false;
+          var card=document.getElementById('login-card');
+          card.classList.add('login-shake');
+          setTimeout(function(){card.classList.remove('login-shake');},360);
+        }
+      });
+    })();
 
     // ── GROQ API ── key loaded from config.js ─────
 
