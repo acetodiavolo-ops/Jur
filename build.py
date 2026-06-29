@@ -183,7 +183,7 @@ HTML_TEMPLATE = Template("""\
 
   <header class="topbar">
     <div class="topbar-left">
-      <a class="back-link" href="index.html">&#8592; Indeksi</a>
+      <a class="back-link" href="ligjet.html">&#8592; Indeksi</a>
       <span class="topbar-title">{{ title }}</span>
     </div>
     <div class="search-wrapper">
