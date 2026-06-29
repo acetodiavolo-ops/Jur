@@ -15,7 +15,7 @@ var AI_PROVIDERS = [];
   }
   add(typeof GROQ_KEY       !== 'undefined' ? GROQ_KEY       : '', 'https://api.groq.com/openai/v1/chat/completions',   'llama-3.3-70b-versatile');
   add(typeof CEREBRAS_KEY   !== 'undefined' ? CEREBRAS_KEY   : '', 'https://api.cerebras.ai/v1/chat/completions',       'llama-3.3-70b');
-  add(typeof OPENROUTER_KEY !== 'undefined' ? OPENROUTER_KEY : '', 'https://openrouter.ai/api/v1/chat/completions',     'meta-llama/llama-3.3-70b-instruct:free');
+  add(typeof SAMBANOVA_KEY  !== 'undefined' ? SAMBANOVA_KEY  : '', 'https://api.sambanova.ai/v1/chat/completions',        'Meta-Llama-3.3-70B-Instruct');
 })();
 
 function aiReady() { return AI_PROVIDERS.length > 0; }
