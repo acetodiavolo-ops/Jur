@@ -729,13 +729,16 @@
             <select id="inh-will"><option value="jo">Jo (trashëgimi ligjore)</option><option value="po">Po</option></select></div>
           <div class="opinion-form-row"><label for="inh-willexcl">Testamenti përjashton/cenon të mbrojturit?</label>
             <select id="inh-willexcl"><option value="jo">Jo / nuk dihet</option><option value="po">Po</option></select></div>
-          <div class="opinion-form-row"><label for="inh-estate">Vlera e pasurisë (Lekë) — opsionale</label>
-            <input id="inh-estate" type="text" inputmode="numeric" placeholder="p.sh. 6000000"></div>
+          <div class="opinion-form-row"><label for="inh-regime">Regjimi pasuror martesor (nëse ka bashkëshort)</label>
+            <select id="inh-regime"><option value="bashkesi">Bashkësi ligjore (parazgjedhje)</option><option value="ndarje">Ndarje pasurore</option></select></div>
+          <div class="opinion-form-row"><label for="inh-community">Pasuria e përbashkët martesore (Lekë) — opsionale</label>
+            <input id="inh-community" type="text" inputmode="numeric" placeholder="e fituar gjatë martesës — p.sh. 6000000"></div>
+          <div class="opinion-form-row"><label for="inh-personal">Pasuria vetjake e të ndjerit (Lekë) — opsionale</label>
+            <input id="inh-personal" type="text" inputmode="numeric" placeholder="jashtë bashkësisë (para martese, dhuratë, trashëgim)"></div>
           <div class="opinion-form-row"><label for="inh-debts">Detyrime / borxhe (Lekë) — opsionale</label>
             <input id="inh-debts" type="text" inputmode="numeric" placeholder="p.sh. 500000"></div>
-          <div class="opinion-form-row"><label for="inh-marital">Pasuri e përbashkët martesore (Lekë) — opsionale</label>
-            <input id="inh-marital" type="text" inputmode="numeric" placeholder="ndahet 1/2 për bashkëshortin (neni 358)"></div>
         </div>
+        <p class="opinion-form-note" style="margin-top:-6px">Bashkëshorti mban ½ e pasurisë së përbashkët si e drejtë pasurore (neni 358); pjesa tjetër + pasuria vetjake − borxhe = pasuria që trashëgohet.</p>
         <div class="opinion-form-row"><label for="inh-names">Emrat e trashëgimtarëve (opsionale)</label>
           <textarea id="inh-names" rows="2" placeholder="një emër për rresht ose me presje — radhë: fëmijët, pastaj bashkëshorti/të tjerët"></textarea></div>
         <div id="inh-preview"></div>
@@ -771,6 +774,7 @@
         </div>
         <div class="opinion-doc-banner">Ndarja është llogaritur me rregullat e Kodit Civil; shpjegimet janë krijuar nga AI dhe mund të përmbajnë pasaktësi — verifikoni me një noter/avokat.</div>
         <div class="opinion-doc-header"><div class="opinion-doc-eyebrow">Analizë Trashëgimie</div><div class="opinion-doc-meta" id="inherit-doc-meta"></div></div>
+        <div class="opinion-section-block opinion-block-d" id="inh-property-block" hidden><div class="opinion-block-label">Ndarja e Pasurisë Martesore</div><div id="inh-out-property" class="opinion-section-body"></div></div>
         <div class="opinion-section-block opinion-block-summary"><div class="opinion-block-label">Ndarja e Trashëgimisë</div><div id="inh-out-shares" class="opinion-section-body"></div></div>
         <div class="opinion-section-block opinion-block-f" id="inh-assume-block" hidden><div class="opinion-block-label">Supozime &amp; Kufij</div><div id="inh-out-assume" class="opinion-section-body"></div></div>
         <div class="opinion-section-block opinion-block-a"><div class="opinion-block-label">Baza Ligjore &amp; Shpjegim</div><div id="inh-out-explain" class="opinion-section-body opinion-serif"></div></div>
@@ -2532,11 +2536,13 @@
         var spouse=!!inp.spouse, childrenAlive=Math.max(0,inp.childrenAlive|0), childrenMinor=Math.max(0,Math.min(childrenAlive,inp.childrenMinor|0)),
             predeceasedWithKids=Math.max(0,inp.predeceasedWithKids|0), parentsAlive=Math.max(0,Math.min(2,inp.parentsAlive|0)),
             siblings=Math.max(0,inp.siblings|0), grandparents=Math.max(0,inp.grandparents|0), dependents=Math.max(0,inp.dependents|0),
-            hasWill=!!inp.hasWill, estate=(inp.estate>0)?inp.estate:0, debts=(inp.debts>0)?inp.debts:0, maritalJoint=(inp.maritalJoint>0)?inp.maritalJoint:0;
-        var heirs=[], basis=[], order, maritalNote='';
-        var spouseMaritalHalf=(spouse&&maritalJoint>0)?maritalJoint/2:0;
-        var netEstate=Math.max(0, estate-debts-spouseMaritalHalf);
-        if(spouseMaritalHalf>0){ maritalNote='Bashkëshorti merr fillimisht 1/2 e pasurisë së përbashkët martesore ('+fmtN(Math.round(spouseMaritalHalf))+' L) sipas nenit 358; trashëgimia zbatohet mbi pjesën e mbetur.'; basis.push(358); }
+            hasWill=!!inp.hasWill, debts=(inp.debts>0)?inp.debts:0,
+            regime=(inp.regime==='ndarje')?'ndarje':'bashkesi', community=(inp.community>0)?inp.community:0, personal=(inp.personal>0)?inp.personal:0;
+        var heirs=[], basis=[], order;
+        var spousePropertyShare=(spouse&&regime!=='ndarje'&&community>0)?community/2:0;
+        var grossEstate=community+personal;
+        var netEstate=Math.max(0, grossEstate-spousePropertyShare-debts);
+        if(spousePropertyShare>0) basis.push(358);
         function push(who,frac,count,note){ heirs.push({who:who,fraction:frac,count:count||1,note:note||''}); }
         var childSlots=childrenAlive+predeceasedWithKids;
         if(childSlots>0){ order='I'; basis.push(360,361); var each=1/(childSlots+(spouse?1:0));
@@ -2551,7 +2557,7 @@
             } else { order='distant'; basis.push(365,366); }
           }
         }
-        var out={order:order,heirs:heirs,basis:basis,maritalNote:maritalNote,netEstate:netEstate,grossEstate:estate,debts:debts,spouseMaritalHalf:spouseMaritalHalf};
+        var out={order:order,heirs:heirs,basis:basis,netEstate:netEstate,grossEstate:grossEstate,debts:debts,spousePropertyShare:spousePropertyShare,community:community,personal:personal,regime:regime};
         if(hasWill){ var nHeirs=0; heirs.forEach(function(h){ nHeirs+=h.count; }); var perHeir=nHeirs>0?1/nHeirs:0; var protectedCount=(childrenMinor||0)+(dependents||0); var reservedFrac=Math.min(1,perHeir*protectedCount);
           out.reserve={ perHeir:perHeir, protectedCount:protectedCount, reservedFrac:reservedFrac, disposableFrac:Math.max(0,1-reservedFrac), warning:(inp.willExcludesReserved&&protectedCount>0)?'Testamenti që përjashton ose cenon trashëgimtarët e mbrojtur (të mitur ose të paaftë për punë) është i pavlefshëm për atë pjesë (neni 407); ata mund të kërkojnë plotësimin (neni 412).':'' };
           basis.push(379,413); if(out.reserve.warning) basis.push(407,412);
@@ -2568,7 +2574,7 @@
         if(inp.dependents>0) add(363,371);
         if(inp.parentsAlive>0) add(363);
         if(inp.siblings>0||inp.grandparents>0) add(364,369);
-        if(inp.maritalJoint>0) add(358);
+        if(inp.community>0 && inp.regime!=='ndarje') add(358);
         if(inp.hasWill) add(372,378,379,380,392,393,397,402,403,404,405,406,407,408,409,410,411,412);
         add(322,323,324,369,370); // padenjësi / heqje dorë / shtim (rreziqet)
         return Object.keys(s).map(Number).sort(function(a,b){ return a-b; });
@@ -2618,22 +2624,37 @@
         return out;
       }
       var NENI_OF={ 'I':'361','II':'361 & 363','III':'361 & 364','spouse':'361' };
+      function renderPropertyDivision(c){
+        var el=$('inh-out-property'), block=$('inh-property-block'); if(!el||!block) return;
+        if(!(c.spousePropertyShare>0)){ block.hidden=true; return; }
+        var half=Math.round(c.spousePropertyShare), fromComm=Math.round((c.community||0)-c.spousePropertyShare), pers=Math.round(c.personal||0), debts=Math.round(c.debts||0), net=Math.round(c.netEstate);
+        var html='<p class="op-fc-basis">Bashkëshorti mban gjysmën e vet të pasurisë së përbashkët si <strong>e drejtë pasurore</strong> (neni 358) — kjo NUK është trashëgimi. Trashëgimia zbatohet vetëm mbi pjesën e mbetur.</p><div class="op-stat-grid">';
+        html+='<div class="op-stat"><div class="op-stat-label">Bashkëshorti mban — ½ e së përbashkëtit</div><div class="op-stat-value">'+fmtN(half)+' <small>L · neni 358</small></div></div>';
+        html+='<div class="op-stat"><div class="op-stat-label">Nga e përbashkëta → trashëgim</div><div class="op-stat-value">'+fmtN(fromComm)+' <small>L</small></div></div>';
+        if(pers>0) html+='<div class="op-stat"><div class="op-stat-label">Pasuria vetjake → trashëgim</div><div class="op-stat-value">'+fmtN(pers)+' <small>L</small></div></div>';
+        if(debts>0) html+='<div class="op-stat"><div class="op-stat-label">Minus borxhe</div><div class="op-stat-value">−'+fmtN(debts)+' <small>L</small></div></div>';
+        html+='<div class="op-stat"><div class="op-stat-label">Pasuria neto për trashëgim</div><div class="op-stat-value">'+fmtN(net)+' <small>L</small></div></div></div>';
+        el.innerHTML=html; block.hidden=false;
+      }
       function renderShares(c){
         var el=$('inh-out-shares'), html='';
-        if(c.maritalNote) html+='<p class="op-fc-basis">'+esc(c.maritalNote)+'</p>';
-        if(c.order==='distant'){ el.innerHTML=html+'<p>Nuk u dha trashëgimtar i rendeve I–III. Pasuria u kalon të afërmve deri në shkallën e gjashtë, ose, në mungesë, shtetit (nenet 365–366).</p>'; return; }
+        if(c.order==='distant'){ el.innerHTML='<p>Nuk u dha trashëgimtar i rendeve I–III. Pasuria u kalon të afërmve deri në shkallën e gjashtë, ose, në mungesë, shtetit (nenet 365–366).</p>'; return; }
         var segs=''; c.heirs.forEach(function(h,i){ segs+='<div class="inh-bar-seg" title="'+esc(h.who)+'" style="width:'+Math.round(h.fraction*h.count*100)+'%;background:'+COLORS[i%COLORS.length]+'"></div>'; });
         html+='<div class="inh-bar">'+segs+'</div>';
         var nmEl=$('inh-names'), names=(nmEl?nmEl.value:'').split(/[\n,;]+/).map(function(s){ return s.trim(); }).filter(Boolean);
         expandHeirs(c,names).forEach(function(p){ var amt=(c.netEstate>0)?(fmtN(Math.round(p.fraction*c.netEstate))+' L'):''; var neni=(p.who.indexOf('Degë')===0?'361, 326–327':(NENI_OF[c.order]||'361'));
           html+='<div class="inh-share-row"><div class="inh-share-who">'+esc(p.label)+'<small>Baza: neni '+neni+(p.note?(' · '+esc(p.note)):'')+'</small></div><div style="text-align:right"><div class="inh-share-frac">'+fracStr(p.fraction)+'</div>'+(amt?'<div class="inh-share-amt">'+amt+'</div>':'')+'</div></div>'; });
-        html+='<p class="inh-order-note">'+esc(ORDER_NAME[c.order]||'')+(c.grossEstate>0?(' · Pasuria neto për ndarje: '+fmtN(Math.round(c.netEstate))+' L'+(c.debts>0?(' (pas '+fmtN(c.debts)+' L borxhe)'):'')):'')+'</p>';
+        var sp=c.heirs.filter(function(h){ return h.who==='Bashkëshorti pasjetues'; })[0];
+        if(c.spousePropertyShare>0 && sp){ var prop=Math.round(c.spousePropertyShare), inh=Math.round(sp.fraction*c.netEstate);
+          html+='<div class="inh-share-row" style="border-top:2px solid var(--border);margin-top:8px;padding-top:10px"><div class="inh-share-who">Bashkëshorti — gjithsej<small>pjesa pasurore (½ e përbashkëtit) + pjesa trashëgimore</small></div><div style="text-align:right"><div class="inh-share-amt"><strong>'+fmtN(prop+inh)+' L</strong></div><div style="font-size:.7rem;color:var(--muted)">'+fmtN(prop)+' + '+fmtN(inh)+'</div></div></div>'; }
+        html+='<p class="inh-order-note">'+esc(ORDER_NAME[c.order]||'')+(c.grossEstate>0?(' · Pasuria neto për trashëgim: '+fmtN(Math.round(c.netEstate))+' L'+(c.debts>0?(' (pas '+fmtN(c.debts)+' L borxhe)'):'')):'')+'</p>';
         el.innerHTML=html;
       }
       function renderAssumptions(inp,c){
         var el=$('inh-out-assume'), block=$('inh-assume-block'); if(!el) return; var items=[];
-        if(inp.maritalJoint>0) items.push('U zbatua neni 358: bashkëshorti mori 1/2 e pasurisë së përbashkët para ndarjes. Nuk vlen nëse keni regjim ndarjeje pasurore.');
-        else if(inp.spouse) items.push('Nuk u fut pasuri e përbashkët martesore; nëse ka, bashkëshorti merr 1/2 e saj para ndarjes (neni 358).');
+        if(inp.community>0 && inp.regime!=='ndarje') items.push('Regjimi: bashkësi ligjore. U zbatua neni 358 — bashkëshorti mban ½ e pasurisë së përbashkët si e drejtë pasurore (jo trashëgimi); vetëm pjesa e mbetur trashëgohet.');
+        else if(inp.regime==='ndarje') items.push('Regjimi: ndarje pasurore — nuk zbatohet ndarja ½ e nenit 358; e gjithë pasuria e të ndjerit hyn në trashëgim.');
+        else if(inp.spouse) items.push('Nuk u fut pasuri e përbashkët martesore; nëse ka (regjim bashkësie), bashkëshorti mban ½ e saj para trashëgimit (neni 358).');
         items.push('Supozohet se asnjë trashëgimtar nuk është i padenjë (nenet 322–324) dhe askush nuk ka hequr dorë, përveç sa treguar.');
         if(inp.hasWill) items.push('Testamenti mund të ndryshojë ndarjen vetëm brenda pjesës së disponueshme; rezerva ligjore e të miturve/të paaftëve mbetet e pacenueshme (neni 379).');
         else items.push('Llogaritja është për trashëgimi ligjore (pa testament); një testament i vlefshëm mund ta ndryshojë brenda pjesës së disponueshme.');
@@ -2677,7 +2698,7 @@
 
       var running=false, attachedWill='', resetWillPdf=function(){};
       function step(i,cls){ var e=$('inh-step-'+i); if(e){ e.classList.remove('active','done','failed'); if(cls) e.classList.add(cls); } }
-      function readForm(){ return { spouse:$('inh-spouse').value==='po', childrenAlive:parseInt($('inh-children').value,10)||0, childrenMinor:parseInt($('inh-minor').value,10)||0, predeceasedWithKids:parseInt($('inh-predeceased').value,10)||0, parentsAlive:parseInt($('inh-parents').value,10)||0, siblings:parseInt($('inh-siblings').value,10)||0, grandparents:parseInt($('inh-grandparents').value,10)||0, dependents:parseInt($('inh-dependents').value,10)||0, hasWill:$('inh-will').value==='po', willExcludesReserved:$('inh-willexcl').value==='po', estate:parseAmt($('inh-estate').value), debts:parseAmt($('inh-debts').value), maritalJoint:parseAmt($('inh-marital').value) }; }
+      function readForm(){ return { spouse:$('inh-spouse').value==='po', childrenAlive:parseInt($('inh-children').value,10)||0, childrenMinor:parseInt($('inh-minor').value,10)||0, predeceasedWithKids:parseInt($('inh-predeceased').value,10)||0, parentsAlive:parseInt($('inh-parents').value,10)||0, siblings:parseInt($('inh-siblings').value,10)||0, grandparents:parseInt($('inh-grandparents').value,10)||0, dependents:parseInt($('inh-dependents').value,10)||0, hasWill:$('inh-will').value==='po', willExcludesReserved:$('inh-willexcl').value==='po', regime:$('inh-regime')?$('inh-regime').value:'bashkesi', community:parseAmt($('inh-community').value), personal:parseAmt($('inh-personal').value), debts:parseAmt($('inh-debts').value) }; }
 
       function generate(){
         if(running) return; $('inherit-form-error').hidden=true;
@@ -2691,7 +2712,8 @@
         step(0,'active');
         buildGrounding(groundingArticles(inp)).then(function(g){
           step(0,'done'); [1,2,3,4].forEach(function(i){ step(i,'active'); });
-          var ctx='SITUATA FAMILJARE:\n'+fam+'\n\nNDARJA E LLOGARITUR (e saktë sipas Kodit Civil — MOS e ndrysho):\n'+sharesText+(c.maritalNote?('\n'+c.maritalNote):'')+(g.text?('\n\n'+g.text):'');
+          var propNote=(c.spousePropertyShare>0)?('\nNDARJA PASURORE (neni 358): bashkëshorti mban '+fmtN(Math.round(c.spousePropertyShare))+' L (½ e pasurisë së përbashkët) si E DREJTË PASURORE, jo trashëgimi. Pasuria neto për trashëgim: '+fmtN(Math.round(c.netEstate))+' L.'):(inp.regime==='ndarje'?'\nRegjimi: ndarje pasurore — pa ndarje 1/2 të nenit 358.':'');
+          var ctx='SITUATA FAMILJARE:\n'+fam+'\n\nNDARJA E LLOGARITUR (e saktë sipas Kodit Civil — MOS e ndrysho):\n'+sharesText+propNote+(g.text?('\n\n'+g.text):'');
           var tasks=[
             iCall('Jeni profesor i së drejtës së trashëgimisë shqiptare. Shkruani arsyetim ligjor të strukturuar, duke cituar VETËM nenet e dhëna. MOS i ndryshoni fraksionet e llogaritura — ato janë të sakta.', INH_FEWSHOT+'\n\n'+ctx+'\n\nShkruaj arsyetimin me KËTA tituj (secili në krye rreshti):\nRENDI I ZBATUESHËM\nPJESA E BASHKËSHORTIT\nPËRFAQËSIMI\nREZERVA LIGJORE\nKONKLUZION\nNën secilin, 1–3 fjali të qarta me referenca te nenet. Nëse një titull nuk zbatohet, shkruaj «Nuk zbatohet».', 1000,0.25).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }),
             (attachedWill ? iCall('Jeni jurist shqiptar, ekspert testamentesh sipas Kodit Civil.', ctx+'\n\nTEKSTI I TESTAMENTIT TË NGARKUAR:\n'+attachedWill.slice(0,6000)+'\n\nVlerëso: (1) formën (ollograf/noterial, nenet 392–400), (2) a cenon rezervën ligjore të të miturve/të paaftëve (nenet 379, 407), (3) afatin e kontestimit (neni 411). Cito nenet.', 800,0.35).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }) : Promise.resolve(null)),
@@ -2701,6 +2723,7 @@
           return Promise.all(tasks).then(function(res){
             step(1,res[0]?'done':'failed'); step(2,attachedWill?(res[1]?'done':'failed'):'done'); step(3,res[2]?'done':'failed'); step(4,res[3]?'done':'failed');
             try{ $('inherit-doc-meta').textContent=new Date().toLocaleDateString('sq-AL')+' · Trashëgimi ligjore'; }catch(e){ $('inherit-doc-meta').textContent='Trashëgimi ligjore'; }
+            renderPropertyDivision(c);
             renderShares(c);
             $('inh-out-explain').innerHTML=iMd(enforceShares(res[0], c));
             renderReserve(c);
@@ -2733,7 +2756,7 @@
       $('inherit-print-btn').addEventListener('click',function(){ var ds=Array.prototype.slice.call(document.querySelectorAll('#inherit-modal .op-breakdown')); var were=ds.map(function(d){ return d.open; }); ds.forEach(function(d){ d.open=true; }); function restore(){ ds.forEach(function(d,i){ d.open=were[i]; }); window.removeEventListener('afterprint',restore); } window.addEventListener('afterprint',restore); setTimeout(restore,3000); window.print(); });
       $('inherit-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
       document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('inherit-modal').hidden) closeModal(); });
-      ['inh-spouse','inh-children','inh-minor','inh-predeceased','inh-parents','inh-siblings','inh-grandparents','inh-dependents','inh-will','inh-willexcl','inh-estate','inh-marital','inh-debts','inh-names'].forEach(function(id){ var e=$(id); if(e){ e.addEventListener('input',renderPreview); e.addEventListener('change',renderPreview); } });
+      ['inh-spouse','inh-children','inh-minor','inh-predeceased','inh-parents','inh-siblings','inh-grandparents','inh-dependents','inh-will','inh-willexcl','inh-regime','inh-community','inh-personal','inh-debts','inh-names'].forEach(function(id){ var e=$(id); if(e){ e.addEventListener('input',renderPreview); e.addEventListener('change',renderPreview); } });
     })();
   </script>
   <script src="site.js"></script>
