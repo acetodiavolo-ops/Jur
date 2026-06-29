@@ -603,6 +603,7 @@
 
         <div class="opinion-doc-footer">
           <button id="opinion-print-btn" class="opinion-print-btn" type="button">Printo / Shkarko PDF</button>
+          <button id="opinion-copy-btn" class="opinion-restart-btn" type="button">Kopjo mendimin</button>
           <button id="opinion-restart-btn" class="opinion-restart-btn" type="button">Analizë e re</button>
           <p class="opinion-disclaimer">Dokument informativ i krijuar nga AI · Nuk përbën këshillë ligjore · Verifikoni bazën ligjore me burime zyrtare.</p>
         </div>
@@ -1633,7 +1634,7 @@
           seenHref[href]=true; confirmed.push({name:name,href:href});
         });
 
-        var grounded=g.found||[];
+        var grounded=(g.found||[]).slice();
         var groundedBase=g.nums||{};
         var unsourced=Object.keys(citedNums)
           .filter(function(n){ return !groundedBase[n]; })
@@ -1643,6 +1644,30 @@
           var lbl='Neni '+x.num; if(unsourced.indexOf(lbl)===-1) unsourced.push(lbl);
         });
 
+        // Post-hoc grounding: any cited article that actually exists in this case's law
+        // data (full article JSON is cached) gets its real text shown and is reclassified
+        // from "Pa burim" to confirmed. Only when the number resolves to a SINGLE law.
+        function postHocGround(num){
+          var hits=[],seen={};
+          (store.laws||[]).forEach(function(l){
+            var href=lawHrefFor(String(l.name||'')); if(!href||seen[href]) return; seen[href]=true;
+            var data=_lawCache[href];
+            if(data && data[num]!=null){
+              hits.push({law:String(l.name||'').trim(),href:href,num:num,anchor:'neni-'+String(num).replace('/','-'),text:String(data[num]).replace(/\s+/g,' ').trim()});
+            }
+          });
+          return hits;
+        }
+        var seenGN={}; grounded.forEach(function(a){ seenGN[a.law+'|'+a.num]=true; });
+        var stillUnsourced=[];
+        unsourced.forEach(function(lbl){
+          var n=String(lbl).replace(/[^\d\/]/g,'').split('/')[0];
+          var hits=n?postHocGround(n):[];
+          if(hits.length===1){ var k=hits[0].law+'|'+hits[0].num; if(!seenGN[k]){ seenGN[k]=true; grounded.push(hits[0]); } }
+          else { stillUnsourced.push(lbl); }
+        });
+        unsourced=stillUnsourced;
+
         var decSeen={},decRe=/[Vv]endim(?:in|it|et)?\s+(?:[Nn]r\.?\s*)?(\d+(?:\/\d{2,4})?)/g;
         while((m=decRe.exec(corpus))!==null) decSeen['Vendim nr. '+m[1]]=true;
         var decisions=Object.keys(decSeen);
@@ -1651,7 +1676,7 @@
         if(!total){ block.hidden=true; el.innerHTML=''; return; }
         block.hidden=false;
 
-        var gCount=grounded.length, aCount=grounded.length+(g.missing||[]).length;
+        var gCount=grounded.length, aCount=grounded.length+unsourced.length;
         var html='<p class="op-ref-intro"><b>'+gCount+' nga '+(aCount||gCount)+' nene</b> u mbështetën në tekstin zyrtar të ligjit. '+
           '<span style="color:#3d706a;font-weight:600">✓ Me tekst</span> — burim i konfirmuar, kliko për ta lexuar. '+
           '<span style="color:#b8923a;font-weight:600">⚠ Pa burim</span> — cituar nga AI por jo nga teksti i dhënë; verifikoje te '+
@@ -1727,7 +1752,7 @@
       }
 
       var running=false;
-      var attachedText='', resetPdf=function(){};
+      var attachedText='', resetPdf=function(){}, lastOpinion='';
       function showError(msg){ var box=$('opinion-form-error'); box.textContent=msg; box.hidden=false; }
       var lawListText=function(laws){ if(!laws.length) return 'Ligjet zbatuese të të drejtës shqiptare.'; return laws.map(function(l){ return '• '+l.name+' ('+((l.articles||[]).join(', ')||'nenet zbatuese')+'): '+(l.relevance||''); }).join('\n'); };
 
@@ -1802,7 +1827,7 @@
             'SITUATA:\n'+ctx+primer+'\n\nLIGJET ZBATUESE:\n'+store.lawList+'\n\nFORCAT:\n'+((S.strengths||[]).join('\n')||'-')+'\n\nDOBËSITË:\n'+((S.weaknesses||[]).join('\n')||'-')+(store.opposition?'\n\nARGUMENTET KUNDËRSHTARE:\n'+store.opposition:'')+(store.jurisprudence?'\n\nJURISPRUDENCA:\n'+store.jurisprudence:'')+(store.groundingText||'')+doctrineSummaryText(store.doctrine)+'\n\nDrafto MENDIM LIGJOR formal me seksionet (secili titull në krye rreshti):\nFAKTE\nBAZË LIGJORE\nANALIZË LIGJORE\nKUNDËRPËRGJIGJE\nKONKLUZIONE\nREKOMANDIME\n\nTe KUNDËRPËRGJIGJE, përgjigju argumenteve kundërshtare. Ji i plotë, specifik dhe profesional.',2400,0.45);
         })
         .then(function(r7){
-          store.opinion=r7; rowDone(7);
+          store.opinion=r7; lastOpinion=r7||''; rowDone(7);
           renderMeta($('opinion-type').value);
           if(store.doctrine&&store.doctrine.kuadri){
             var hasMissing=false,hasPartial=false;
@@ -1854,6 +1879,12 @@
       $('opinion-close').addEventListener('click',closeModal);
       $('opinion-generate-btn').addEventListener('click',generate);
       $('opinion-print-btn').addEventListener('click',function(){ window.print(); });
+      $('opinion-copy-btn').addEventListener('click',function(){
+        var t=lastOpinion; if(!t) return;
+        var done=function(){ var b=$('opinion-copy-btn'),o=b.textContent; b.textContent='U kopjua ✓'; setTimeout(function(){ b.textContent=o; },1500); };
+        if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done).catch(function(){}); }
+        else { try{ var ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }catch(e){} }
+      });
       $('opinion-restart-btn').addEventListener('click',restart);
       $('opinion-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
       document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('opinion-modal').hidden) closeModal(); });
