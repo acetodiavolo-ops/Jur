@@ -620,6 +620,7 @@
 
   <script src="config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="ai.js"></script>
   <script>
     'use strict';
@@ -1057,7 +1058,7 @@
 
     // ── Contract Analyzer ──────────────────────────
     // Reusable client-side PDF text extraction (pdf.js). Returns Promise<string>.
-    function extractPdfText(file, cap) {
+    function extractPdfText(file, cap, onStatus) {
       cap = cap || 12000;
       if (!window.pdfjsLib) return Promise.reject(new Error('pdf-not-loaded'));
       try { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch (e) {}
@@ -1072,10 +1073,38 @@
             });
           }); })(i);
         }
-        return chain.then(function () { return pages.join('\n'); });
+        return chain.then(function () {
+          var txt = pages.join('\n').replace(/\s+/g, ' ').trim();
+          if (txt.length >= 60 || !window.Tesseract) return txt;   // text-layer present (or OCR unavailable)
+          return ocrPdf(pdf, onStatus).then(function (o) { return (o && o.length > txt.length) ? o : txt; });
+        });
       }).then(function (txt) {
         return String(txt || '').replace(/\s+/g, ' ').trim().slice(0, cap);
       });
+    }
+    // OCR fallback for scanned/image PDFs: render up to 8 pages to canvas, recognize via Tesseract (Albanian+English).
+    function ocrPdf(pdf, onStatus) {
+      if (!window.Tesseract) return Promise.resolve('');
+      var maxPages = Math.min(pdf.numPages, 8), out = [];
+      if (onStatus) onStatus('Duke lexuar me OCR (mund të zgjasë pak)…');
+      return Tesseract.createWorker('sqi+eng').then(function (worker) {
+        var chain = Promise.resolve();
+        for (var i = 1; i <= maxPages; i++) {
+          (function (i) { chain = chain.then(function () {
+            if (onStatus) onStatus('OCR faqja ' + i + '/' + maxPages + '…');
+            return pdf.getPage(i).then(function (p) {
+              var vp = p.getViewport({ scale: 2 });
+              var canvas = document.createElement('canvas'); canvas.width = vp.width; canvas.height = vp.height;
+              return p.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise
+                .then(function () { return worker.recognize(canvas); })
+                .then(function (res) { out.push((res && res.data && res.data.text) || ''); });
+            });
+          }); })(i);
+        }
+        return chain.then(function () { return worker.terminate(); })
+          .then(function () { return out.join('\n').replace(/\s+/g, ' ').trim(); })
+          .catch(function () { try { worker.terminate(); } catch (e) {} return out.join('\n').trim(); });
+      }).catch(function () { return ''; });
     }
 
     // Contract Analyzer — PDF upload fills the textarea
@@ -1090,7 +1119,7 @@
         var f = inp.files && inp.files[0]; if (!f) return;
         if (!window.pdfjsLib) { status.textContent = 'Lexuesi i PDF nuk u ngarkua — provoni sërish.'; status.classList.add('warn'); return; }
         status.classList.remove('warn'); status.textContent = 'Duke lexuar PDF…'; clr.hidden = false;
-        extractPdfText(f, 12000).then(function (txt) {
+        extractPdfText(f, 12000, function (m) { status.textContent = m; }).then(function (txt) {
           if (!txt) { status.textContent = 'PDF-ja duket e skanuar (pa tekst) — ngjit tekstin manualisht.'; status.classList.add('warn'); return; }
           ta.value = txt;
           status.textContent = f.name + ' · ' + txt.split(/\s+/).length + ' fjalë';
@@ -1535,6 +1564,40 @@
         g.text=(g.text? g.text+'\n\n' : intro)+added.join('\n\n');
       }
 
+      // ── Semantic citation re-ranking (Gemini embeddings; additive + graceful) ──
+      function _cosine(a,b){ var s=0,na=0,nb=0,n=Math.min(a.length,b.length); for(var i=0;i<n;i++){ s+=a[i]*b[i]; na+=a[i]*a[i]; nb+=b[i]*b[i]; } return (na&&nb)?s/(Math.sqrt(na)*Math.sqrt(nb)):0; }
+      var _STOP={}; 'dhe ose njё nje per nga me te ta se si ku kur qe ne eshte jane qene ka kane pas para mbi nen sipas cdo kjo ato kete keto'.split(' ').forEach(function(w){ _STOP[w]=1; });
+      function _factTerms(s){ var seen={},out=[]; String(s||'').toLowerCase().split(/[^a-zçë0-9]+/).forEach(function(w){ if(w.length>=4&&!_STOP[w]&&!seen[w]){ seen[w]=1; out.push(w); } }); return out; }
+      // Keyword-recall candidates from the identified laws -> one batch embedding -> cosine top-K.
+      function semanticGround(laws, factsText){
+        if(typeof aiEmbed!=='function') return Promise.resolve(null);
+        var terms=_factTerms(factsText); if(!terms.length) return Promise.resolve(null);
+        return Promise.all((laws||[]).map(function(l){
+          var href=lawHrefFor(String(l.name||'')); if(!href) return Promise.resolve(null);
+          return fetchLawData(href).then(function(data){ return {name:String(l.name||'').trim(),href:href,data:data||{}}; }).catch(function(){ return null; });
+        })).then(function(rows){
+          var cands=[];
+          rows.forEach(function(row){ if(!row) return;
+            Object.keys(row.data).forEach(function(num){
+              var t=String(row.data[num]||''); if(!t) return; var tl=t.toLowerCase(), sc=0;
+              terms.forEach(function(w){ if(tl.indexOf(w)!==-1) sc++; });
+              if(sc>0) cands.push({law:row.name,href:row.href,num:num,text:t.replace(/\s+/g,' ').trim(),kw:sc});
+            });
+          });
+          if(!cands.length) return null;
+          cands.sort(function(a,b){ return b.kw-a.kw; });
+          cands=cands.slice(0,40);
+          var inputs=[String(factsText).slice(0,1500)].concat(cands.map(function(c){ return c.text.slice(0,500); }));
+          return aiEmbed(inputs).then(function(vecs){
+            if(!vecs||vecs.length!==inputs.length) return null;
+            var q=vecs[0];
+            cands.forEach(function(c,i){ c.sim=_cosine(q,vecs[i+1]); });
+            cands.sort(function(a,b){ return b.sim-a.sim; });
+            return {found: cands.slice(0,6).map(function(c){ return {law:c.law,num:c.num,href:c.href,anchor:'neni-'+String(c.num).replace('/','-'),text:c.text}; })};
+          });
+        }).catch(function(){ return null; });
+      }
+
       function doctrineSpec(type){
         if(type==='penale'){
           return {
@@ -1895,6 +1958,8 @@
             store.grounding=g;
             return (concept?keywordGround(concept.href,concept.name,concept.kw,concept.limit):Promise.resolve(null)).then(function(kg){
             mergeGrounding(g,kg);
+            return semanticGround(store.laws, facts).then(function(sg){
+            mergeGrounding(g,sg);
             store.groundingText=g.text?('\n\n'+g.text):'';
             var GT=store.groundingText;
             [2,3,4,5,6].forEach(rowActive);
@@ -1921,6 +1986,7 @@
                 .then(function(v){ rowDone(6); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(6); return null; }); }
             ];
             return runLimited(tasks,PARALLEL_LIMIT);
+            });
             });
           });
         })
@@ -2013,23 +2079,10 @@
           var f=inp.files&&inp.files[0]; if(!f) return;
           if(!window.pdfjsLib){ status.textContent='Lexuesi i PDF nuk u ngarkua — provoni sërish.'; status.classList.add('warn'); return; }
           status.classList.remove('warn'); status.textContent='Duke lexuar PDF…'; clr.hidden=false; attachedText='';
-          f.arrayBuffer().then(function(buf){
-            return pdfjsLib.getDocument({data:buf}).promise;
-          }).then(function(pdf){
-            var pages=[], chain=Promise.resolve();
-            for(var i=1;i<=pdf.numPages;i++){ (function(i){ chain=chain.then(function(){
-              return pdf.getPage(i).then(function(p){ return p.getTextContent(); }).then(function(tc){
-                pages.push(tc.items.map(function(it){ return it.str; }).join(' '));
-              });
-            }); })(i); }
-            return chain.then(function(){ return pages.join('\n'); });
-          }).then(function(txt){
-            txt=String(txt||'').replace(/\s+/g,' ').trim();
+          extractPdfText(f, 8000, function(m){ status.textContent=m; }).then(function(txt){
             if(!txt){ status.textContent='PDF-ja duket e skanuar (pa tekst) — shkruani faktet manualisht.'; status.classList.add('warn'); attachedText=''; return; }
-            var capped=txt.slice(0,8000);
-            attachedText=capped;
-            var words=capped.split(/\s+/).length;
-            status.textContent=f.name+' · '+words+' fjalë'+(txt.length>8000?' (shkurtuar)':'');
+            attachedText=txt;
+            status.textContent=f.name+' · '+txt.split(/\s+/).length+' fjalë';
           }).catch(function(){
             status.textContent='Nuk u lexua dot PDF-ja.'; status.classList.add('warn'); attachedText='';
           });

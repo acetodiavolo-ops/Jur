@@ -48,3 +48,22 @@ function aiFetch(opts) {
   }
   return tryP(0);
 }
+
+// Batch embeddings via Gemini (gemini-embedding-001) over the OpenAI-compatible endpoint.
+// Returns Promise<number[][]> aligned to `texts`. Used for semantic citation ranking; the
+// caller treats any rejection as "skip semantic, keep keyword grounding".
+function aiEmbed(texts) {
+  var k = (typeof GEMINI_KEY !== 'undefined') ? GEMINI_KEY : '';
+  if (!k || String(k).indexOf('YOUR_') === 0) return Promise.reject(new Error('no embed key'));
+  return fetch('https://generativelanguage.googleapis.com/v1beta/openai/embeddings', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + k, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'gemini-embedding-001', input: texts })
+  }).then(function (r) {
+    if (!r.ok) throw new Error('embed HTTP ' + r.status);
+    return r.json();
+  }).then(function (d) {
+    return (d.data || []).slice().sort(function (a, b) { return (a.index || 0) - (b.index || 0); })
+      .map(function (x) { return x.embedding; });
+  });
+}
