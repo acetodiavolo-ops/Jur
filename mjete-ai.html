@@ -37,6 +37,18 @@
     #inh-preview:empty{display:none;}
     #inh-preview{margin:2px 0 4px;padding:12px 14px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;background:#f4f8f7;}
     .inh-prev-label{font-size:.6rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#b8923a;margin-bottom:7px;}
+    .op-breakdown{margin:6px 0 14px;border:1px solid var(--border);border-radius:8px;background:#faf8f4;}
+    .op-breakdown>summary{cursor:pointer;padding:9px 14px;font-size:.78rem;font-weight:600;color:var(--accent);list-style:none;}
+    .op-breakdown>summary::-webkit-details-marker{display:none;}
+    .op-breakdown>summary::before{content:'\25B8  ';}
+    .op-breakdown[open]>summary::before{content:'\25BE  ';}
+    .op-bd-body{padding:4px 14px 14px;}
+    .op-bd-row{display:flex;align-items:center;gap:10px;margin:6px 0;}
+    .op-bd-k{flex:0 0 42%;font-size:.78rem;}
+    .op-bd-track{flex:1;height:7px;background:#e7e2d8;border-radius:4px;overflow:hidden;}
+    .op-bd-fill{display:block;height:100%;background:var(--accent);}
+    .op-bd-v{flex:0 0 auto;font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums;}
+    .op-bd-final{margin:12px 0 0;font-size:.82rem;}
     @media print{
       #inherit-modal:not([hidden]),#inherit-modal:not([hidden]) *{visibility:visible;}
       #inherit-modal:not([hidden]){position:static;inset:auto;background:none;padding:0;backdrop-filter:none;}
@@ -528,6 +540,10 @@
           <label for="opinion-claim">Vlera e kontestit ose dëmi i pretenduar (Lekë) — opsionale</label>
           <input id="opinion-claim" type="text" inputmode="numeric" autocomplete="off" placeholder="p.sh. 800000 — bën kosto/marrëveshje më të sakta">
         </div>
+        <div class="opinion-form-row">
+          <label for="opinion-event-date">Data e ngjarjes / shkeljes (opsionale) — për kontroll parashkrimi</label>
+          <input id="opinion-event-date" type="date">
+        </div>
         <div id="opinion-form-error" class="opinion-form-error" hidden></div>
         <button id="opinion-generate-btn" class="opinion-generate-btn" type="button">Fillo Analizën →</button>
         <p class="opinion-form-note">Ky mjet krijon një analizë me inteligjencë artificiale, vetëm për qëllime informative. Nuk është këshillë ligjore dhe nuk zëvendëson një avokat të licencuar. Verifikoni gjithmonë nenet dhe vendimet e cituara.</p>
@@ -589,6 +605,7 @@
             <div class="opinion-strength-track"><div class="opinion-strength-bar" id="op-strength-bar"></div></div>
             <div class="opinion-strength-score" id="op-strength-score"></div>
           </div>
+          <div id="op-out-breakdown"></div>
           <div id="op-out-analysis" class="opinion-section-body"></div>
         </div>
         <div class="opinion-section-block opinion-block-doctrine" id="op-doctrine-block" hidden>
@@ -1874,6 +1891,70 @@
         return f;
       }
 
+      // ── deterministic limitation (parashkrim) check ──
+      var PARASHKRIM_YEARS={ civile:10, tregtare:10, prone:0, konsumator:2, pune:3, familjare:0, penale:10, administrative:0.12 };
+      function checkLimitation(type, dateStr){
+        if(!dateStr) return {status:'na'};
+        var d=new Date(dateStr); if(isNaN(d.getTime())) return {status:'na'};
+        var ms=Date.now()-d.getTime(); if(ms<0) return {status:'na'};
+        var elapsed=ms/(365.25*24*3600*1000), yrs=PARASHKRIM_YEARS[type]; if(yrs==null) yrs=10;
+        var out={ elapsedYears:elapsed, typicalYears:yrs, status:'within', note:'' };
+        if(yrs===0){ out.note='Për këtë lloj çështjeje shumë kërkesa nuk parashkruhen (p.sh. padia rivendikuese); afati varet nga kërkesa konkrete. Kanë kaluar ~'+elapsed.toFixed(1)+' vjet.'; return out; }
+        if(elapsed>yrs){ out.status='likely-barred'; out.note='Kanë kaluar ~'+elapsed.toFixed(1)+' vjet, mbi afatin tipik ~'+yrs+' vjet — kërkesa MUND të jetë parashkruar. Verifikoni afatin e saktë dhe shkaqet e ndërprerjes/pezullimit.'; }
+        else if(elapsed>yrs*0.8){ out.status='near'; out.note='Kanë kaluar ~'+elapsed.toFixed(1)+' nga ~'+yrs+' vjet — afati po afrohet; veproni shpejt.'; }
+        else { out.note='Brenda afatit tipik (~'+elapsed.toFixed(1)+' nga ~'+yrs+' vjet).'; }
+        return out;
+      }
+
+      // ── strength score: AI rates sub-factors, app COMPUTES the 0–10 score ──
+      function SCORE_LABEL(sc){ return sc>=7.5?'Pozicion i fortë':sc>=5?'Pozicion mesatar':sc>=3.5?'Pozicion i dobët':'Pozicion shumë i dobët'; }
+      function computeStrengthScore(strength, doctrine, grounding, limitation){
+        function clamp2(x){ x=parseFloat(x); return isFinite(x)?Math.max(0,Math.min(2,x)):1; }
+        var br=[], adj=[], f=(strength&&strength.factors)||null, base;
+        if(f && (f.baza!=null||f.prova!=null||f.faktet!=null||f.kundershtimi!=null)){
+          var baza=clamp2(f.baza), prova=clamp2(f.prova), kund=clamp2(f.kundershtimi), fakt=clamp2(f.faktet);
+          base=(baza*0.30 + prova*0.25 + (2-kund)*0.25 + fakt*0.20)*5;
+          br.push({k:'Baza ligjore', v:baza, max:2});
+          br.push({k:'Forca e provave', v:prova, max:2});
+          br.push({k:'Pozicioni ndaj kundërshtimit', v:Math.round((2-kund)*10)/10, max:2});
+          br.push({k:'Qartësia e fakteve', v:fakt, max:2});
+        } else {
+          base=parseFloat(strength&&strength.score); if(!isFinite(base)) base=5;
+          br.push({k:'Vlerësim bazë', v:base, max:10});
+        }
+        var score=base;
+        var gf=(grounding&&grounding.found&&grounding.found.length)||0;
+        if(gf===0){ score-=1.5; adj.push('Asnjë nen i konfirmuar në bazën ligjore: −1.5'); }
+        else if(gf>=3){ score+=0.3; adj.push(gf+' nene të konfirmuara: +0.3'); }
+        var miss=((strength&&strength.missing_evidence)||[]).length;
+        if(miss>0){ var mp=Math.min(1.5,miss*0.3); score-=mp; adj.push(miss+' prova që mungojnë: −'+mp.toFixed(1)); }
+        var capNote='';
+        if(doctrine&&doctrine.kuadri&&doctrine.kuadri.length){
+          var hasMissing=false,hasPartial=false,tot=0,ful=0;
+          doctrine.kuadri.forEach(function(e){ var v=String(e&&e.vleresim||'').toLowerCase(); tot++; if(v.indexOf('mung')===0) hasMissing=true; else if(v.indexOf('plot')===0) ful+=1; else { hasPartial=true; ful+=0.5; } });
+          if(tot>0){ var fr=ful/tot; score+=(fr-0.75)*0.8; adj.push('Përmbushja doktrinore '+Math.round(fr*100)+'%'); }
+          if(hasMissing){ score=Math.min(score,4); capNote='një element thelbësor mungon'; }
+          else if(hasPartial){ score=Math.min(score,6.5); capNote='një element pjesërisht i plotësuar'; }
+        }
+        if(limitation){
+          if(limitation.status==='likely-barred'){ score=Math.min(score,3); adj.push('Mundësisht i parashkruar → kufizim te 3.0'); if(!capNote) capNote='mundësisht i parashkruar'; }
+          else if(limitation.status==='near'){ score-=1; adj.push('Afati po skadon: −1.0'); }
+        }
+        score=Math.max(0,Math.min(10,score));
+        return { score:score, label:SCORE_LABEL(score), factors:br, adjustments:adj, capNote:capNote };
+      }
+
+      function renderScoreBreakdown(store){
+        var el=$('op-out-breakdown'); if(!el) return; var sc=store.strengthCalc; if(!sc){ el.innerHTML=''; return; }
+        var html='<details class="op-breakdown"><summary>Pse ky vlerësim? (logjika e pikëve)</summary><div class="op-bd-body">';
+        sc.factors.forEach(function(fa){ var pct=Math.round((fa.v/fa.max)*100); html+='<div class="op-bd-row"><span class="op-bd-k">'+esc(fa.k)+'</span><span class="op-bd-track"><span class="op-bd-fill" style="width:'+pct+'%"></span></span><span class="op-bd-v">'+(Math.round(fa.v*10)/10)+'/'+fa.max+'</span></div>'; });
+        if(sc.adjustments&&sc.adjustments.length){ html+='<p class="op-subhead" style="margin:12px 0 4px;">Rregullime logjike (deterministe)</p><ul class="op-checklist">'+sc.adjustments.map(function(a){ return '<li>'+esc(a)+'</li>'; }).join('')+'</ul>'; }
+        var L=store.limitation;
+        if(L&&L.status&&L.status!=='na'){ var cls=L.status==='likely-barred'?'op-red':(L.status==='near'?'op-amber':'op-green'); html+='<p class="op-subhead '+cls+'" style="margin:12px 0 4px;">Afati &amp; Parashkrimi</p><div class="op-deadline-note"><div>'+esc(L.note||'')+'</div></div>'; }
+        html+='<p class="op-bd-final">Rezultati i llogaritur: <strong>'+sc.score.toFixed(1)+'/10</strong>'+(sc.capNote?(' · i kufizuar: '+esc(sc.capNote)):'')+'</p>';
+        el.innerHTML=html+'</div></details>';
+      }
+
       function renderForecast(f){
         var el=$('op-out-forecast');
         if(!f||(f.win==null&&f.settle==null&&f.lose==null)){ el.innerHTML=DEGRADED; return; }
@@ -1901,7 +1982,8 @@
         var path=(f.win>=55)?'ndjekje gjyqësore':((f.settle>=f.win&&f.settle>=f.lose)?'zgjidhje me marrëveshje':((f.lose>50)?'marrëveshje mbrojtëse ose rishikim strategjie':'ndjekje e kujdesshme'));
         var money=(f.settle_min!=null)?('Diapazoni i pritshëm i marrëveshjes ~'+fmtNum(f.settle_min)+'–'+fmtNum(f.settle_max)+' L. '):'';
         var risk=(s.weaknesses&&s.weaknesses[0])?s.weaknesses[0]:'';
-        el.innerHTML='<p>Pozicioni vlerësohet <strong>'+score.toFixed(1)+'/10</strong>'+(s.label?' ('+esc(s.label)+')':'')+'. '
+        var L=store.limitation, limWarn=(L&&L.status==='likely-barred')?'<strong style="color:#b15c44">⚠ Kujdes: kërkesa mund të jetë e parashkruar (~'+L.elapsedYears.toFixed(1)+' vjet nga ngjarja). </strong>':'';
+        el.innerHTML='<p>'+limWarn+'Pozicioni vlerësohet <strong>'+score.toFixed(1)+'/10</strong>'+(s.label?' ('+esc(s.label)+')':'')+'. '
           +'Gjasat: fitim ~'+Math.round(f.win||0)+'%, marrëveshje ~'+Math.round(f.settle||0)+'%, humbje ~'+Math.round(f.lose||0)+'%. '
           +'Rruga e rekomanduar: <strong>'+path+'</strong>. '+money
           +'Kohëzgjatja orientuese '+esc(f.months_min)+'–'+esc(f.months_max)+' muaj.'
@@ -1922,15 +2004,16 @@
 
       function priorityPill(p){ var v=String(p||'').toLowerCase(); if(v.indexOf('lart')===0||v.indexOf('high')===0) return '<span class="op-pill op-pill-high">Lartë</span>'; if(v.indexOf('mesat')===0||v.indexOf('mid')===0||v.indexOf('med')===0) return '<span class="op-pill op-pill-mid">Mesatare</span>'; if(v.indexOf('ul')===0||v.indexOf('low')===0) return '<span class="op-pill op-pill-low">Ulët</span>'; return p?'<span class="op-pill op-pill-mid">'+esc(p)+'</span>':''; }
 
-      function renderPlan(p, type){
+      function renderPlan(p, type, lim){
         var el=$('op-out-plan'), steps_=(p&&p.steps)||[];
         var par=PARASHKRIM[type], hasDl=p&&p.deadlines&&p.deadlines.length;
         if(!steps_.length&&(!p||(!p.evidence&&!p.deadlines))&&!par){ el.innerHTML=DEGRADED; return; }
         var html='';
         steps_.forEach(function(s,i){ html+='<div class="op-plan-step"><div class="op-plan-num">'+(i+1)+'</div><div class="op-plan-body"><div class="op-plan-action">'+esc(s.action)+'</div><div class="op-plan-meta">'+priorityPill(s.priority)+(s.deadline?'<span class="op-pill op-pill-deadline">'+esc(s.deadline)+'</span>':'')+'</div></div></div>'; });
         if(p&&p.evidence&&p.evidence.length){ html+='<p class="op-subhead op-amber" style="margin-top:18px;">Prova për t\'u siguruar</p><ul class="op-checklist">'; p.evidence.forEach(function(e){ html+='<li>'+esc(e)+'</li>'; }); html+='</ul>'; }
-        if(par||hasDl){
+        if(par||hasDl||(lim&&lim.status&&lim.status!=='na')){
           html+='<p class="op-subhead op-red" style="margin-top:18px;">Afate kritike</p>';
+          if(lim&&lim.status&&lim.status!=='na') html+='<div class="op-deadline-note"><div><strong>Llogaritje afati'+(lim.status==='likely-barred'?' — ⚠ MUND TË JETË PARASHKRUAR':(lim.status==='near'?' — afati po skadon':''))+'</strong> — '+esc(lim.note||'')+'</div></div>';
           if(par) html+='<div class="op-deadline-note"><div><strong>Parashkrimi (orientues)</strong> — '+esc(par)+'. Verifikoni për rastin tuaj konkret.</div></div>';
           if(hasDl) p.deadlines.forEach(function(d){ html+='<div class="op-deadline-note"><div><strong>'+esc(d.what)+'</strong>'+(d.timeframe?' - '+esc(d.timeframe):'')+'</div></div>'; });
         }
@@ -2097,6 +2180,8 @@
         var store={};
         store.type=type;
         store.claim=parseAmount($('opinion-claim')?$('opinion-claim').value:'')||extractClaimFromFacts(facts);
+        store.eventDate=($('opinion-event-date')&&$('opinion-event-date').value)||'';
+        store.limitation=checkLimitation(type, store.eventDate);
         rowActive(0);
         runCall(1,'Jeni analist ligjor shqiptar me përvojë. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas dhe pa shenja ```.'+ANTI_HALLUC,
           ctx+primer+'\n\nIdentifiko 3–5 ligjet shqiptare më relevante dhe nenet kryesore zbatuese (ji gjithëpërfshirës: deri në 8 nene gjithsej, vetëm nene për të cilat je i sigurt).\nJSON: {"laws":[{"name":"...","articles":["..."],"relevance":"..."}],"issues":["..."],"arguments":["..."]}',600,0.15)
@@ -2106,7 +2191,7 @@
           store.groundingP=retrieveGrounding(store.laws);
           rowDone(0); rowActive(1);
           return runCall(2,'Jeni vlerësues i pavarur ligjor. Përgjigjuni VETËM me JSON të vlefshëm.',
-            ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nVlerëso pozicionin ligjor në mënyrë realiste. JSON:\n{"score":7.2,"label":"Pozicion i Fortë","strengths":["..."],"weaknesses":["..."],"missing_evidence":["..."]}',500,0.25);
+            ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nVlerëso pozicionin ligjor në mënyrë realiste duke notuar secilin faktor nga 0 në 2 (0=shumë dobët, 1=mesatar, 2=shumë mirë). Kujdes: "kundershtimi" mat sa i FORTË është pozicioni i palës kundërshtare (2 = kundërshtim shumë i fortë kundër klientit). JSON:\n{"factors":{"baza":1.5,"prova":1.0,"kundershtimi":1.0,"faktet":1.5},"strengths":["..."],"weaknesses":["..."],"missing_evidence":["..."]}',500,0.2);
         })
         .then(function(r2){
           store.strength=safeJson(r2); rowDone(1);
@@ -2156,19 +2241,11 @@
         .then(function(r7){
           store.opinion=r7; lastOpinion=r7||''; rowDone(7);
           renderMeta($('opinion-type').value);
-          if(store.doctrine&&store.doctrine.kuadri){
-            var hasMissing=false,hasPartial=false;
-            store.doctrine.kuadri.forEach(function(e){
-              var v=String(e&&e.vleresim||'').toLowerCase();
-              if(v.indexOf('mung')===0) hasMissing=true;
-              else if(v.indexOf('plot')!==0) hasPartial=true;
-            });
-            var sc=parseFloat(store.strength.score);
-            if(isFinite(sc)){
-              if(hasMissing&&sc>4){ store.strength.score=4; store.strength._capped='një element thelbësor mungon'; }
-              else if(hasPartial&&sc>6.5){ store.strength.score=6.5; store.strength._capped='një element është vetëm pjesërisht i plotësuar'; }
-            }
-          }
+          if(!store.strength) store.strength={};
+          store.strengthCalc=computeStrengthScore(store.strength, store.doctrine, store.grounding, store.limitation);
+          store.strength.score=store.strengthCalc.score;
+          store.strength.label=store.strengthCalc.label;
+          store.strength._capped=store.strengthCalc.capNote||'';
           _artHref={}; var _amb={};
           ((store.grounding&&store.grounding.found)||[]).forEach(function(a){
             var b=String(a.num).split('/')[0];
@@ -2180,12 +2257,13 @@
           store.forecast.drivers=store.forecastDrivers||[];
           renderSummary(store);
           renderStrength(store.strength);
+          renderScoreBreakdown(store);
           renderAnalysis(store.laws,store.strength);
           renderDoctrine(store);
           renderText('op-out-opposition',store.opposition);
           renderText('op-out-jurisprudence',store.jurisprudence);
           renderForecast(store.forecast);
-          renderPlan(store.plan,store.type);
+          renderPlan(store.plan,store.type,store.limitation);
           renderStrengthen(store);
           renderText('op-out-opinion',store.opinion);
           renderReferences(store);
