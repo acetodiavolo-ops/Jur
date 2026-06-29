@@ -1384,7 +1384,7 @@
       function clampPct(v){ var n = Number(v); return isFinite(n) ? Math.max(0, Math.min(100, n)) : 0; }
       function fmtNum(n){ n = Math.round(Number(n) || 0); return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
       function getKey(){ return (typeof GROQ_KEY !== 'undefined') ? GROQ_KEY : ''; }
-      function keyMissing(){ var k = getKey(); return !k || k === 'YOUR_GROQ_KEY_HERE'; }
+      function keyMissing(){ if(typeof aiReady==='function') return !aiReady(); var k = getKey(); return !k || k === 'YOUR_GROQ_KEY_HERE'; }
 
       function safeJson(raw){
         if (raw && typeof raw === 'object') return raw;
@@ -1630,13 +1630,15 @@
             .then(function(res){
               if((res.status===429||res.status>=500)&&n<MAX_RETRIES) return delay(backoff(n)).then(function(){ return attempt(n+1); });
               return res.json().catch(function(){ return {}; }).then(function(data){
-                if(!res.ok){ var msg=(data&&data.error&&data.error.message)||('HTTP '+res.status); throw new Error(msg); }
+                if(!res.ok){ var msg=(data&&data.error&&data.error.message)||('HTTP '+res.status); var e=new Error(msg); e.status=res.status; throw e; }
                 var content=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
                 if(!content) throw new Error('Përgjigje boshe nga modeli');
                 return content;
               });
             }).catch(function(err){
               if(err&&err.name==='AbortError') throw err;
+              var st=err&&err.status;
+              if(st&&st>=400&&st<500&&st!==429) throw err;   // bad key/model -> don't retry, fall to next provider
               if(n<MAX_RETRIES) return delay(backoff(n)).then(function(){ return attempt(n+1); });
               throw err;
             });

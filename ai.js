@@ -14,7 +14,7 @@ var AI_PROVIDERS = [];
     if (key && String(key).indexOf('YOUR_') !== 0) AI_PROVIDERS.push({ url: url, key: key, model: model });
   }
   add(typeof GROQ_KEY       !== 'undefined' ? GROQ_KEY       : '', 'https://api.groq.com/openai/v1/chat/completions',   'llama-3.3-70b-versatile');
-  add(typeof CEREBRAS_KEY   !== 'undefined' ? CEREBRAS_KEY   : '', 'https://api.cerebras.ai/v1/chat/completions',       'llama-3.3-70b');
+  add(typeof CEREBRAS_KEY   !== 'undefined' ? CEREBRAS_KEY   : '', 'https://api.cerebras.ai/v1/chat/completions',       'gpt-oss-120b');
   add(typeof SAMBANOVA_KEY  !== 'undefined' ? SAMBANOVA_KEY  : '', 'https://api.sambanova.ai/v1/chat/completions',        'Meta-Llama-3.3-70B-Instruct');
 })();
 
