@@ -49,6 +49,18 @@
     .op-bd-fill{display:block;height:100%;background:var(--accent);}
     .op-bd-v{flex:0 0 auto;font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums;}
     .op-bd-final{margin:12px 0 0;font-size:.82rem;}
+    .op-conf{display:inline-block;margin-left:8px;font-size:.58rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:10px;vertical-align:middle;}
+    .op-conf-hi{background:#e3efe9;color:#2f5d54;}
+    .op-conf-mid{background:#f4ecd8;color:#8a6a1e;}
+    .op-conf-lo{background:#f3ddd6;color:#9c4a32;}
+    .op-vmark{display:inline-block;margin-left:6px;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:8px;white-space:nowrap;}
+    .op-vmark-ok{background:#e3efe9;color:#2f5d54;}
+    .op-vmark-warn{background:#f4ecd8;color:#8a6a1e;}
+    .op-vmark-bad{background:#f3ddd6;color:#9c4a32;}
+    .op-fact-grid{display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:6px;}
+    .op-fact-row{display:flex;gap:10px;align-items:baseline;border-bottom:1px solid var(--border);padding-bottom:5px;}
+    .op-fact-k{flex:0 0 36%;font-size:.7rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+    .op-fact-v{flex:1;font-size:.9rem;}
     .print-cover{display:none;}
     @media print{
       .print-cover{display:flex!important;flex-direction:column;align-items:center;justify-content:center;height:100vh;overflow:hidden;text-align:center;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
@@ -554,6 +566,10 @@
           <input id="opinion-event-date" type="date">
         </div>
         <div id="opinion-form-error" class="opinion-form-error" hidden></div>
+        <div id="opinion-thin-gate" class="opinion-form-error" hidden>
+          <div>Përshkrimi është i shkurtër. Për saktësi më të mirë shtoni: palët, datat, shumat dhe provat. Mund të vazhdoni gjithsesi.</div>
+          <button id="opinion-thin-proceed" type="button" class="opinion-generate-btn" style="margin-top:10px">Vazhdo gjithsesi →</button>
+        </div>
         <button id="opinion-generate-btn" class="opinion-generate-btn" type="button">Fillo Analizën →</button>
         <p class="opinion-form-note">Ky mjet krijon një analizë me inteligjencë artificiale, vetëm për qëllime informative. Nuk është këshillë ligjore dhe nuk zëvendëson një avokat të licencuar. Verifikoni gjithmonë nenet dhe vendimet e cituara.</p>
       </div>
@@ -595,6 +611,10 @@
           <span class="op-step-icon">📄</span>
           <div><div class="op-step-label">Mendimi ligjor formal</div><div class="op-step-sub">Dokument i strukturuar bazuar në të gjitha analizat</div></div>
         </div>
+        <div class="opinion-step" id="op-step-9">
+          <span class="op-step-icon">✔</span>
+          <div><div class="op-step-label">Kontroll cilësie &amp; verifikim</div><div class="op-step-sub">Citimet kontrollohen kundrejt tekstit zyrtar</div></div>
+        </div>
       </div>
 
       <!-- OUTPUT PHASE -->
@@ -610,6 +630,10 @@
         <div class="opinion-doc-header">
           <div class="opinion-doc-eyebrow">Analizë Ligjore e Plotë</div>
           <div class="opinion-doc-meta" id="opinion-doc-meta"></div>
+        </div>
+        <div class="opinion-section-block opinion-block-f" id="op-factsheet-block" hidden>
+          <div class="opinion-block-label">Çfarë Kuptuam</div>
+          <div id="op-out-factsheet" class="opinion-section-body"></div>
         </div>
         <div class="opinion-section-block opinion-block-summary" id="op-summary-block" hidden>
           <div class="opinion-block-label">Përfundimi në një vështrim</div>
@@ -651,6 +675,10 @@
         <div class="opinion-section-block opinion-block-f">
           <div class="opinion-block-label">Mendimi Ligjor</div>
           <div id="op-out-opinion" class="opinion-section-body opinion-serif"></div>
+        </div>
+        <div class="opinion-section-block opinion-block-strengthen" id="op-verify-block" hidden>
+          <div class="opinion-block-label">Kontroll Cilësie</div>
+          <div id="op-out-verify" class="opinion-section-body"></div>
         </div>
 
         <!-- G - References to verify (client-side scan; zero extra API calls) -->
@@ -1616,6 +1644,24 @@
               }
             });
           });
+          // cross-reference expansion: pull nene cited INSIDE the grounded texts (one hop, capped)
+          var dataByLaw={}; rows.forEach(function(r){ dataByLaw[String(r.law.name||'').trim()]={data:r.data,href:r.href}; });
+          var baseFound=found.slice(), extra=0, XCAP=6;
+          baseFound.forEach(function(f){
+            if(extra>=XCAP) return; var li=dataByLaw[f.law]; if(!li) return;
+            var rr=/nen(?:i|it|in|et|eve)?\s+(\d+(?:\/[\w]+)?)/gi, mm;
+            while(extra<XCAP && (mm=rr.exec(f.text))!==null){
+              var rn=artKey(mm[1]); if(!rn) continue;
+              var key=f.law+'|'+rn; if(seen[key]) continue;
+              var t=li.data[rn]; if(!t) continue;
+              seen[key]=true;
+              var clean=String(t).replace(/\s+/g,' ').trim();
+              found.push({law:f.law,num:rn,href:li.href,anchor:'neni-'+String(rn).replace('/','-'),text:clean,xref:true});
+              nums[rn.split('/')[0]]=true;
+              blocks.push('Neni '+rn+' ('+f.law+', referuar brenda tekstit): «'+clean.slice(0,900)+'»');
+              extra++;
+            }
+          });
           var text=blocks.length
             ?'TEKSTI ZYRTAR I NENEVE (mbështetu VETËM mbi këto; mos cito nene që nuk janë dhënë këtu):\n\n'+blocks.join('\n\n')
             :'';
@@ -1787,7 +1833,7 @@
         closeList(); return linkifyHtml(out);
       }
 
-      var steps = [1,2,3,4,5,6,7,8].map(function(i){ return $('op-step-'+i); });
+      var steps = [1,2,3,4,5,6,7,8,9].map(function(i){ return $('op-step-'+i); });
       function rowActive(i){ steps[i].classList.add('active'); steps[i].classList.remove('done','failed'); }
       function rowDone(i){ steps[i].classList.remove('active','failed'); steps[i].classList.add('done'); }
       function rowFail(i){ steps[i].classList.remove('active','done'); steps[i].classList.add('failed'); }
@@ -1978,6 +2024,66 @@
         el.innerHTML=html+'</div></details>';
       }
 
+      // ── F3 damages, F4 consistency/confidence, F1 verifier ──
+      function buildDamages(raw, claim, type){
+        var OK={civile:1,tregtare:1,pune:1,konsumator:1,prone:1};
+        if(!OK[type] || !(claim>0) || !raw || !raw.length) return null;
+        var items=raw.filter(function(d){ return d&&d.head; }).map(function(d){ return {head:String(d.head), basis:String(d.basis||''), share:Math.max(0,parseFloat(d.share)||0)}; });
+        if(!items.length) return null;
+        var tot=items.reduce(function(s,d){ return s+d.share; },0); if(tot<=0){ items.forEach(function(d){ d.share=100/items.length; }); tot=100; }
+        items.forEach(function(d){ d.pct=d.share/tot*100; d.amount=Math.round(d.pct/100*claim); });
+        return items;
+      }
+      function stripFakeCitations(t){ if(!t) return t; return String(t).replace(/\bVendim(?:i|in|it|et|eve)?\s*nr\.?\s*[\d\/.\-]+(?:\s*,?\s*dat[ëe][^,.;\n]*)?/gi,'praktikë gjyqësore përkatëse'); }
+      function enforceConsistency(text, f, score){
+        if(!text||!f) return text;
+        var ok=[Math.round(f.win||0),Math.round(f.settle||0),Math.round(f.lose||0)]; var sc=parseFloat(score); if(isFinite(sc)) ok.push(Math.round(sc*10));
+        var bad=false, m, re=/(\d{1,3})\s*%/g;
+        while((m=re.exec(text))!==null){ var p=parseInt(m[1],10); if(p>=15&&p<=95 && !ok.some(function(x){ return Math.abs(x-p)<=12; })){ bad=true; } }
+        if(!bad) return text;
+        return text+'\n\n— Shënim: gjasat zyrtare të kësaj analize janë fitim '+ok[0]+'%, marrëveshje '+ok[1]+'%, humbje '+ok[2]+'%; çdo përqindje tjetër në tekst është ilustruese.';
+      }
+      function computeConfidence(store){
+        var found=((store.grounding&&store.grounding.found)||[]).length;
+        var v=store.verify, vc=(v&&v.confidence)||'';
+        var base=found>=4?2:found>=2?1:0;
+        if(vc==='high') base+=1; else if(vc==='low') base-=1;
+        var contra=(v&&v.citations)?v.citations.filter(function(c){ return String(c.verdict||'').indexOf('contra')===0; }).length:0;
+        if(contra>0) base-=1;
+        return { level:(base>=2?'hi':base>=1?'mid':'lo'), found:found, vconf:vc };
+      }
+      var CONF_INFO={ hi:['op-conf-hi','besueshmëri e lartë'], mid:['op-conf-mid','besueshmëri mesatare'], lo:['op-conf-lo','besueshmëri e ulët'] };
+      function applyConfidenceBadges(store){
+        var c=store.confidence; if(!c) return; var info=CONF_INFO[c.level]||CONF_INFO.mid;
+        ['op-summary-block','op-references-block'].forEach(function(id){ var b=$(id); if(!b) return; var lab=b.querySelector('.opinion-block-label'); if(!lab) return; var old=lab.querySelector('.op-conf'); if(old) old.parentNode.removeChild(old); var s=document.createElement('span'); s.className='op-conf '+info[0]; s.textContent=info[1]; lab.appendChild(s); });
+      }
+      function runVerifier(store){
+        if(typeof runCall!=='function') return Promise.resolve(null);
+        var cited=[], seen={}, m, re=/\b[Nn]eni(?:t|n|ve)?\s+(\d+(?:\/[\w]+)?)/g;
+        while((m=re.exec(store.opinion||''))!==null){ var n=m[1]; if(!seen[n]){ seen[n]=1; cited.push(n); } }
+        var f=store.forecast||{}, sc=parseFloat(store.strength&&store.strength.score); sc=isFinite(sc)?sc.toFixed(1):'?';
+        var usr='MENDIMI PËR T\'U KONTROLLUAR:\n'+String(store.opinion||'').slice(0,5000)
+          +'\n\nNENET E CITUARA: '+(cited.slice(0,14).join(', ')||'(asnjë)')
+          +(store.groundingText||'')
+          +'\n\nSHIFRAT AUTORITATIVE: vlerësim '+sc+'/10; fitim '+Math.round(f.win||0)+'%, marrëveshje '+Math.round(f.settle||0)+'%, humbje '+Math.round(f.lose||0)+'%.'
+          +'\n\nPër secilin nen të cituar jep verdiktin "verified" (teksti zyrtar e mbështet), "unconfirmed" (s\'ka tekst për ta vërtetuar), ose "contradicted" (teksti e kundërshton). Listo mospërputhjet dhe teprite kundrejt shifrave. JSON:\n{"citations":[{"neni":"X","verdict":"verified|unconfirmed|contradicted","note":"..."}],"issues":["..."],"corrections":["..."],"confidence":"high|medium|low"}';
+        return runCall(9,'Jeni auditues i pavarur ligjor. Kontrolloni mendimin kundrejt tekstit zyrtar të neneve dhe shifrave të dhëna. Përgjigjuni VETËM me JSON të vlefshëm.',usr,800,0.2)
+          .then(function(r){ var j=safeJson(r)||{}; return { citations:j.citations||[], issues:j.issues||[], corrections:j.corrections||[], confidence:String(j.confidence||'').toLowerCase() }; });
+      }
+      function renderVerify(store){
+        var block=$('op-verify-block'), el=$('op-out-verify'); if(!block||!el) return;
+        var v=store.verify; if(!v){ block.hidden=true; return; }
+        var c=store.confidence||{level:'mid'}, lab={hi:['op-conf-hi','E lartë'],mid:['op-conf-mid','Mesatare'],lo:['op-conf-lo','E ulët']}[c.level]||['op-conf-mid','Mesatare'];
+        var html='<p>Besueshmëria e përgjithshme: <span class="op-conf '+lab[0]+'">'+lab[1]+'</span> <small>('+c.found+' nene të konfirmuara në bazën ligjore)</small></p>';
+        var issues=(v.issues||[]).filter(Boolean), corr=(v.corrections||[]).filter(Boolean);
+        var contra=(v.citations||[]).filter(function(x){ return String(x.verdict||'').indexOf('contra')===0; });
+        if(contra.length){ html+='<p class="op-subhead op-red" style="margin:10px 0 4px;">Citime të kundërshtuara nga teksti zyrtar</p><ul class="op-checklist">'+contra.map(function(x){ return '<li>Neni '+esc(x.neni)+(x.note?': '+esc(x.note):'')+'</li>'; }).join('')+'</ul>'; }
+        if(issues.length){ html+='<p class="op-subhead op-amber" style="margin:10px 0 4px;">Mospërputhje / vërejtje</p><ul class="op-checklist">'+issues.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; }
+        if(corr.length){ html+='<p class="op-subhead" style="margin:10px 0 4px;">Korrigjime të sugjeruara</p><ul class="op-checklist">'+corr.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; }
+        if(!contra.length&&!issues.length&&!corr.length) html+='<p>Nuk u gjetën mospërputhje thelbësore me tekstin zyrtar të neneve.</p>';
+        el.innerHTML=html; block.hidden=false;
+      }
+
       function renderForecast(f){
         var el=$('op-out-forecast');
         if(!f||(f.win==null&&f.settle==null&&f.lose==null)){ el.innerHTML=DEGRADED; return; }
@@ -1994,6 +2100,7 @@
         html+='</div>';
         if(f.cost_min==null&&f.settle_min==null) html+='<p class="op-fc-note">Jepni «Vlerën e kontestit ose dëmin» në formular për një vlerësim të kostos dhe të marrëveshjes.</p>';
         if(f.drivers&&f.drivers.length){ html+='<p class="op-subhead op-green">Faktorët vendimtarë</p><ul class="opinion-md-list">'; f.drivers.forEach(function(d){ html+='<li>'+esc(d)+'</li>'; }); html+='</ul>'; }
+        if(f.damages&&f.damages.length){ html+='<p class="op-subhead">Zbërthimi i dëmit (orientues)</p>'; var DC=['#3d706a','#b8923a','#b15c44','#6a8caf'], dseg=''; f.damages.forEach(function(d,i){ dseg+='<div class="op-fc-seg" style="width:'+d.pct.toFixed(0)+'%;background:'+DC[i%4]+'">'+(d.pct>=12?d.pct.toFixed(0)+'%':'')+'</div>'; }); html+='<div class="op-forecast-bar">'+dseg+'</div><div class="op-stat-grid">'; f.damages.forEach(function(d){ html+='<div class="op-stat"><div class="op-stat-label">'+esc(d.head)+(d.basis?' <small>('+esc(d.basis)+')</small>':'')+'</div><div class="op-stat-value">'+fmtNum(d.amount)+' <small>'+esc(cur)+'</small></div></div>'; }); html+='</div>'; }
         if(f.basis&&f.basis.length){ html+='<p class="op-fc-basis"><strong>Si u llogarit:</strong> '+f.basis.map(function(b){ return esc(b); }).join(' ')+' <em>Vlerësime orientuese — verifikoni.</em></p>'; }
         el.innerHTML=html;
       }
@@ -2014,6 +2121,18 @@
         block.hidden=false;
       }
 
+      function renderFactSheet(store){
+        var u=store.understanding, block=$('op-factsheet-block'), el=$('op-out-factsheet'); if(!block||!el) return;
+        if(!u){ block.hidden=true; return; }
+        var f=u.facts||{};
+        function row(k,v){ return (v&&String(v).trim()&&String(v).trim()!=='...')?('<div class="op-fact-row"><span class="op-fact-k">'+k+'</span><span class="op-fact-v">'+esc(String(v))+'</span></div>'):''; }
+        var grid=row('Palët',f.parties)+row('Data',f.dates)+row('Shuma',f.amounts)+row('Lloji i kërkesës',f.claim_type)+row('Juridiksioni',f.jurisdiction);
+        var html=grid?('<div class="op-fact-grid">'+grid+'</div>'):'';
+        if(u.key_events&&u.key_events.length){ html+='<p class="op-subhead" style="margin:12px 0 4px;">Ngjarjet kryesore (si i kuptuam)</p><ul class="opinion-list">'+u.key_events.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; }
+        if(u.missing&&u.missing.length){ html+='<p class="op-subhead op-amber" style="margin:12px 0 4px;">Mungon / Supozojmë</p><ul class="op-checklist">'+u.missing.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; }
+        if(!html){ block.hidden=true; return; }
+        el.innerHTML=html; block.hidden=false;
+      }
       function renderStrengthen(store){
         var block=$('op-strengthen-block'), el=$('op-out-strengthen'); if(!block||!el) return;
         var items=[];
@@ -2109,12 +2228,14 @@
           '<span style="color:#b8923a;font-weight:600">⚠ Pa burim</span> — cituar nga AI por jo nga teksti i dhënë; verifikoje te '+
           '<a href="https://qbz.gov.al" target="_blank" rel="noopener noreferrer" class="opinion-law-link">QBZ</a> para se t\'i mbështetesh.</p>';
 
+        var vmap={}; ((store.verify&&store.verify.citations)||[]).forEach(function(c){ var k=String(c.neni||'').split('/')[0]; if(k) vmap[k]=String(c.verdict||'').toLowerCase(); });
+        function vMark(num){ var v=vmap[String(num).split('/')[0]]; if(!v) return ''; if(v.indexOf('verif')===0) return ' <span class="op-vmark op-vmark-ok">✓ verifikuar</span>'; if(v.indexOf('contra')===0) return ' <span class="op-vmark op-vmark-bad">✗ kundërshtuar</span>'; return ' <span class="op-vmark op-vmark-warn">⚠ e pakonfirmuar</span>'; }
         if(grounded.length){
           html+='<div class="op-ref-group"><div class="op-ref-count">Nene me tekst zyrtar — '+grounded.length+'</div><ul class="op-ref-list">';
           grounded.forEach(function(a){
             html+='<li class="op-ref op-ref-ok"><details class="op-ref-details"><summary>'+
               '<span class="op-ref-icon">✓</span>'+
-              '<span class="op-ref-label">Neni '+esc(a.num)+' <span style="color:var(--muted);font-weight:400">— '+esc(a.law)+'</span></span>'+
+              '<span class="op-ref-label">Neni '+esc(a.num)+' <span style="color:var(--muted);font-weight:400">— '+esc(a.law)+(a.xref?' · referuar':'')+'</span>'+vMark(a.num)+'</span>'+
               '<a href="'+esc(a.href)+'#'+esc(a.anchor)+'" target="_blank" rel="noopener noreferrer" class="op-ref-hint" style="text-decoration:none">hap nenin →</a>'+
               '</summary><p class="op-ref-text">'+esc(a.text)+'</p></details></li>';
           });
@@ -2178,7 +2299,7 @@
         el.innerHTML=html;
       }
 
-      var running=false;
+      var running=false, thinConfirmed=false;
       var attachedText='', resetPdf=function(){}, lastOpinion='';
       function showError(msg){ var box=$('opinion-form-error'); box.textContent=msg; box.hidden=false; }
       var lawListText=function(laws){ if(!laws.length) return 'Ligjet zbatuese të të drejtës shqiptare.'; return laws.map(function(l){ return '• '+l.name+' ('+((l.articles||[]).join(', ')||'nenet zbatuese')+'): '+(l.relevance||''); }).join('\n'); };
@@ -2189,6 +2310,8 @@
         if(keyMissing()){ showError('Çelësi i AI mungon.'); return; }
         var type=$('opinion-type').value, facts=$('opinion-facts').value.trim(), parties=$('opinion-parties').value.trim(), goal=$('opinion-goal').value.trim();
         if(!facts && !attachedText){ showError('Përshkruaj faktet ose ngarko një dokument PDF për të vazhduar.'); $('opinion-facts').focus(); return; }
+        if(facts && facts.length<120 && !attachedText && !thinConfirmed){ var _tg=$('opinion-thin-gate'); if(_tg){ _tg.hidden=false; return; } }
+        thinConfirmed=false; var _tg2=$('opinion-thin-gate'); if(_tg2) _tg2.hidden=true;
         var attach=attachedText?('\n\nDOKUMENT I NGARKUAR (përmbajtje e nxjerrë):\n'+attachedText.slice(0,8000)):'';
         var ctx='Lloji: çështje '+type+'.\nFaktet: '+(facts||'(shih dokumentin e ngarkuar)')+(parties?'\nPalët: '+parties:'')+(goal?'\nQëllimi: '+goal:'')+attach;
         var isProp=(type==='prone')||((type==='civile'||type==='tregtare')&&detectProperty(facts+' '+parties+' '+goal+' '+attachedText));
@@ -2207,9 +2330,10 @@
         store.limitation=checkLimitation(type, store.eventDate);
         rowActive(0);
         runCall(1,'Jeni analist ligjor shqiptar me përvojë. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas dhe pa shenja ```.'+ANTI_HALLUC,
-          ctx+primer+'\n\nIdentifiko 3–5 ligjet shqiptare më relevante dhe nenet kryesore zbatuese (ji gjithëpërfshirës: deri në 8 nene gjithsej, vetëm nene për të cilat je i sigurt).\nJSON: {"laws":[{"name":"...","articles":["..."],"relevance":"..."}],"issues":["..."],"arguments":["..."]}',600,0.15)
+          ctx+primer+'\n\nIdentifiko 3–5 ligjet shqiptare më relevante dhe nenet kryesore zbatuese (ji gjithëpërfshirës: deri në 8 nene gjithsej, vetëm nene për të cilat je i sigurt). Gjithashtu nxirr një PËRMBLEDHJE të fakteve të kuptuara dhe listo çfarë mungon ose supozohet.\nJSON: {"laws":[{"name":"...","articles":["..."],"relevance":"..."}],"issues":["..."],"arguments":["..."],"facts":{"parties":"...","dates":"...","amounts":"...","claim_type":"...","jurisdiction":"..."},"key_events":["..."],"missing":["..."],"clarifying":["..."]}',700,0.15)
         .then(function(r1){
-          store.laws=safeJson(r1).laws||[];
+          var j1=safeJson(r1); store.laws=j1.laws||[];
+          store.understanding={facts:j1.facts||{}, key_events:j1.key_events||[], missing:j1.missing||[], clarifying:j1.clarifying||[]};
           store.lawList=lawListText(store.laws);
           store.groundingP=retrieveGrounding(store.laws);
           rowDone(0); rowActive(1);
@@ -2236,7 +2360,7 @@
                   'Ligjet: '+store.laws.map(function(l){ return l.name; }).join(', ')+'\nLloji: '+type+'\nSituata: '+facts.slice(0,400)+GT+'\n\nPërshkruaj: (1) si i kanë trajtuar gjykatat shqiptare raste të ngjashme, (2) parimet interpretuese dominuese, (3) çfarë duhet pasur parasysh.',700,0.4)
                 .then(function(v){ rowDone(3); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(3); return null; }); },
               function(){ return runCall(5,'Jeni analist risku ligjor. Përgjigjuni VETËM me JSON të vlefshëm.',
-                  ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nListo 3–5 faktorët kryesorë cilësorë që përcaktojnë rezultatin e mundshëm të kësaj çështjeje (mos jep shifra). JSON:\n{"drivers":["..."]}',400,0.3)
+                  ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nListo 3–5 faktorët kryesorë cilësorë që përcaktojnë rezultatin (mos jep shifra). Nëse ka dëm pasuror, jep edhe zbërthimin e dëmit në zëra (dëm material, dëm jo-pasuror/moral, fitim i munguar) me bazën ligjore dhe një peshë përqindjeje (share 0–100) për secilin. JSON:\n{"drivers":["..."],"damages":[{"head":"Dëm material","basis":"neni ...","share":60}]}',550,0.3)
                 .then(function(v){ rowDone(4); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(4); return null; }); },
               function(){ return runCall(6,'Jeni strateg ligjor. Përgjigjuni VETËM me JSON të vlefshëm.',
                   ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nKrijo plan veprimi praktik. JSON:\n{"steps":[{"action":"...","priority":"Lartë|Mesatare|Ulët","deadline":"..."}],"evidence":["..."],"deadlines":[{"what":"...","timeframe":"..."}]}',600,0.35)
@@ -2255,7 +2379,7 @@
           });
         })
         .then(function(res){
-          store.opposition=res[0]; store.jurisprudence=res[1]; store.forecastDrivers=((safeJson(res[2])||{}).drivers)||[]; store.plan=safeJson(res[3]); store.doctrine=safeJson(res[4]);
+          store.opposition=res[0]; store.jurisprudence=res[1]; var _r5=safeJson(res[2])||{}; store.forecastDrivers=_r5.drivers||[]; store.forecastDamages=_r5.damages||[]; store.plan=safeJson(res[3]); store.doctrine=safeJson(res[4]);
           rowActive(7);
           var S=store.strength;
           return runCall(7,'Jeni jurist i lartë shqiptar. Shkruani mendim ligjor formal, të strukturuar dhe profesional. Citoni nenet sipas tekstit zyrtar të dhënë më poshtë dhe, kur është e mundur, përdorni formulimin e tij. MOS citoni nene që nuk janë dhënë. Përfshi në analizë dekompozimin doktrinor të dhënë (objekti, ana objektive, subjekti, ana subjektive ose elementet e përgjegjësisë), duke vlerësuar nëse secili element përmbushet.',
@@ -2278,21 +2402,33 @@
           });
           store.forecast=computeForecast(store.claim,(store.strength&&store.strength.score),type);
           store.forecast.drivers=store.forecastDrivers||[];
-          renderSummary(store);
-          renderStrength(store.strength);
-          renderScoreBreakdown(store);
-          renderAnalysis(store.laws,store.strength);
-          renderDoctrine(store);
-          renderText('op-out-opposition',store.opposition);
-          renderText('op-out-jurisprudence',store.jurisprudence);
-          renderForecast(store.forecast);
-          renderPlan(store.plan,store.type,store.limitation);
-          renderStrengthen(store);
-          renderText('op-out-opinion',store.opinion);
-          renderReferences(store);
-          $('opinion-progress').hidden=true;
-          $('opinion-output').hidden=false;
-          $('opinion-modal-inner').scrollTop=0;
+          store.forecast.damages=buildDamages(store.forecastDamages,store.claim,type);
+          store.jurisprudence=stripFakeCitations(store.jurisprudence);
+          store.opinion=enforceConsistency(store.opinion,store.forecast,(store.strength&&store.strength.score));
+          lastOpinion=store.opinion||'';
+          rowActive(8);
+          return runVerifier(store).then(function(vr){ store.verify=vr; rowDone(8); }, function(e){ if(e&&e.name==='AbortError') throw e; rowFail(8); store.verify=null; })
+          .then(function(){
+            store.confidence=computeConfidence(store);
+            renderFactSheet(store);
+            renderSummary(store);
+            renderStrength(store.strength);
+            renderScoreBreakdown(store);
+            renderAnalysis(store.laws,store.strength);
+            renderDoctrine(store);
+            renderText('op-out-opposition',store.opposition);
+            renderText('op-out-jurisprudence',store.jurisprudence);
+            renderForecast(store.forecast);
+            renderPlan(store.plan,store.type,store.limitation);
+            renderStrengthen(store);
+            renderText('op-out-opinion',store.opinion);
+            renderVerify(store);
+            renderReferences(store);
+            applyConfidenceBadges(store);
+            $('opinion-progress').hidden=true;
+            $('opinion-output').hidden=false;
+            $('opinion-modal-inner').scrollTop=0;
+          });
         })
         .catch(function(err){
           if(err&&err.name==='AbortError') return;
@@ -2319,6 +2455,7 @@
       $('opinion-open-btn').addEventListener('click',openModal);
       $('opinion-close').addEventListener('click',closeModal);
       $('opinion-generate-btn').addEventListener('click',generate);
+      (function(){ var tp=$('opinion-thin-proceed'); if(tp) tp.addEventListener('click',function(){ thinConfirmed=true; $('opinion-thin-gate').hidden=true; generate(); }); })();
       $('opinion-print-btn').addEventListener('click',function(){ window.print(); });
       $('opinion-copy-btn').addEventListener('click',function(){
         var t=lastOpinion; if(!t) return;
@@ -2428,7 +2565,11 @@
       }
       var _civil=null, abortCtrl=null;
       function loadCivil(){ if(_civil) return Promise.resolve(_civil); return fetch('data/kodi-civil.json',{signal:abortCtrl?abortCtrl.signal:undefined}).then(function(r){ return r.ok?r.json():{}; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; return {}; }).then(function(d){ _civil=d||{}; return _civil; }); }
-      function buildGrounding(arts){ return loadCivil().then(function(data){ var blocks=[],refs=[]; (arts||[]).forEach(function(n){ var t=data[String(n)]; if(t){ var clean=String(t).replace(/\s+/g,' ').trim(); blocks.push('Neni '+n+': «'+clean.slice(0,650)+'»'); refs.push({num:n,text:clean}); } }); return {text:blocks.length?('TEKSTI ZYRTAR I NENEVE (Kodi Civil — mbështetu VETËM te këto, mos cito nene jashtë tyre):\n\n'+blocks.join('\n\n')):'', refs:refs}; }); }
+      function buildGrounding(arts){ return loadCivil().then(function(data){ var blocks=[],refs=[],have={};
+        (arts||[]).forEach(function(n){ var t=data[String(n)]; if(t){ have[String(n)]=true; var clean=String(t).replace(/\s+/g,' ').trim(); blocks.push('Neni '+n+': «'+clean.slice(0,650)+'»'); refs.push({num:n,text:clean}); } });
+        // cross-reference expansion (one hop, capped): pull nene cited inside the grounded texts
+        var extra=0; refs.slice().forEach(function(r){ if(extra>=6) return; var rr=/nen(?:i|it|in|et|eve)?\s+(\d+)/gi, mm; while(extra<6 && (mm=rr.exec(r.text))!==null){ var rn=mm[1]; if(have[rn]) continue; var t=data[rn]; if(!t) continue; have[rn]=true; var clean=String(t).replace(/\s+/g,' ').trim(); blocks.push('Neni '+rn+' (referuar): «'+clean.slice(0,600)+'»'); refs.push({num:parseInt(rn,10),text:clean,xref:true}); extra++; } });
+        return {text:blocks.length?('TEKSTI ZYRTAR I NENEVE (Kodi Civil — mbështetu VETËM te këto, mos cito nene jashtë tyre):\n\n'+blocks.join('\n\n')):'', refs:refs}; }); }
       var INH_FEWSHOT='SHEMBUJ TË SAKTË (mëso prej logjikës, mos kopjo verbatim):\n'+
         '• Bashkëshort + 2 fëmijë → secili (2 fëmijët dhe bashkëshorti) merr 1/3 (neni 361, pjesë të barabarta).\n'+
         '• Pa fëmijë + bashkëshort + 2 prindër → bashkëshorti 1/2 (neni 361), secili prind 1/4 (gjysma tjetër barazisht, neni 363).\n'+
@@ -2508,7 +2649,21 @@
         el.innerHTML='<div class="inh-prev-label">Parashikim i shpejtë (llogaritje e saktë)</div><div class="inh-bar">'+segs+'</div><div style="display:flex;flex-wrap:wrap;gap:10px">'+rows+'</div>';
       }
       function renderReserve(c){ var block=$('inh-reserve-block'), el=$('inh-out-reserve'); if(!c.reserve){ block.hidden=true; return; } var r=c.reserve, html='<p>Fëmijët e mitur dhe personat e paaftë për punë nuk mund të përjashtohen me testament (neni 379); pjesa e tyre llogaritet sipas nenit 413.</p>'; html+='<div class="op-stat-grid"><div class="op-stat"><div class="op-stat-label">Pjesa e rezervuar (e pacenueshme)</div><div class="op-stat-value">'+fracStr(r.reservedFrac)+(c.netEstate>0?' <small>≈ '+fmtN(Math.round(r.reservedFrac*c.netEstate))+' L</small>':'')+'</div></div><div class="op-stat"><div class="op-stat-label">Pjesa e disponueshme me testament</div><div class="op-stat-value">'+fracStr(r.disposableFrac)+(c.netEstate>0?' <small>≈ '+fmtN(Math.round(r.disposableFrac*c.netEstate))+' L</small>':'')+'</div></div></div>'; if(r.warning) html+='<div class="op-deadline-note"><div>⚠ '+esc(r.warning)+'</div></div>'; el.innerHTML=html; block.hidden=false; }
-      function renderRefs(refs){ var block=$('inh-refs-block'), el=$('inh-out-refs'); if(!refs||!refs.length){ block.hidden=true; return; } var html='<ul class="op-ref-list">'; refs.forEach(function(a){ html+='<li class="op-ref op-ref-ok"><details class="op-ref-details"><summary><span class="op-ref-icon">✓</span><span class="op-ref-label">Neni '+a.num+'</span><a href="kodi-civil.html#neni-'+a.num+'" target="_blank" rel="noopener noreferrer" class="op-ref-hint" style="text-decoration:none">hap →</a></summary><p class="op-ref-text">'+esc(a.text)+'</p></details></li>'; }); el.innerHTML=html+'</ul>'; block.hidden=false; }
+      function renderRefs(refs){ var block=$('inh-refs-block'), el=$('inh-out-refs'); if(!refs||!refs.length){ block.hidden=true; return; } var html='<ul class="op-ref-list">'; refs.forEach(function(a){ html+='<li class="op-ref op-ref-ok"><details class="op-ref-details"><summary><span class="op-ref-icon">✓</span><span class="op-ref-label">Neni '+a.num+(a.xref?' <span style="color:var(--muted);font-weight:400">· referuar</span>':'')+'</span><a href="kodi-civil.html#neni-'+a.num+'" target="_blank" rel="noopener noreferrer" class="op-ref-hint" style="text-decoration:none">hap →</a></summary><p class="op-ref-text">'+esc(a.text)+'</p></details></li>'; }); el.innerHTML=html+'</ul>'; block.hidden=false; }
+      function inhVerifier(ctx, sharesText, draft){
+        if(typeof iCall!=='function') return Promise.resolve(null);
+        var usr='ARSYETIMI PËR T\'U KONTROLLUAR:\n'+String(draft||'').slice(0,4000)+'\n\nNDARJA E SAKTË E LLOGARITUR (autoritative): '+sharesText+'\n\n'+ctx+'\n\nKontrollo nëse arsyetimi pajtohet me ndarjen e llogaritur dhe me tekstin zyrtar të neneve. Jep JSON:\n{"confidence":"high|medium|low","issues":["..."]}';
+        return iCall('Jeni auditues i pavarur i së drejtës së trashëgimisë. Kontrolloni kundrejt ndarjes së llogaritur dhe tekstit zyrtar të neneve. Përgjigjuni VETËM me JSON të vlefshëm.', usr, 500, 0.2)
+          .then(function(r){ try{ var j=JSON.parse(String(r).replace(/```json?|```/g,'').trim()); return {confidence:String(j.confidence||'').toLowerCase(), issues:j.issues||[]}; }catch(e){ return null; } })
+          .catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; });
+      }
+      function renderInhVerify(v){
+        var re=$('inh-out-refs'), rb=$('inh-refs-block'); if(!re||!v) return;
+        var lab={high:['op-conf-hi','E lartë'],medium:['op-conf-mid','Mesatare'],low:['op-conf-lo','E ulët']}[v.confidence]||['op-conf-mid','Mesatare'];
+        var note='<p style="margin:0 0 10px"><strong>Kontroll cilësie:</strong> besueshmëria <span class="op-conf '+lab[0]+'">'+lab[1]+'</span></p>';
+        if(v.issues&&v.issues.length) note+='<ul class="op-checklist" style="margin:0 0 12px">'+v.issues.filter(Boolean).slice(0,5).map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>';
+        re.innerHTML=note+re.innerHTML; if(rb) rb.hidden=false;
+      }
 
       var running=false, attachedWill='', resetWillPdf=function(){};
       function step(i,cls){ var e=$('inh-step-'+i); if(e){ e.classList.remove('active','done','failed'); if(cls) e.classList.add(cls); } }
@@ -2545,7 +2700,8 @@
             $('inh-out-risks').innerHTML=iMd(res[2]);
             $('inh-out-plan').innerHTML=iMd(res[3]);
             renderRefs(g.refs);
-            $('inherit-progress').hidden=true; $('inherit-output').hidden=false; $('inherit-modal-inner').scrollTop=0;
+            var draft=[res[0],res[1],res[2]].filter(Boolean).join('\n\n');
+            return inhVerifier(ctx,sharesText,draft).then(function(v){ if(v) renderInhVerify(v); $('inherit-progress').hidden=true; $('inherit-output').hidden=false; $('inherit-modal-inner').scrollTop=0; });
           });
         }).catch(function(err){ if(err&&err.name==='AbortError') return; $('inherit-progress').hidden=true; $('inherit-form').hidden=false; var bx=$('inherit-form-error'); bx.textContent='Gabim gjatë analizës: '+(err&&err.message?err.message:'provoni sërish.'); bx.hidden=false; })
         .then(function(){ running=false; $('inherit-generate-btn').disabled=false; });
