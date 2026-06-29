@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="site.css">
   <style>
-    #opinion-pdf{font-family:var(--font);font-size:.82rem;color:var(--text);max-width:100%;}
+    #opinion-pdf,#ca-pdf{font-family:var(--font);font-size:.82rem;color:var(--text);max-width:100%;}
     .opinion-pdf-row{display:flex;align-items:center;gap:14px;margin-top:7px;min-height:16px;flex-wrap:wrap;}
     .opinion-pdf-status{font-size:.76rem;color:var(--muted);}
     .opinion-pdf-status.warn{color:#a3361f;}
@@ -84,6 +84,12 @@
     <section class="contract-analyzer-section">
       <span class="contract-analyzer-label">Analizo kontratën</span>
       <textarea id="ca-text" placeholder="Ngjit tekstin e kontratës këtu…" rows="8"></textarea>
+      <div class="opinion-pdf-row">
+        <label for="ca-pdf" style="font-size:.78rem;color:var(--muted);">Ose ngarko PDF:</label>
+        <input id="ca-pdf" type="file" accept="application/pdf,.pdf">
+        <span id="ca-pdf-status" class="opinion-pdf-status"></span>
+        <button id="ca-pdf-clear" class="opinion-pdf-clear" type="button" hidden>Hiq</button>
+      </div>
       <div class="ca-row">
         <button id="ca-btn">Analizo &#8594;</button>
         <span class="ca-hint">AI identifikon klauzolat problematike dhe ligjet relevante</span>
@@ -1050,6 +1056,48 @@
     });
 
     // ── Contract Analyzer ──────────────────────────
+    // Reusable client-side PDF text extraction (pdf.js). Returns Promise<string>.
+    function extractPdfText(file, cap) {
+      cap = cap || 12000;
+      if (!window.pdfjsLib) return Promise.reject(new Error('pdf-not-loaded'));
+      try { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch (e) {}
+      return file.arrayBuffer().then(function (buf) {
+        return pdfjsLib.getDocument({ data: buf }).promise;
+      }).then(function (pdf) {
+        var pages = [], chain = Promise.resolve();
+        for (var i = 1; i <= pdf.numPages; i++) {
+          (function (i) { chain = chain.then(function () {
+            return pdf.getPage(i).then(function (p) { return p.getTextContent(); }).then(function (tc) {
+              pages.push(tc.items.map(function (it) { return it.str; }).join(' '));
+            });
+          }); })(i);
+        }
+        return chain.then(function () { return pages.join('\n'); });
+      }).then(function (txt) {
+        return String(txt || '').replace(/\s+/g, ' ').trim().slice(0, cap);
+      });
+    }
+
+    // Contract Analyzer — PDF upload fills the textarea
+    (function () {
+      var inp = document.getElementById('ca-pdf'),
+          status = document.getElementById('ca-pdf-status'),
+          clr = document.getElementById('ca-pdf-clear'),
+          ta = document.getElementById('ca-text');
+      if (!inp) return;
+      clr.addEventListener('click', function () { inp.value = ''; status.textContent = ''; status.classList.remove('warn'); clr.hidden = true; });
+      inp.addEventListener('change', function () {
+        var f = inp.files && inp.files[0]; if (!f) return;
+        if (!window.pdfjsLib) { status.textContent = 'Lexuesi i PDF nuk u ngarkua — provoni sërish.'; status.classList.add('warn'); return; }
+        status.classList.remove('warn'); status.textContent = 'Duke lexuar PDF…'; clr.hidden = false;
+        extractPdfText(f, 12000).then(function (txt) {
+          if (!txt) { status.textContent = 'PDF-ja duket e skanuar (pa tekst) — ngjit tekstin manualisht.'; status.classList.add('warn'); return; }
+          ta.value = txt;
+          status.textContent = f.name + ' · ' + txt.split(/\s+/).length + ' fjalë';
+        }).catch(function () { status.textContent = 'Nuk u lexua dot PDF-ja.'; status.classList.add('warn'); });
+      });
+    })();
+
     document.getElementById('ca-btn').addEventListener('click', function () {
       var text   = document.getElementById('ca-text').value.trim();
       if (!text) return;
@@ -1067,7 +1115,7 @@
           max_tokens: 900,
           messages: [
             { role: 'system', content: 'Jeni avokat shqiptar ekspert në analizën e kontratave. Jeni kritik, specifik dhe praktik.' },
-            { role: 'user',   content: 'Analizoje kontratën shqipe që vijon. Identifiko:\n1) Klauzola problematike ose të rrezikshme (mungesa mbrojtjesh, detyrime të njëanshme, kushte abuzive)\n2) Të drejta të munguara ose të pamjaftueshme\n3) Ligjet shqiptare relevante të shkelura ose cenuara (nenet konkrete)\n4) Rekomandime specifike për ndryshime\n\nKontrata:\n' + text.slice(0, 3000) }
+            { role: 'user',   content: 'Analizoje kontratën shqipe që vijon. Identifiko:\n1) Klauzola problematike ose të rrezikshme (mungesa mbrojtjesh, detyrime të njëanshme, kushte abuzive)\n2) Të drejta të munguara ose të pamjaftueshme\n3) Ligjet shqiptare relevante të shkelura ose cenuara (nenet konkrete)\n4) Rekomandime specifike për ndryshime\n\nKontrata:\n' + text.slice(0, 8000) }
           ]
         })
       })
