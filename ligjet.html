@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aktet Ligjore · Legjislacioni Shqiptar</title>
+  <meta name="description" content="Fondi i teksteve zyrtare ligjore të Shqipërisë — 18 akte të grupuara sipas fushës: kushtetuese, civile, penale, tregtare, doganore, gjyqësore.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+
+  <!-- Login gate -->
+  <div id="login-overlay">
+    <div id="login-card">
+      <p class="login-nation">Republika e Shqipërisë</p>
+      <h2 class="login-title">Legjislacioni Shqiptar</h2>
+      <p class="login-sub">Fondi i teksteve zyrtare ligjore të Shqipërisë.</p>
+      <form id="login-form" autocomplete="off" novalidate>
+        <div>
+          <label class="login-label" for="login-user">Emri</label>
+          <input id="login-user" type="text" autocomplete="off" spellcheck="false">
+        </div>
+        <div>
+          <label class="login-label" for="login-pass">Fjalëkalimi</label>
+          <input id="login-pass" type="password" autocomplete="off">
+        </div>
+        <p id="login-error" hidden>Kredencialet janë të gabuara.</p>
+        <div class="login-submit-row">
+          <button type="submit">Hyr &#8594;</button>
+        </div>
+      </form>
+      <p class="login-footer">2026 &nbsp;&middot;&nbsp; Legjislacioni Shqiptar</p>
+    </div>
+  </div>
+
+  <header class="site-nav">
+    <a class="site-brand" href="index.html">&#9878; Legjislacioni Shqiptar</a>
+    <button id="site-nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav-drawer" aria-label="Menu">&#9776;</button>
+    <nav class="site-links">
+      <a href="index.html">Ballina</a>
+      <a href="ligjet.html">Aktet Ligjore</a>
+      <a href="mjete-ai.html">Mjetet AI</a>
+    </nav>
+  </header>
+  <nav id="site-nav-drawer" class="site-nav-drawer" hidden>
+    <a href="index.html">Ballina</a>
+    <a href="ligjet.html">Aktet Ligjore</a>
+    <a href="mjete-ai.html">Mjetet AI</a>
+  </nav>
+
+  <main class="page">
+
+    <h1 class="page-heading">Aktet Ligjore</h1>
+    <p class="page-intro">18 akte zyrtare ligjore të Shqipërisë, të grupuara sipas fushës. Filtroni sipas kategorisë ose kërkoni me emër.</p>
+
+    <div class="controls">
+      <div class="filter-pills" role="group" aria-label="Filtro sipas fushës ligjore">
+        <button class="pill active" data-domain="all">Të gjitha</button>
+        <button class="pill" data-domain="kushtetuese">Kushtetuese</button>
+        <button class="pill" data-domain="civile">Civile</button>
+        <button class="pill" data-domain="penale">Penale</button>
+        <button class="pill" data-domain="tregtare">Tregtare</button>
+        <button class="pill" data-domain="doganore">Doganore</button>
+        <button class="pill" data-domain="gjyqesore">Gjyqësore</button>
+      </div>
+      <input id="law-search" type="search" placeholder="Kërko ligj…" autocomplete="off" spellcheck="false" aria-label="Kërko ligj">
+    </div>
+
+    <div class="law-list">
+
+      <section class="domain-section">
+        <div class="domain-header">
+          <span class="domain-label">Kushtetuese</span>
+          <div class="domain-divider"></div>
+        </div>
+        <ul>
+          <li class="law-row" data-domain="kushtetuese" data-title="kushtetuta e republikës së shqipërisë">
+            <a href="kushtetuta.html">
+              <span class="badge">Kushtetuese</span>
+              <span class="row-body">
+                <span class="law-title">Kushtetuta e Republikës së Shqipërisë</span>
+                <span class="law-ref">Ligj Nr. 8417 &middot; 21.10.1998</span>
+                <span class="law-desc">Ligji themelor i shtetit: rregullon të drejtat kushtetuese, ndarjen e pushteteve dhe rendin kushtetues.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="domain-section">
+        <div class="domain-header">
+          <span class="domain-label">Civile</span>
+          <div class="domain-divider"></div>
+        </div>
+        <ul>
+          <li class="law-row" data-domain="civile" data-title="kodi civil">
+            <a href="kodi-civil.html">
+              <span class="badge">Civile</span>
+              <span class="row-body">
+                <span class="law-title">Kodi Civil</span>
+                <span class="law-ref">Ligj Nr. 7850 &middot; 29.7.1994</span>
+                <span class="law-desc">Rregullon marrëdhëniet private: pronën, kontratat, detyrimet dhe trashëgiminë.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="civile" data-title="kodi i familjes">
+            <a href="kodi-familjes.html">
+              <span class="badge">Civile</span>
+              <span class="row-body">
+                <span class="law-title">Kodi i Familjes</span>
+                <span class="law-ref">Ligj Nr. 9062 &middot; 8.5.2003</span>
+                <span class="law-desc">Rregullon martesën, divorcin, kujdestarinë e fëmijëve, birësimin dhe marrëdhëniet familjare.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="civile" data-title="kodi i procedurës civile">
+            <a href="kodi-procedure-civile.html">
+              <span class="badge">Civile</span>
+              <span class="row-body">
+                <span class="law-title">Kodi i Procedurës Civile</span>
+                <span class="law-ref">Ligj Nr. 8116 &middot; 29.3.1996</span>
+                <span class="law-desc">Përcakton rregullat e procesit gjyqësor civil dhe ekzekutimit të vendimeve gjyqësore.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="civile" data-title="ligj për falimentimin">
+            <a href="falimentimi.html">
+              <span class="badge">Civile</span>
+              <span class="row-body">
+                <span class="law-title">Ligj për Falimentimin</span>
+                <span class="law-ref">Ligj Nr. 110/2016</span>
+                <span class="law-desc">Rregullon procedurat e falimentimit dhe ristrukturimit të borxheve të personave dhe bizneseve.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="civile" data-title="ligj për noterinë">
+            <a href="noteria.html">
+              <span class="badge">Civile</span>
+              <span class="row-body">
+                <span class="law-title">Ligj për Noterinë</span>
+                <span class="law-ref">Ligj Nr. 110/2018</span>
+                <span class="law-desc">Rregullon ushtrimin e profesionit noter dhe vlefshmërinë juridike të akteve noteriale.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="civile" data-title="shërbimi përmbarimor gjyqësor privat">
+            <a href="sherbimi-permbarimor.html">
+              <span class="badge">Civile</span>
+              <span class="row-body">
+                <span class="law-title">Shërbimi Përmbarimor Gjyqësor Privat</span>
+                <span class="law-ref">Ligj Nr. 10031 &middot; 11.12.2008</span>
+                <span class="law-desc">Rregullon zbatimin e detyrueshëm të vendimeve gjyqësore dhe titujve ekzekutivë.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="domain-section">
+        <div class="domain-header">
+          <span class="domain-label">Penale</span>
+          <div class="domain-divider"></div>
+        </div>
+        <ul>
+          <li class="law-row" data-domain="penale" data-title="kodi penal">
+            <a href="kodi-penal.html">
+              <span class="badge">Penale</span>
+              <span class="row-body">
+                <span class="law-title">Kodi Penal</span>
+                <span class="law-ref">Ligj Nr. 7895 &middot; 27.1.1995</span>
+                <span class="law-desc">Përcakton veprat penale, dënimet dhe rrethanat rënduese sipas legjislacionit shqiptar.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="penale" data-title="kodi i procedurës penale">
+            <a href="kodi-procedure-penale.html">
+              <span class="badge">Penale</span>
+              <span class="row-body">
+                <span class="law-title">Kodi i Procedurës Penale</span>
+                <span class="law-ref">Ligj Nr. 7905 &middot; 21.3.1995</span>
+                <span class="law-desc">Rregullon hetimin, ndjekjen penale dhe gjykimin; garanton të drejtat e të pandehurit.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="penale" data-title="kodi i drejtësisë penale për të mitur">
+            <a href="drejtesia-penale-mitur.html">
+              <span class="badge">Penale</span>
+              <span class="row-body">
+                <span class="law-title">Kodi i Drejtësisë Penale për të Mitur</span>
+                <span class="law-ref">Ligj Nr. 37/2017</span>
+                <span class="law-desc">Rregullon trajtimin ligjor të personave nën 18 vjeç të akuzuar penalisht.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="domain-section">
+        <div class="domain-header">
+          <span class="domain-label">Tregtare</span>
+          <div class="domain-divider"></div>
+        </div>
+        <ul>
+          <li class="law-row" data-domain="tregtare" data-title="ligj për tregtarët dhe shoqëritë tregtare">
+            <a href="shoqerite-tregtare.html">
+              <span class="badge">Tregtare</span>
+              <span class="row-body">
+                <span class="law-title">Ligj për Tregtarët dhe Shoqëritë Tregtare</span>
+                <span class="law-ref">Ligj Nr. 9901 &middot; 14.4.2008</span>
+                <span class="law-desc">Rregullon themelimin, funksionimin dhe likuidimin e shoqërive tregtare: sh.p.k., sh.a. dhe forma të tjera.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="domain-section">
+        <div class="domain-header">
+          <span class="domain-label">Doganore &amp; Transport</span>
+          <div class="domain-divider"></div>
+        </div>
+        <ul>
+          <li class="law-row" data-domain="doganore" data-title="kodi doganor">
+            <a href="kodi-doganor.html">
+              <span class="badge">Doganore</span>
+              <span class="row-body">
+                <span class="law-title">Kodi Doganor</span>
+                <span class="law-ref">Ligj Nr. 102/2014</span>
+                <span class="law-desc">Rregullon importin, eksportin, tarifat doganore dhe procedurat e kontrollit kufitar.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="doganore" data-title="dispozita zbatuese të kodit doganor">
+            <a href="dispozita-zbatuese-kodi-doganor.html">
+              <span class="badge">Doganore</span>
+              <span class="row-body">
+                <span class="law-title">Dispozita Zbatuese të Kodit Doganor</span>
+                <span class="law-ref">Rregullore zbatuese</span>
+                <span class="law-desc">Rregullore zbatuese e Kodit Doganor me procedura të detajuara për operatorët doganorë.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="doganore" data-title="kodi ajror">
+            <a href="kodi-ajror.html">
+              <span class="badge">Doganore</span>
+              <span class="row-body">
+                <span class="law-title">Kodi Ajror</span>
+                <span class="law-ref">Ligj Nr. 96/2020</span>
+                <span class="law-desc">Rregullon aviacionin civil, fluturimet, lejet e operimit dhe detyrimet e linjave ajrore.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="doganore" data-title="kodi rrugor">
+            <a href="kodi-rrugor.html">
+              <span class="badge">Doganore</span>
+              <span class="row-body">
+                <span class="law-title">Kodi Rrugor</span>
+                <span class="law-ref">Ligj Nr. 8378 &middot; 22.7.1998</span>
+                <span class="law-desc">Rregullon qarkullimin rrugor, lejet e drejtimit, aksidentet dhe sanksionet e trafikut.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="domain-section">
+        <div class="domain-header">
+          <span class="domain-label">Gjyqësore</span>
+          <div class="domain-divider"></div>
+        </div>
+        <ul>
+          <li class="law-row" data-domain="gjyqesore" data-title="statusi i gjyqtarëve dhe prokurorëve">
+            <a href="statusi-gjyqtareve-prokuroreve.html">
+              <span class="badge">Gjyqësore</span>
+              <span class="row-body">
+                <span class="law-title">Statusi i Gjyqtarëve dhe Prokurorëve</span>
+                <span class="law-ref">Ligj Nr. 96/2016</span>
+                <span class="law-desc">Rregullon emërimin, karrierën, imunitetin dhe shkarkimin e gjyqtarëve dhe prokurorëve.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="gjyqesore" data-title="organizimi i pushtetit gjyqësor">
+            <a href="organizimi-pushtetit-gjyqesor.html">
+              <span class="badge">Gjyqësore</span>
+              <span class="row-body">
+                <span class="law-title">Organizimi i Pushtetit Gjyqësor</span>
+                <span class="law-ref">Ligj Nr. 98/2016</span>
+                <span class="law-desc">Rregullon strukturën, kompetencat dhe funksionimin e gjykatave shqiptare.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+          <li class="law-row" data-domain="gjyqesore" data-title="organizimi i pushtetit gjyqësor i përditësuar">
+            <a href="organizimi-pushtetit-gjyqesor-v2.html">
+              <span class="badge">Gjyqësore</span>
+              <span class="row-body">
+                <span class="law-title">Organizimi i Pushtetit Gjyqësor <span style="font-weight:400;color:var(--muted)">(i përditësuar)</span></span>
+                <span class="law-ref">Ligj Nr. 98/2016 &middot; i përditësuar</span>
+                <span class="law-desc">Versioni i rishikuar pas reformës në drejtësi të vitit 2016.</span>
+              </span>
+              <span class="arrow" aria-hidden="true">&#8594;</span>
+            </a>
+            <div class="ai-summary" hidden></div>
+          </li>
+        </ul>
+      </section>
+
+    </div>
+
+    <footer>
+      Republika e Shqipërisë &middot; Legjislacioni në fuqi
+    </footer>
+
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+    'use strict';
+
+    // ── Filter + search ───────────────────────────
+    (function () {
+      var pills  = document.querySelectorAll('.pill');
+      var rows   = document.querySelectorAll('.law-row');
+      var secs   = document.querySelectorAll('.domain-section');
+      var input  = document.getElementById('law-search');
+      var domain = 'all';
+      var query  = '';
+
+      function apply() {
+        rows.forEach(function (row) {
+          var domainOk = domain === 'all' || row.dataset.domain === domain;
+          var textOk   = query === '' || row.dataset.title.includes(query) || row.dataset.domain.includes(query);
+          row.hidden = !(domainOk && textOk);
+        });
+        secs.forEach(function (sec) {
+          var any = Array.from(sec.querySelectorAll('.law-row')).some(function (r) { return !r.hidden; });
+          sec.hidden = !any;
+        });
+      }
+
+      pills.forEach(function (pill) {
+        pill.addEventListener('click', function () {
+          pills.forEach(function (p) { p.classList.remove('active'); });
+          pill.classList.add('active');
+          domain = pill.dataset.domain;
+          apply();
+        });
+      });
+
+      var t;
+      input.addEventListener('input', function () {
+        clearTimeout(t);
+        t = setTimeout(function () { query = input.value.trim().toLowerCase(); apply(); }, 150);
+      });
+    }());
+  </script>
+  <script src="site.js"></script>
+
+</body>
+</html>
