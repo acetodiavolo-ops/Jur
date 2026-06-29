@@ -643,6 +643,7 @@ if (_memoLawHeader) {
   _memoModal.hidden = true;
   _memoModal.innerHTML =
     '<div class="_memo-inner">' +
+      '<div class="print-cover" aria-hidden="true"><div class="pc-emblem">&#9878;</div><h1 class="pc-title">programi i Henri Sila</h1><div class="pc-rule"></div><p class="pc-sub">Jurist</p><div class="pc-foot">Legjislacioni Shqiptar</div></div>' +
       '<div class="_memo-head">' +
         '<span class="_memo-title">Memorandum Ligjor: ' + _lawTitle + '</span>' +
         '<div class="_memo-actions">' +
@@ -1208,6 +1209,7 @@ if (_compLh) {
   _compModal.hidden = true;
   _compModal.innerHTML =
     '<div class="_comp-inner">' +
+      '<div class="print-cover" aria-hidden="true"><div class="pc-emblem">&#9878;</div><h1 class="pc-title">programi i Henri Sila</h1><div class="pc-rule"></div><p class="pc-sub">Jurist</p><div class="pc-foot">Legjislacioni Shqiptar</div></div>' +
       '<div class="_comp-head">' +
         '<span class="_comp-title">Ankesë / Kërkesë Ligjore: ' + _lawTitle + '</span>' +
         '<div class="_comp-actions">' +

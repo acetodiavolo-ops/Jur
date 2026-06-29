@@ -49,6 +49,15 @@
     .op-bd-fill{display:block;height:100%;background:var(--accent);}
     .op-bd-v{flex:0 0 auto;font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums;}
     .op-bd-final{margin:12px 0 0;font-size:.82rem;}
+    .print-cover{display:none;}
+    @media print{
+      .print-cover{display:flex!important;flex-direction:column;align-items:center;justify-content:center;height:100vh;overflow:hidden;text-align:center;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      .print-cover .pc-emblem{font-size:52px;color:#b8923a;line-height:1;margin-bottom:28px;}
+      .print-cover .pc-title{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:600;font-size:34pt;color:#1b1b19;margin:0;}
+      .print-cover .pc-rule{width:64px;height:2px;background:#b8923a;margin:24px auto;}
+      .print-cover .pc-sub{font-family:Arial,Helvetica,sans-serif;font-size:12pt;font-weight:700;letter-spacing:.45em;text-transform:uppercase;color:#8a7430;margin:0;padding-left:.45em;}
+      .print-cover .pc-foot{margin-top:42px;font-family:Arial,Helvetica,sans-serif;font-size:8pt;letter-spacing:.2em;text-transform:uppercase;color:#a39e95;}
+    }
     @media print{
       #inherit-modal:not([hidden]),#inherit-modal:not([hidden]) *{visibility:visible;}
       #inherit-modal:not([hidden]){position:static;inset:auto;background:none;padding:0;backdrop-filter:none;}
@@ -590,6 +599,13 @@
 
       <!-- OUTPUT PHASE -->
       <div id="opinion-output" class="opinion-output" hidden>
+        <div class="print-cover" aria-hidden="true">
+          <div class="pc-emblem">&#9878;</div>
+          <h1 class="pc-title">programi i Henri Sila</h1>
+          <div class="pc-rule"></div>
+          <p class="pc-sub">Jurist</p>
+          <div class="pc-foot">Legjislacioni Shqiptar</div>
+        </div>
         <div class="opinion-doc-banner">Analizë e krijuar nga AI. Mund të përmbajë pasaktësi - verifikoni nenet dhe vendimet para se të veproni, dhe konsultohuni me një avokat, veçanërisht në çështje penale.</div>
         <div class="opinion-doc-header">
           <div class="opinion-doc-eyebrow">Analizë Ligjore e Plotë</div>
@@ -717,6 +733,13 @@
       </div>
 
       <div id="inherit-output" class="opinion-output" hidden>
+        <div class="print-cover" aria-hidden="true">
+          <div class="pc-emblem">&#9878;</div>
+          <h1 class="pc-title">programi i Henri Sila</h1>
+          <div class="pc-rule"></div>
+          <p class="pc-sub">Jurist</p>
+          <div class="pc-foot">Legjislacioni Shqiptar</div>
+        </div>
         <div class="opinion-doc-banner">Ndarja është llogaritur me rregullat e Kodit Civil; shpjegimet janë krijuar nga AI dhe mund të përmbajnë pasaktësi — verifikoni me një noter/avokat.</div>
         <div class="opinion-doc-header"><div class="opinion-doc-eyebrow">Analizë Trashëgimie</div><div class="opinion-doc-meta" id="inherit-doc-meta"></div></div>
         <div class="opinion-section-block opinion-block-summary"><div class="opinion-block-label">Ndarja e Trashëgimisë</div><div id="inh-out-shares" class="opinion-section-body"></div></div>

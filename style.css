@@ -595,6 +595,7 @@ h4:hover .art-ai-trigger,
   font-size: 0.9rem; line-height: 1.85; white-space: pre-wrap;
   color: #111; scrollbar-width: thin;
 }
+.print-cover{display:none;}
 @media print {
   body > *:not(#_memo-modal):not(#_comp-modal) { display: none !important; }
   #_memo-modal, #_comp-modal { position: static; background: none; padding: 0; }
@@ -602,6 +603,12 @@ h4:hover .art-ai-trigger,
   ._memo-head, ._comp-head { display: none; }
   #_memo-body, #_comp-body { padding: 0; overflow: visible; }
   ._comp-form { display: none; }
+  .print-cover{display:flex!important;flex-direction:column;align-items:center;justify-content:center;height:100vh;overflow:hidden;text-align:center;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .print-cover .pc-emblem{font-size:52px;color:#b8923a;line-height:1;margin-bottom:28px;}
+  .print-cover .pc-title{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:600;font-size:34pt;color:#1b1b19;margin:0;}
+  .print-cover .pc-rule{width:64px;height:2px;background:#b8923a;margin:24px auto;}
+  .print-cover .pc-sub{font-family:Arial,Helvetica,sans-serif;font-size:12pt;font-weight:700;letter-spacing:.45em;text-transform:uppercase;color:#8a7430;margin:0;padding-left:.45em;}
+  .print-cover .pc-foot{margin-top:42px;font-family:Arial,Helvetica,sans-serif;font-size:8pt;letter-spacing:.2em;text-transform:uppercase;color:#a39e95;}
 }
 
 /* ── Copy button on AI messages ─────────────────── */
