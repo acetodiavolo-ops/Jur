@@ -2039,8 +2039,12 @@
       function enforceConsistency(text, f, score){
         if(!text||!f) return text;
         var ok=[Math.round(f.win||0),Math.round(f.settle||0),Math.round(f.lose||0)]; var sc=parseFloat(score); if(isFinite(sc)) ok.push(Math.round(sc*10));
+        var ODDS=/fitim|humbj|gjas|sukses|marr[ëe]veshj|probabilitet|shanse/i;
         var bad=false, m, re=/(\d{1,3})\s*%/g;
-        while((m=re.exec(text))!==null){ var p=parseInt(m[1],10); if(p>=15&&p<=95 && !ok.some(function(x){ return Math.abs(x-p)<=12; })){ bad=true; } }
+        while((m=re.exec(text))!==null){ var p=parseInt(m[1],10); if(p<15||p>95) continue;
+          var ctx=text.slice(Math.max(0,m.index-40), m.index+m[0].length+8); // only odds-context %
+          if(ODDS.test(ctx) && !ok.some(function(x){ return Math.abs(x-p)<=12; })){ bad=true; }
+        }
         if(!bad) return text;
         return text+'\n\n— Shënim: gjasat zyrtare të kësaj analize janë fitim '+ok[0]+'%, marrëveshje '+ok[1]+'%, humbje '+ok[2]+'%; çdo përqindje tjetër në tekst është ilustruese.';
       }
@@ -2131,6 +2135,7 @@
         var html=grid?('<div class="op-fact-grid">'+grid+'</div>'):'';
         if(u.key_events&&u.key_events.length){ html+='<p class="op-subhead" style="margin:12px 0 4px;">Ngjarjet kryesore (si i kuptuam)</p><ul class="opinion-list">'+u.key_events.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; }
         if(u.missing&&u.missing.length){ html+='<p class="op-subhead op-amber" style="margin:12px 0 4px;">Mungon / Supozojmë</p><ul class="op-checklist">'+u.missing.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; }
+        if(u.clarifying&&u.clarifying.length){ html+='<p class="op-subhead" style="margin:12px 0 4px;">Pyetje për t\'u sqaruar</p><ul class="op-checklist">'+u.clarifying.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; }
         if(!html){ block.hidden=true; return; }
         el.innerHTML=html; block.hidden=false;
       }
@@ -2408,7 +2413,10 @@
           store.opinion=enforceConsistency(store.opinion,store.forecast,(store.strength&&store.strength.score));
           lastOpinion=store.opinion||'';
           rowActive(8);
-          return runVerifier(store).then(function(vr){ store.verify=vr; rowDone(8); }, function(e){ if(e&&e.name==='AbortError') throw e; rowFail(8); store.verify=null; })
+          var verifyP = store.opinion
+            ? runVerifier(store).then(function(vr){ store.verify=vr; rowDone(8); }, function(e){ if(e&&e.name==='AbortError') throw e; rowFail(8); store.verify=null; })
+            : Promise.resolve().then(function(){ store.verify=null; rowDone(8); });
+          return verifyP
           .then(function(){
             store.confidence=computeConfidence(store);
             renderFactSheet(store);
@@ -2457,7 +2465,7 @@
       $('opinion-close').addEventListener('click',closeModal);
       $('opinion-generate-btn').addEventListener('click',generate);
       (function(){ var tp=$('opinion-thin-proceed'); if(tp) tp.addEventListener('click',function(){ thinConfirmed=true; $('opinion-thin-gate').hidden=true; generate(); }); })();
-      function printScope(sel){ var ds=Array.prototype.slice.call(document.querySelectorAll(sel+' details')); var were=ds.map(function(d){ return d.open; }); ds.forEach(function(d){ d.open=true; }); function restore(){ ds.forEach(function(d,i){ d.open=were[i]; }); window.removeEventListener('afterprint',restore); } window.addEventListener('afterprint',restore); setTimeout(restore,3000); window.print(); }
+      function printScope(sel){ var ds=Array.prototype.slice.call(document.querySelectorAll(sel+' .op-breakdown')); var were=ds.map(function(d){ return d.open; }); ds.forEach(function(d){ d.open=true; }); function restore(){ ds.forEach(function(d,i){ d.open=were[i]; }); window.removeEventListener('afterprint',restore); } window.addEventListener('afterprint',restore); setTimeout(restore,3000); window.print(); }
       $('opinion-print-btn').addEventListener('click',function(){ printScope('#opinion-modal'); });
       $('opinion-copy-btn').addEventListener('click',function(){
         var t=lastOpinion; if(!t) return;
@@ -2722,7 +2730,7 @@
       $('inherit-close').addEventListener('click',closeModal);
       $('inherit-generate-btn').addEventListener('click',generate);
       $('inherit-restart-btn').addEventListener('click',restart);
-      $('inherit-print-btn').addEventListener('click',function(){ var ds=Array.prototype.slice.call(document.querySelectorAll('#inherit-modal details')); var were=ds.map(function(d){ return d.open; }); ds.forEach(function(d){ d.open=true; }); function restore(){ ds.forEach(function(d,i){ d.open=were[i]; }); window.removeEventListener('afterprint',restore); } window.addEventListener('afterprint',restore); setTimeout(restore,3000); window.print(); });
+      $('inherit-print-btn').addEventListener('click',function(){ var ds=Array.prototype.slice.call(document.querySelectorAll('#inherit-modal .op-breakdown')); var were=ds.map(function(d){ return d.open; }); ds.forEach(function(d){ d.open=true; }); function restore(){ ds.forEach(function(d,i){ d.open=were[i]; }); window.removeEventListener('afterprint',restore); } window.addEventListener('afterprint',restore); setTimeout(restore,3000); window.print(); });
       $('inherit-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
       document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('inherit-modal').hidden) closeModal(); });
       ['inh-spouse','inh-children','inh-minor','inh-predeceased','inh-parents','inh-siblings','inh-grandparents','inh-dependents','inh-will','inh-willexcl','inh-estate','inh-marital','inh-debts','inh-names'].forEach(function(id){ var e=$(id); if(e){ e.addEventListener('input',renderPreview); e.addEventListener('change',renderPreview); } });
