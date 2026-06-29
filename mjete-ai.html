@@ -9,6 +9,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="site.css">
+  <style>
+    #opinion-pdf{font-family:var(--font);font-size:.82rem;color:var(--text);max-width:100%;}
+    .opinion-pdf-row{display:flex;align-items:center;gap:14px;margin-top:7px;min-height:16px;flex-wrap:wrap;}
+    .opinion-pdf-status{font-size:.76rem;color:var(--muted);}
+    .opinion-pdf-status.warn{color:#a3361f;}
+    .opinion-pdf-clear{font-family:var(--font);font-size:.72rem;background:none;border:none;color:var(--accent);cursor:pointer;text-decoration:underline;padding:0;}
+  </style>
 </head>
 <body>
 
@@ -489,6 +496,14 @@
           <textarea id="opinion-facts" placeholder="Çfarë ndodhi, kur, ku dhe çfarë veprimesh u ndërmorën? Sa më shumë detaje, aq më e saktë analiza." rows="6"></textarea>
         </div>
         <div class="opinion-form-row">
+          <label for="opinion-pdf">Ngarko dokument (PDF) — opsionale</label>
+          <input id="opinion-pdf" type="file" accept="application/pdf,.pdf">
+          <div class="opinion-pdf-row">
+            <span id="opinion-pdf-status" class="opinion-pdf-status"></span>
+            <button id="opinion-pdf-clear" class="opinion-pdf-clear" type="button" hidden>Hiq dokumentin</button>
+          </div>
+        </div>
+        <div class="opinion-form-row">
           <label for="opinion-parties">Palët e përfshira (opsionale)</label>
           <textarea id="opinion-parties" placeholder="Individë, kompani, institucione - dhe marrëdhënia mes tyre." rows="3"></textarea>
         </div>
@@ -597,6 +612,7 @@
   </div>
 
   <script src="config.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
     'use strict';
 
@@ -1407,11 +1423,61 @@
         });
       }
 
+      // ── Property-protection concept: detection, primer, keyword grounding ──
+      var PROP_RE = /pron|rivendik|mohues|posedim|cenim|pengo|servitut|kufi|uzurp|tjet[ëe]rsim|mbajt[ëe]s/i;
+      function detectProperty(s){ return PROP_RE.test(String(s||'')); }
+      var PROPERTY_PRIMER = '\n\nUDHËZIM (mbrojtja e pronësisë): Kjo çështje lidhet me mbrojtjen e së drejtës reale. Merr parasysh paditë reale të së drejtës civile shqiptare: padia rivendikuese (pronari kërkon sendin nga poseduesi ose mbajtësi pa titull), padia mohuese (pronari kërkon pushimin e cenimeve ose shqetësimeve që NUK përbëjnë privim të posedimit) dhe padia pohuese e pronësisë. Identifiko dhe cito nenet përkatëse të Kodit Civil për mbrojtjen e pronësisë dhe të posedimit, sipas tekstit zyrtar të dhënë.';
+      var PROPERTY_KEYWORDS = [
+        {w:'mohues',s:3},{w:'rivendik',s:3},{w:'cenim',s:3},{w:'posedim',s:3},
+        {w:'pronar',s:2},{w:'pronës',s:2},{w:'mbajtës',s:2},
+        {w:'send',s:1},{w:'pengo',s:1},{w:'tjetërsim',s:1}
+      ];
+      // Scan a law's article JSON and return the top-scoring articles by keyword weight.
+      function keywordGround(href, lawName, kw, limit){
+        return fetchLawData(href).then(function(data){
+          if(!data) return {found:[]};
+          var scored=[];
+          Object.keys(data).forEach(function(num){
+            var t=String(data[num]||'').toLowerCase();
+            if(!t) return;
+            var score=0;
+            kw.forEach(function(o){ if(t.indexOf(o.w)!==-1) score+=o.s; });
+            if(score>=4) scored.push({num:num,score:score,text:String(data[num]).replace(/\s+/g,' ').trim()});
+          });
+          scored.sort(function(a,b){ return b.score-a.score; });
+          var found=scored.slice(0,limit).map(function(x){
+            return {law:lawName,num:x.num,href:href,anchor:'neni-'+String(x.num).replace('/','-'),text:x.text};
+          });
+          return {found:found};
+        }).catch(function(e){ if(e&&e.name==='AbortError') throw e; return {found:[]}; });
+      }
+      // Merge keyword-grounded articles into an existing grounding object (dedup by law|num).
+      function mergeGrounding(g, kg){
+        if(!g||!kg||!kg.found||!kg.found.length) return;
+        g.found=g.found||[]; g.nums=g.nums||{};
+        var seen={}; g.found.forEach(function(f){ seen[f.law+'|'+f.num]=true; });
+        var added=[];
+        kg.found.forEach(function(f){
+          var k=f.law+'|'+f.num; if(seen[k]) return; seen[k]=true;
+          g.found.push(f); g.nums[String(f.num).split('/')[0]]=true;
+          added.push('Neni '+f.num+' ('+f.law+'): «'+String(f.text).slice(0,1200)+'»');
+        });
+        if(!added.length) return;
+        var intro='TEKSTI ZYRTAR I NENEVE (mbështetu VETËM mbi këto; mos cito nene që nuk janë dhënë këtu):\n\n';
+        g.text=(g.text? g.text+'\n\n' : intro)+added.join('\n\n');
+      }
+
       function doctrineSpec(type){
         if(type==='penale'){
           return {
             sys:'Jeni profesor i së drejtës penale shqiptare. Analizoni përbërjen e veprës penale sipas teorisë klasike me katër elementë (objekti, ana objektive, subjekti, ana subjektive). Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna; mos shpikni numra nenesh apo emra veprash penale.',
             tmpl:'{"framework":"penale","vepra":"emri i mundshëm i veprës penale","kuadri":[{"id":"objekti","titull":"Objekti i veprës penale","permbajtja":[{"etikete":"I përgjithshëm","vlera":"..."},{"etikete":"Specifik / i drejtpërdrejtë","vlera":"..."},{"etikete":"Objekti material / subjekti pasiv","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"çfarë e provon ose çfarë mungon"},{"id":"ana_objektive","titull":"Ana objektive","permbajtja":[{"etikete":"Veprimi / mosveprimi","vlera":"..."},{"etikete":"Pasoja","vlera":"..."},{"etikete":"Lidhja shkakësore","vlera":"..."},{"etikete":"Rrethanat (kohë/vend/mjet)","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"subjekti","titull":"Subjekti i veprës penale","permbajtja":[{"etikete":"Lloji i subjektit","vlera":"..."},{"etikete":"Përgjegjshmëria","vlera":"..."},{"etikete":"Mosha","vlera":"..."},{"etikete":"Cilësi të veçanta","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"ana_subjektive","titull":"Ana subjektive","permbajtja":[{"etikete":"Forma e fajit","vlera":"dashje e drejtpërdrejtë/e tërthortë ose pakujdesi (me vetëbesim/nga shkujdesja)"},{"etikete":"Motivi","vlera":"..."},{"etikete":"Qëllimi","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"neni":"neni/paragrafi i mundshëm","forma":"bazë / e kualifikuar / e privilegjuar","stadi":"përgatitje / tentativë / e konsumuar","bashkepunimi":"nëse ka: organizator/ekzekutor/shtytës/ndihmës"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga vepra penale të ngjashme","perfundim":"a përmbushet përbërja e veprës penale dhe ku qëndron pika kyçe"}'
+          };
+        }
+        if(type==='prone'){
+          return {
+            sys:'Jeni profesor i së drejtës civile shqiptare, i specializuar në të drejtat reale dhe mbrojtjen e pronësisë. Analizoni çështjen sipas padive reale (padia rivendikuese, padia mohuese, padia pohuese e pronësisë), jo sipas përgjegjësisë për dëmin. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna; mos shpikni numra nenesh.',
+            tmpl:'{"framework":"prone","vepra":"lloji i padisë reale dhe e drejta që mbrohet","kuadri":[{"id":"titulli","titull":"E drejta reale e paditësit (titulli)","permbajtja":[{"etikete":"Lloji i së drejtës","vlera":"pronësi / posedim / e drejtë tjetër reale"},{"etikete":"Prova e titullit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"çfarë e provon ose çfarë mungon"},{"id":"cenimi","titull":"Cenimi ose privimi","permbajtja":[{"etikete":"Natyra","vlera":"privim posedimi (→ rivendikuese) ose shqetësim pa privim (→ mohuese)"},{"etikete":"Vazhdimësia / rreziku","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"paligjshmeria","titull":"Paligjshmëria e veprimit të të paditurit","permbajtja":[{"etikete":"Mungesa e titullit/të drejtës së tij","vlera":"..."},{"etikete":"Mbrojtje të mundshme të të paditurit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"mbrojtja","titull":"Kërkimi / mbrojtja juridike","permbajtja":[{"etikete":"Çfarë kërkohet","vlera":"kthim sendi / pushim cenimi / njohje pronësie"},{"etikete":"Baza ligjore","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji_padise":"rivendikuese / mohuese / pohuese","parashkrimi":"padia rivendikuese si rregull nuk parashkruhet; për të tjerat sipas rastit"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi mes padisë rivendikuese, mohuese dhe asaj të posedimit","perfundim":"a përmbushen elementet, lloji i padisë së përshtatshme dhe pika kyçe"}'
           };
         }
         if(type==='civile'||type==='tregtare'||type==='prone'||type==='konsumator'||type==='pune'){
@@ -1661,6 +1727,7 @@
       }
 
       var running=false;
+      var attachedText='', resetPdf=function(){};
       function showError(msg){ var box=$('opinion-form-error'); box.textContent=msg; box.hidden=false; }
       var lawListText=function(laws){ if(!laws.length) return 'Ligjet zbatuese të të drejtës shqiptare.'; return laws.map(function(l){ return '• '+l.name+' ('+((l.articles||[]).join(', ')||'nenet zbatuese')+'): '+(l.relevance||''); }).join('\n'); };
 
@@ -1669,8 +1736,11 @@
         $('opinion-form-error').hidden=true;
         if(keyMissing()){ showError('Çelësi i AI mungon.'); return; }
         var type=$('opinion-type').value, facts=$('opinion-facts').value.trim(), parties=$('opinion-parties').value.trim(), goal=$('opinion-goal').value.trim();
-        if(!facts){ showError('Përshkruaj faktet dhe situatën për të vazhduar.'); $('opinion-facts').focus(); return; }
-        var ctx='Lloji: çështje '+type+'.\nFaktet: '+facts+(parties?'\nPalët: '+parties:'')+(goal?'\nQëllimi: '+goal:'');
+        if(!facts && !attachedText){ showError('Përshkruaj faktet ose ngarko një dokument PDF për të vazhduar.'); $('opinion-facts').focus(); return; }
+        var attach=attachedText?('\n\nDOKUMENT I NGARKUAR (përmbajtje e nxjerrë):\n'+attachedText.slice(0,8000)):'';
+        var ctx='Lloji: çështje '+type+'.\nFaktet: '+(facts||'(shih dokumentin e ngarkuar)')+(parties?'\nPalët: '+parties:'')+(goal?'\nQëllimi: '+goal:'')+attach;
+        var isProp=(type==='prone')||detectProperty(facts+' '+parties+' '+goal+' '+attachedText);
+        var primer=isProp?PROPERTY_PRIMER:'';
         running=true; abortCtrl=new AbortController();
         $('opinion-generate-btn').disabled=true;
         $('opinion-form').hidden=true;
@@ -1680,7 +1750,7 @@
         store.type=type;
         rowActive(0);
         runCall(1,'Jeni analist ligjor shqiptar me përvojë. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas dhe pa shenja ```.'+ANTI_HALLUC,
-          ctx+'\n\nIdentifiko 3–5 ligjet shqiptare më relevante dhe nenet kryesore zbatuese (ji gjithëpërfshirës: deri në 8 nene gjithsej, vetëm nene për të cilat je i sigurt).\nJSON: {"laws":[{"name":"...","articles":["..."],"relevance":"..."}],"issues":["..."],"arguments":["..."]}',600,0.15)
+          ctx+primer+'\n\nIdentifiko 3–5 ligjet shqiptare më relevante dhe nenet kryesore zbatuese (ji gjithëpërfshirës: deri në 8 nene gjithsej, vetëm nene për të cilat je i sigurt).\nJSON: {"laws":[{"name":"...","articles":["..."],"relevance":"..."}],"issues":["..."],"arguments":["..."]}',600,0.15)
         .then(function(r1){
           store.laws=safeJson(r1).laws||[];
           store.lawList=lawListText(store.laws);
@@ -1693,6 +1763,8 @@
           store.strength=safeJson(r2); rowDone(1);
           return (store.groundingP||Promise.resolve({text:'',found:[],missing:[],nums:{}})).then(function(g){
             store.grounding=g;
+            return (isProp?keywordGround('kodi-civil.html','Kodi Civil',PROPERTY_KEYWORDS,6):Promise.resolve(null)).then(function(kg){
+            mergeGrounding(g,kg);
             store.groundingText=g.text?('\n\n'+g.text):'';
             var GT=store.groundingText;
             [2,3,4,5,6].forEach(rowActive);
@@ -1711,14 +1783,15 @@
                   ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nKrijo plan veprimi praktik. JSON:\n{"steps":[{"action":"...","priority":"Lartë|Mesatare|Ulët","deadline":"..."}],"evidence":["..."],"deadlines":[{"what":"...","timeframe":"..."}]}',600,0.35)
                 .then(function(v){ rowDone(5); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(5); return null; }); },
               function(){
-                var spec=doctrineSpec(type);
+                var spec=doctrineSpec(isProp?'prone':type);
                 return runCall(8,spec.sys,
-                  'SITUATA:\n'+ctx+'\n\nBazë ligjore:\n'+store.lawList+GT+
+                  'SITUATA:\n'+ctx+primer+'\n\nBazë ligjore:\n'+store.lawList+GT+
                   '\n\nKryej dekompozimin doktrinor të çështjes. Për çdo element jep vlerësimin "plotesuar", "pjeserisht" ose "munget" te fusha "vleresim", dhe te "shenim" shpjego shkurt çfarë e provon elementin ose çfarë mungon për ta vërtetuar. Mbështetu te teksti zyrtar i neneve të dhëna; mos shpik numra ose vepra. Përdor SAKTËSISHT këtë strukturë JSON:\n'+spec.tmpl,
                   1900,0.3)
                 .then(function(v){ rowDone(6); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(6); return null; }); }
             ];
             return runLimited(tasks,PARALLEL_LIMIT);
+            });
           });
         })
         .then(function(res){
@@ -1726,7 +1799,7 @@
           rowActive(7);
           var S=store.strength;
           return runCall(7,'Jeni jurist i lartë shqiptar. Shkruani mendim ligjor formal, të strukturuar dhe profesional. Citoni nenet sipas tekstit zyrtar të dhënë më poshtë dhe, kur është e mundur, përdorni formulimin e tij. MOS citoni nene që nuk janë dhënë. Përfshi në analizë dekompozimin doktrinor të dhënë (objekti, ana objektive, subjekti, ana subjektive ose elementet e përgjegjësisë), duke vlerësuar nëse secili element përmbushet.',
-            'SITUATA:\n'+ctx+'\n\nLIGJET ZBATUESE:\n'+store.lawList+'\n\nFORCAT:\n'+((S.strengths||[]).join('\n')||'-')+'\n\nDOBËSITË:\n'+((S.weaknesses||[]).join('\n')||'-')+(store.opposition?'\n\nARGUMENTET KUNDËRSHTARE:\n'+store.opposition:'')+(store.jurisprudence?'\n\nJURISPRUDENCA:\n'+store.jurisprudence:'')+(store.groundingText||'')+doctrineSummaryText(store.doctrine)+'\n\nDrafto MENDIM LIGJOR formal me seksionet (secili titull në krye rreshti):\nFAKTE\nBAZË LIGJORE\nANALIZË LIGJORE\nKUNDËRPËRGJIGJE\nKONKLUZIONE\nREKOMANDIME\n\nTe KUNDËRPËRGJIGJE, përgjigju argumenteve kundërshtare. Ji i plotë, specifik dhe profesional.',2400,0.45);
+            'SITUATA:\n'+ctx+primer+'\n\nLIGJET ZBATUESE:\n'+store.lawList+'\n\nFORCAT:\n'+((S.strengths||[]).join('\n')||'-')+'\n\nDOBËSITË:\n'+((S.weaknesses||[]).join('\n')||'-')+(store.opposition?'\n\nARGUMENTET KUNDËRSHTARE:\n'+store.opposition:'')+(store.jurisprudence?'\n\nJURISPRUDENCA:\n'+store.jurisprudence:'')+(store.groundingText||'')+doctrineSummaryText(store.doctrine)+'\n\nDrafto MENDIM LIGJOR formal me seksionet (secili titull në krye rreshti):\nFAKTE\nBAZË LIGJORE\nANALIZË LIGJORE\nKUNDËRPËRGJIGJE\nKONKLUZIONE\nREKOMANDIME\n\nTe KUNDËRPËRGJIGJE, përgjigju argumenteve kundërshtare. Ji i plotë, specifik dhe profesional.',2400,0.45);
         })
         .then(function(r7){
           store.opinion=r7; rowDone(7);
@@ -1784,6 +1857,41 @@
       $('opinion-restart-btn').addEventListener('click',restart);
       $('opinion-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
       document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('opinion-modal').hidden) closeModal(); });
+
+      // ── PDF upload → client-side text extraction via pdf.js ──
+      (function(){
+        var inp=$('opinion-pdf'), status=$('opinion-pdf-status'), clr=$('opinion-pdf-clear');
+        if(!inp) return;
+        if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        function reset(){ attachedText=''; inp.value=''; if(status){ status.textContent=''; status.classList.remove('warn'); } if(clr) clr.hidden=true; }
+        resetPdf=reset;
+        if(clr) clr.addEventListener('click',reset);
+        inp.addEventListener('change',function(){
+          var f=inp.files&&inp.files[0]; if(!f) return;
+          if(!window.pdfjsLib){ status.textContent='Lexuesi i PDF nuk u ngarkua — provoni sërish.'; status.classList.add('warn'); return; }
+          status.classList.remove('warn'); status.textContent='Duke lexuar PDF…'; clr.hidden=false; attachedText='';
+          f.arrayBuffer().then(function(buf){
+            return pdfjsLib.getDocument({data:buf}).promise;
+          }).then(function(pdf){
+            var pages=[], chain=Promise.resolve();
+            for(var i=1;i<=pdf.numPages;i++){ (function(i){ chain=chain.then(function(){
+              return pdf.getPage(i).then(function(p){ return p.getTextContent(); }).then(function(tc){
+                pages.push(tc.items.map(function(it){ return it.str; }).join(' '));
+              });
+            }); })(i); }
+            return chain.then(function(){ return pages.join('\n'); });
+          }).then(function(txt){
+            txt=String(txt||'').replace(/\s+/g,' ').trim();
+            if(!txt){ status.textContent='PDF-ja duket e skanuar (pa tekst) — shkruani faktet manualisht.'; status.classList.add('warn'); attachedText=''; return; }
+            var capped=txt.slice(0,8000);
+            attachedText=capped;
+            var words=capped.split(/\s+/).length;
+            status.textContent=f.name+' · '+words+' fjalë'+(txt.length>8000?' (shkurtuar)':'');
+          }).catch(function(){
+            status.textContent='Nuk u lexua dot PDF-ja.'; status.classList.add('warn'); attachedText='';
+          });
+        });
+      })();
     })();
 
     // ── AI category tabs ──
