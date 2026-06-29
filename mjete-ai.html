@@ -34,6 +34,9 @@
     .inh-bar{display:flex;height:16px;border-radius:5px;overflow:hidden;border:1px solid var(--border);margin:12px 0 6px;}
     .inh-bar-seg{height:100%;min-width:2px;}
     .inh-order-note{font-size:.78rem;color:var(--muted);margin:8px 0 0;}
+    #inh-preview:empty{display:none;}
+    #inh-preview{margin:2px 0 4px;padding:12px 14px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;background:#f4f8f7;}
+    .inh-prev-label{font-size:.6rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#b8923a;margin-bottom:7px;}
     @media print{
       #inherit-modal:not([hidden]),#inherit-modal:not([hidden]) *{visibility:visible;}
       #inherit-modal:not([hidden]){position:static;inset:auto;background:none;padding:0;backdrop-filter:none;}
@@ -671,6 +674,9 @@
           <div class="opinion-form-row"><label for="inh-marital">Pasuri e përbashkët martesore (Lekë) — opsionale</label>
             <input id="inh-marital" type="text" inputmode="numeric" placeholder="ndahet 1/2 për bashkëshortin (neni 358)"></div>
         </div>
+        <div class="opinion-form-row"><label for="inh-names">Emrat e trashëgimtarëve (opsionale)</label>
+          <textarea id="inh-names" rows="2" placeholder="një emër për rresht ose me presje — radhë: fëmijët, pastaj bashkëshorti/të tjerët"></textarea></div>
+        <div id="inh-preview"></div>
         <div class="opinion-form-row">
           <label for="inh-pdf">Ngarko testamentin (PDF) — opsionale</label>
           <input id="inh-pdf" type="file" accept="application/pdf,.pdf">
@@ -697,8 +703,10 @@
         <div class="opinion-doc-banner">Ndarja është llogaritur me rregullat e Kodit Civil; shpjegimet janë krijuar nga AI dhe mund të përmbajnë pasaktësi — verifikoni me një noter/avokat.</div>
         <div class="opinion-doc-header"><div class="opinion-doc-eyebrow">Analizë Trashëgimie</div><div class="opinion-doc-meta" id="inherit-doc-meta"></div></div>
         <div class="opinion-section-block opinion-block-summary"><div class="opinion-block-label">Ndarja e Trashëgimisë</div><div id="inh-out-shares" class="opinion-section-body"></div></div>
+        <div class="opinion-section-block opinion-block-f" id="inh-assume-block" hidden><div class="opinion-block-label">Supozime &amp; Kufij</div><div id="inh-out-assume" class="opinion-section-body"></div></div>
         <div class="opinion-section-block opinion-block-a"><div class="opinion-block-label">Baza Ligjore &amp; Shpjegim</div><div id="inh-out-explain" class="opinion-section-body opinion-serif"></div></div>
         <div class="opinion-section-block opinion-block-strengthen" id="inh-reserve-block" hidden><div class="opinion-block-label">Rezerva Ligjore &amp; Pjesa e Disponueshme</div><div id="inh-out-reserve" class="opinion-section-body"></div></div>
+        <div class="opinion-section-block opinion-block-d" id="inh-scenarios-block" hidden><div class="opinion-block-label">Çfarë Ndryshon Nëse…</div><div id="inh-out-scenarios" class="opinion-section-body"></div></div>
         <div class="opinion-section-block opinion-block-b" id="inh-will-block" hidden><div class="opinion-block-label">Analiza e Testamentit</div><div id="inh-out-will" class="opinion-section-body"></div></div>
         <div class="opinion-section-block opinion-block-c"><div class="opinion-block-label">Rreziqet &amp; Kontestimet</div><div id="inh-out-risks" class="opinion-section-body"></div></div>
         <div class="opinion-section-block opinion-block-e"><div class="opinion-block-label">Hapat Praktikë</div><div id="inh-out-plan" class="opinion-section-body"></div></div>
@@ -2303,11 +2311,36 @@
         return out;
       }
 
-      // ── curated grounding on the governing Civil Code articles ──
-      var INH_ARTS=[358,360,361,363,364,365,366,371,378,379,380,392,393,397,407,411,412,413];
+      // ── conditional grounding: inject only the articles relevant to THIS case ──
+      function groundingArticles(inp){
+        var s={}; function add(){ for(var i=0;i<arguments.length;i++) s[arguments[i]]=1; }
+        add(316,317,320,330,360,361,413);
+        if(inp.childrenAlive>0) add(362);
+        if(inp.predeceasedWithKids>0) add(326,327,329,370);
+        if(inp.dependents>0) add(363,371);
+        if(inp.parentsAlive>0) add(363);
+        if(inp.siblings>0||inp.grandparents>0) add(364,369);
+        if(inp.maritalJoint>0) add(358);
+        if(inp.hasWill) add(372,378,379,380,392,393,397,402,403,404,405,406,407,408,409,410,411,412);
+        add(322,323,324,369,370); // padenjësi / heqje dorë / shtim (rreziqet)
+        return Object.keys(s).map(Number).sort(function(a,b){ return a-b; });
+      }
       var _civil=null, abortCtrl=null;
       function loadCivil(){ if(_civil) return Promise.resolve(_civil); return fetch('data/kodi-civil.json',{signal:abortCtrl?abortCtrl.signal:undefined}).then(function(r){ return r.ok?r.json():{}; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; return {}; }).then(function(d){ _civil=d||{}; return _civil; }); }
-      function buildGrounding(){ return loadCivil().then(function(data){ var blocks=[],refs=[]; INH_ARTS.forEach(function(n){ var t=data[String(n)]; if(t){ var clean=String(t).replace(/\s+/g,' ').trim(); blocks.push('Neni '+n+': «'+clean.slice(0,700)+'»'); refs.push({num:n,text:clean}); } }); return {text:blocks.length?('TEKSTI ZYRTAR I NENEVE (Kodi Civil — mbështetu vetëm te këto):\n\n'+blocks.join('\n\n')):'', refs:refs}; }); }
+      function buildGrounding(arts){ return loadCivil().then(function(data){ var blocks=[],refs=[]; (arts||[]).forEach(function(n){ var t=data[String(n)]; if(t){ var clean=String(t).replace(/\s+/g,' ').trim(); blocks.push('Neni '+n+': «'+clean.slice(0,650)+'»'); refs.push({num:n,text:clean}); } }); return {text:blocks.length?('TEKSTI ZYRTAR I NENEVE (Kodi Civil — mbështetu VETËM te këto, mos cito nene jashtë tyre):\n\n'+blocks.join('\n\n')):'', refs:refs}; }); }
+      var INH_FEWSHOT='SHEMBUJ TË SAKTË (mëso prej logjikës, mos kopjo verbatim):\n'+
+        '• Bashkëshort + 2 fëmijë → secili (2 fëmijët dhe bashkëshorti) merr 1/3 (neni 361, pjesë të barabarta).\n'+
+        '• Pa fëmijë + bashkëshort + 2 prindër → bashkëshorti 1/2 (neni 361), secili prind 1/4 (gjysma tjetër barazisht, neni 363).\n'+
+        '• Pa fëmijë + bashkëshort + 2 vëllezër + 1 gjyshe (rendi III) → bashkëshorti 1/2, secili nga 3 të tjerët 1/6 (nenet 361, 364).\n'+
+        '• Vetëm bashkëshort, pa trashëgimtarë të tjerë → bashkëshorti merr gjithçka (neni 361).\n'+
+        '• Fëmijë i paravdekur me fëmijë → dega merr pjesën e një fëmije, ndarë mes paslindurve (zëvendësim, nenet 361, 326–327).\n'+
+        '• Testament që përjashton një fëmijë të mitur → i pavlefshëm për rezervën; i mituri merr pjesën ligjore (nenet 379, 407, 412–413).';
+      function validFracs(c){ var s={'1/1':1,'1':1,'1/2':1}; c.heirs.forEach(function(h){ s[fracStr(h.fraction)]=1; }); if(c.reserve){ s[fracStr(c.reserve.reservedFrac)]=1; s[fracStr(c.reserve.disposableFrac)]=1; } return s; }
+      function enforceShares(text, c){
+        if(!text) return text; var ok=validFracs(c), bad=false, seen={};
+        String(text).replace(/\b(\d{1,2})\/(\d{1,2})\b/g, function(m,a,b){ var f=fracStr(parseInt(a,10)/parseInt(b,10)); if(!ok[m]&&!ok[f]&&!seen[m]){ seen[m]=1; bad=true; } return m; });
+        return bad ? (text+'\n\n⚠ Çdo fraksion në tekst që ndryshon nga tabela e llogaritur më sipër është i pasaktë — vlejnë shifrat e llogaritura.') : text;
+      }
 
       function iCall(sys,usr,maxTok,temp){
         if(typeof aiFetch!=='function') return Promise.reject(new Error('AI mungon'));
@@ -2318,15 +2351,60 @@
       // ── renderers ──
       var ORDER_NAME={ 'I':'Rendi i parë (fëmijët + bashkëshorti)','II':'Rendi i dytë (prindërit + persona në ngarkim)','III':'Rendi i tretë (gjyshër, vëllezër/motra)','spouse':'Vetëm bashkëshorti pasjetues','distant':'Të afërm deri në shkallën e gjashtë / shteti' };
       var COLORS=['#3d706a','#b8923a','#b15c44','#6a8caf','#8a6a1e','#5a7d6a'];
+      function expandHeirs(c, names){
+        names=names||[]; var out=[], ni=0;
+        c.heirs.forEach(function(h){ for(var k=0;k<h.count;k++){ var nm=names[ni]||'', label;
+          if(h.who==='Fëmijët') label=nm?('Fëmija — '+nm):'Fëmija '+(k+1);
+          else if(h.who==='Bashkëshorti pasjetues') label=nm?('Bashkëshorti — '+nm):'Bashkëshorti pasjetues';
+          else if(h.who==='Prindërit') label=nm?('Prindi — '+nm):'Prindi '+(k+1);
+          else if(h.who.indexOf('Vëllezër')===0) label=nm?('Vëlla/motër — '+nm):'Vëlla/motër '+(k+1);
+          else if(h.who.indexOf('Gjyshërit')===0) label=nm?('Gjyshi/ja — '+nm):'Gjyshi/ja '+(k+1);
+          else if(h.who.indexOf('Degë')===0) label=nm?('Degë përfaqësimi — '+nm):'Degë përfaqësimi '+(k+1);
+          else label=nm?(h.who+' — '+nm):(h.who+(h.count>1?(' '+(k+1)):''));
+          out.push({label:label, fraction:h.fraction, note:h.note, who:h.who}); ni++;
+        } });
+        return out;
+      }
+      var NENI_OF={ 'I':'361','II':'361 & 363','III':'361 & 364','spouse':'361' };
       function renderShares(c){
         var el=$('inh-out-shares'), html='';
         if(c.maritalNote) html+='<p class="op-fc-basis">'+esc(c.maritalNote)+'</p>';
         if(c.order==='distant'){ el.innerHTML=html+'<p>Nuk u dha trashëgimtar i rendeve I–III. Pasuria u kalon të afërmve deri në shkallën e gjashtë, ose, në mungesë, shtetit (nenet 365–366).</p>'; return; }
         var segs=''; c.heirs.forEach(function(h,i){ segs+='<div class="inh-bar-seg" title="'+esc(h.who)+'" style="width:'+Math.round(h.fraction*h.count*100)+'%;background:'+COLORS[i%COLORS.length]+'"></div>'; });
         html+='<div class="inh-bar">'+segs+'</div>';
-        c.heirs.forEach(function(h){ var amt=(c.netEstate>0)?(fmtN(Math.round(h.fraction*c.netEstate))+' L'+(h.count>1?' / person':'')):''; html+='<div class="inh-share-row"><div class="inh-share-who">'+(h.count>1?(h.count+'× '):'')+esc(h.who)+(h.note?'<small>'+esc(h.note)+'</small>':'')+'</div><div style="text-align:right"><div class="inh-share-frac">'+fracStr(h.fraction)+'</div>'+(amt?'<div class="inh-share-amt">'+amt+'</div>':'')+'</div></div>'; });
+        var nmEl=$('inh-names'), names=(nmEl?nmEl.value:'').split(/[\n,;]+/).map(function(s){ return s.trim(); }).filter(Boolean);
+        expandHeirs(c,names).forEach(function(p){ var amt=(c.netEstate>0)?(fmtN(Math.round(p.fraction*c.netEstate))+' L'):''; var neni=(p.who.indexOf('Degë')===0?'361, 326–327':(NENI_OF[c.order]||'361'));
+          html+='<div class="inh-share-row"><div class="inh-share-who">'+esc(p.label)+'<small>Baza: neni '+neni+(p.note?(' · '+esc(p.note)):'')+'</small></div><div style="text-align:right"><div class="inh-share-frac">'+fracStr(p.fraction)+'</div>'+(amt?'<div class="inh-share-amt">'+amt+'</div>':'')+'</div></div>'; });
         html+='<p class="inh-order-note">'+esc(ORDER_NAME[c.order]||'')+(c.grossEstate>0?(' · Pasuria neto për ndarje: '+fmtN(Math.round(c.netEstate))+' L'+(c.debts>0?(' (pas '+fmtN(c.debts)+' L borxhe)'):'')):'')+'</p>';
         el.innerHTML=html;
+      }
+      function renderAssumptions(inp,c){
+        var el=$('inh-out-assume'), block=$('inh-assume-block'); if(!el) return; var items=[];
+        if(inp.maritalJoint>0) items.push('U zbatua neni 358: bashkëshorti mori 1/2 e pasurisë së përbashkët para ndarjes. Nuk vlen nëse keni regjim ndarjeje pasurore.');
+        else if(inp.spouse) items.push('Nuk u fut pasuri e përbashkët martesore; nëse ka, bashkëshorti merr 1/2 e saj para ndarjes (neni 358).');
+        items.push('Supozohet se asnjë trashëgimtar nuk është i padenjë (nenet 322–324) dhe askush nuk ka hequr dorë, përveç sa treguar.');
+        if(inp.hasWill) items.push('Testamenti mund të ndryshojë ndarjen vetëm brenda pjesës së disponueshme; rezerva ligjore e të miturve/të paaftëve mbetet e pacenueshme (neni 379).');
+        else items.push('Llogaritja është për trashëgimi ligjore (pa testament); një testament i vlefshëm mund ta ndryshojë brenda pjesës së disponueshme.');
+        if(c.netEstate>0) items.push('Vlerat monetare janë mbi pasurinë neto ('+fmtN(Math.round(c.netEstate))+' L) dhe janë orientuese.');
+        el.innerHTML='<ul class="op-checklist">'+items.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; block.hidden=false;
+      }
+      function renderScenarios(inp,c){
+        var el=$('inh-out-scenarios'), block=$('inh-scenarios-block'); if(!el) return; var rows=[];
+        if(inp.hasWill&&c.reserve){ rows.push(['Pa testament (vetëm ligji)','Ndarja e plotë sipas rendeve.']); rows.push(['Me testament','I lirë vetëm '+fracStr(c.reserve.disposableFrac)+' (pjesa e disponueshme); pjesa tjetër mbetet rezervë.']); }
+        else { var c2=computeInheritance(Object.assign({},inp,{hasWill:true,willExcludesReserved:false})); if(c2.reserve&&c2.reserve.protectedCount>0) rows.push(['Nëse bën testament','Do të mund të disponoje '+fracStr(c2.reserve.disposableFrac)+'; '+fracStr(c2.reserve.reservedFrac)+' do mbetej rezervë për të miturit/të paaftët (nenet 379, 413).']); else rows.push(['Nëse bën testament','Pa trashëgimtarë të mbrojtur, mund të disponosh të gjithë pasurinë me testament (neni 378).']); }
+        if(inp.childrenAlive>1){ var cr=computeInheritance(Object.assign({},inp,{childrenAlive:inp.childrenAlive-1})); var ch=cr.heirs.filter(function(h){ return h.who==='Fëmijët'; })[0]; if(ch) rows.push(['Nëse një fëmijë heq dorë','Pjesa e tij u shtohet të tjerëve (neni 370); secili trashëgimtar do të merrte '+fracStr(ch.fraction)+'.']); }
+        else if(inp.spouse&&(inp.childrenAlive>0||inp.parentsAlive>0||inp.siblings>0)){ rows.push(['Nëse bashkëshorti heq dorë','Pjesa e tij u shtohet trashëgimtarëve të tjerë të rendit (neni 370).']); }
+        if(!rows.length){ block.hidden=true; return; }
+        el.innerHTML='<div class="op-qual">'+rows.map(function(r){ return '<div class="op-qual-row"><span class="op-qual-k">'+esc(r[0])+'</span><span class="op-qual-v">'+esc(r[1])+'</span></div>'; }).join('')+'</div>'; block.hidden=false;
+      }
+      function renderPreview(){
+        var el=$('inh-preview'); if(!el) return; var inp=readForm();
+        if(!inp.spouse&&!inp.childrenAlive&&!inp.predeceasedWithKids&&!inp.parentsAlive&&!inp.siblings&&!inp.grandparents&&!inp.dependents){ el.innerHTML=''; return; }
+        var c=computeInheritance(inp);
+        if(c.order==='distant'){ el.innerHTML='<div class="inh-prev-label">Parashikim i shpejtë</div><p style="font-size:.8rem;color:var(--muted);margin:0">Pa trashëgimtarë të rendeve I–III.</p>'; return; }
+        var segs=''; c.heirs.forEach(function(h,i){ segs+='<div class="inh-bar-seg" style="width:'+Math.round(h.fraction*h.count*100)+'%;background:'+COLORS[i%COLORS.length]+'"></div>'; });
+        var rows=c.heirs.map(function(h){ return '<span style="font-size:.78rem">'+(h.count>1?(h.count+'× '):'')+esc(h.who.replace(' pasjetues',''))+': <strong>'+fracStr(h.fraction)+'</strong></span>'; }).join(' · ');
+        el.innerHTML='<div class="inh-prev-label">Parashikim i shpejtë (llogaritje e saktë)</div><div class="inh-bar">'+segs+'</div><div style="display:flex;flex-wrap:wrap;gap:10px">'+rows+'</div>';
       }
       function renderReserve(c){ var block=$('inh-reserve-block'), el=$('inh-out-reserve'); if(!c.reserve){ block.hidden=true; return; } var r=c.reserve, html='<p>Fëmijët e mitur dhe personat e paaftë për punë nuk mund të përjashtohen me testament (neni 379); pjesa e tyre llogaritet sipas nenit 413.</p>'; html+='<div class="op-stat-grid"><div class="op-stat"><div class="op-stat-label">Pjesa e rezervuar (e pacenueshme)</div><div class="op-stat-value">'+fracStr(r.reservedFrac)+(c.netEstate>0?' <small>≈ '+fmtN(Math.round(r.reservedFrac*c.netEstate))+' L</small>':'')+'</div></div><div class="op-stat"><div class="op-stat-label">Pjesa e disponueshme me testament</div><div class="op-stat-value">'+fracStr(r.disposableFrac)+(c.netEstate>0?' <small>≈ '+fmtN(Math.round(r.disposableFrac*c.netEstate))+' L</small>':'')+'</div></div></div>'; if(r.warning) html+='<div class="op-deadline-note"><div>⚠ '+esc(r.warning)+'</div></div>'; el.innerHTML=html; block.hidden=false; }
       function renderRefs(refs){ var block=$('inh-refs-block'), el=$('inh-out-refs'); if(!refs||!refs.length){ block.hidden=true; return; } var html='<ul class="op-ref-list">'; refs.forEach(function(a){ html+='<li class="op-ref op-ref-ok"><details class="op-ref-details"><summary><span class="op-ref-icon">✓</span><span class="op-ref-label">Neni '+a.num+'</span><a href="kodi-civil.html#neni-'+a.num+'" target="_blank" rel="noopener noreferrer" class="op-ref-hint" style="text-decoration:none">hap →</a></summary><p class="op-ref-text">'+esc(a.text)+'</p></details></li>'; }); el.innerHTML=html+'</ul>'; block.hidden=false; }
@@ -2345,11 +2423,11 @@
         var fam='Bashkëshorti: '+(inp.spouse?'po':'jo')+'; fëmijë të gjallë: '+inp.childrenAlive+' (të mitur: '+inp.childrenMinor+'); degë përfaqësimi: '+inp.predeceasedWithKids+'; prindër: '+inp.parentsAlive+'; vëllezër/motra: '+inp.siblings+'; gjyshër: '+inp.grandparents+'; persona të paaftë në ngarkim: '+inp.dependents+'; testament: '+(inp.hasWill?'po':'jo')+(details?('. Detaje: '+details):'');
         var sharesText=c.heirs.map(function(h){ return (h.count>1?h.count+'× ':'')+h.who+' = '+fracStr(h.fraction)+' secili'; }).join('; ')||'(pa trashëgimtarë të afërt)';
         step(0,'active');
-        buildGrounding().then(function(g){
+        buildGrounding(groundingArticles(inp)).then(function(g){
           step(0,'done'); [1,2,3,4].forEach(function(i){ step(i,'active'); });
           var ctx='SITUATA FAMILJARE:\n'+fam+'\n\nNDARJA E LLOGARITUR (e saktë sipas Kodit Civil — MOS e ndrysho):\n'+sharesText+(c.maritalNote?('\n'+c.maritalNote):'')+(g.text?('\n\n'+g.text):'');
           var tasks=[
-            iCall('Jeni profesor i së drejtës së trashëgimisë shqiptare. Shpjegoni qartë, duke cituar nenet e dhëna; mos ndryshoni fraksionet e llogaritura.', ctx+'\n\nShpjego pse secilit trashëgimtar i takon pjesa e treguar (rendet, e drejta e bashkëshortit, përfaqësimi). Cito nenet 360–366 dhe 358.', 900,0.3).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }),
+            iCall('Jeni profesor i së drejtës së trashëgimisë shqiptare. Shkruani arsyetim ligjor të strukturuar, duke cituar VETËM nenet e dhëna. MOS i ndryshoni fraksionet e llogaritura — ato janë të sakta.', INH_FEWSHOT+'\n\n'+ctx+'\n\nShkruaj arsyetimin me KËTA tituj (secili në krye rreshti):\nRENDI I ZBATUESHËM\nPJESA E BASHKËSHORTIT\nPËRFAQËSIMI\nREZERVA LIGJORE\nKONKLUZION\nNën secilin, 1–3 fjali të qarta me referenca te nenet. Nëse një titull nuk zbatohet, shkruaj «Nuk zbatohet».', 1000,0.25).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }),
             (attachedWill ? iCall('Jeni jurist shqiptar, ekspert testamentesh sipas Kodit Civil.', ctx+'\n\nTEKSTI I TESTAMENTIT TË NGARKUAR:\n'+attachedWill.slice(0,6000)+'\n\nVlerëso: (1) formën (ollograf/noterial, nenet 392–400), (2) a cenon rezervën ligjore të të miturve/të paaftëve (nenet 379, 407), (3) afatin e kontestimit (neni 411). Cito nenet.', 800,0.35).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }) : Promise.resolve(null)),
             iCall('Jeni avokat shqiptar i trashëgimisë.', ctx+'\n\nListo rreziqet dhe shkaqet e mundshme të kontestimit: padenjësia, heqja dorë, përfaqësimi, atësia/birësimi, pasuria e përbashkët martesore (neni 358). 4–6 pika.', 600,0.45).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }),
             iCall('Jeni noter/jurist shqiptar.', ctx+'\n\nJep hapat praktikë: dëshmia e trashëgimisë te noteri, inventari (neni 415), regjistrimi i pronës, afatet, heqja dorë nëse duhet. Listë e numëruar.', 600,0.4).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; })
@@ -2358,8 +2436,10 @@
             step(1,res[0]?'done':'failed'); step(2,attachedWill?(res[1]?'done':'failed'):'done'); step(3,res[2]?'done':'failed'); step(4,res[3]?'done':'failed');
             try{ $('inherit-doc-meta').textContent=new Date().toLocaleDateString('sq-AL')+' · Trashëgimi ligjore'; }catch(e){ $('inherit-doc-meta').textContent='Trashëgimi ligjore'; }
             renderShares(c);
-            $('inh-out-explain').innerHTML=iMd(res[0]);
+            $('inh-out-explain').innerHTML=iMd(enforceShares(res[0], c));
             renderReserve(c);
+            renderAssumptions(inp,c);
+            renderScenarios(inp,c);
             if(attachedWill&&res[1]){ $('inh-out-will').innerHTML=iMd(res[1]); $('inh-will-block').hidden=false; } else { $('inh-will-block').hidden=true; }
             $('inh-out-risks').innerHTML=iMd(res[2]);
             $('inh-out-plan').innerHTML=iMd(res[3]);
@@ -2386,6 +2466,7 @@
       $('inherit-print-btn').addEventListener('click',function(){ window.print(); });
       $('inherit-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
       document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('inherit-modal').hidden) closeModal(); });
+      ['inh-spouse','inh-children','inh-minor','inh-predeceased','inh-parents','inh-siblings','inh-grandparents','inh-dependents','inh-will','inh-willexcl','inh-estate','inh-marital','inh-debts','inh-names'].forEach(function(id){ var e=$(id); if(e){ e.addEventListener('input',renderPreview); e.addEventListener('change',renderPreview); } });
     })();
   </script>
   <script src="site.js"></script>
