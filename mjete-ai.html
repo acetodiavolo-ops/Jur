@@ -1366,7 +1366,15 @@
       var LAW_NAMES_SORTED = Object.keys(LAW_MAP).sort(function(a,b){ return b.length - a.length; });
       var LAW_RE = new RegExp('(' + LAW_NAMES_SORTED.map(function(n){ return n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }).join('|') + ')','g');
 
-      function linkifyText(t){ return t.replace(LAW_RE, function(m){ return '<a href="' + LAW_MAP[m] + '" target="_blank" rel="noopener noreferrer" class="opinion-law-link">' + m + '</a>'; }); }
+      var _artHref={};  // base article number -> {href,anchor}, for linking "Neni X" to real text
+      function linkifyText(t){
+        t = t.replace(LAW_RE, function(m){ return '<a href="' + LAW_MAP[m] + '" target="_blank" rel="noopener noreferrer" class="opinion-law-link">' + m + '</a>'; });
+        t = t.replace(/\b([Nn]eni(?:t|n|ve)?)\s+(\d+(?:\/[\w]+)?)/g, function(m,word,num){
+          var a=_artHref[String(num).split('/')[0]];
+          return a ? '<a href="'+a.href+'#'+a.anchor+'" target="_blank" rel="noopener noreferrer" class="opinion-law-link">'+m+'</a>' : m;
+        });
+        return t;
+      }
       function linkifyHtml(html){ return html.replace(/(<[^>]+>)|([^<]+)/g, function(_,tag,text){ return tag ? tag : linkifyText(text); }); }
 
       // ── Grounding: fetch real article text from data/<slug>.json ─────────────
@@ -1433,6 +1441,16 @@
         {w:'pronar',s:2},{w:'pronës',s:2},{w:'mbajtës',s:2},
         {w:'send',s:1},{w:'pengo',s:1},{w:'tjetërsim',s:1}
       ];
+      var FAMILY_PRIMER = '\n\nUDHËZIM (e drejta familjare): Çështja lidhet me Kodin e Familjes. Merr parasysh: padinë për zgjidhjen e martesës (divorci) dhe shkaqet e saj, kujdestarinë dhe interesin më të lartë të fëmijës, pjesëtimin e pasurisë bashkëshortore dhe detyrimin ushqimor, si dhe atësinë ose birësimin sipas rastit. Identifiko dhe cito nenet përkatëse të Kodit të Familjes sipas tekstit zyrtar të dhënë.';
+      var FAMILY_KEYWORDS = [
+        {w:'divorc',s:3},{w:'kujdestar',s:3},{w:'birësim',s:3},{w:'detyrim ushqimor',s:3},
+        {w:'martes',s:2},{w:'fëmij',s:2},{w:'pasuri',s:2},{w:'atësi',s:2},{w:'ushqim',s:1}
+      ];
+      // Concept library: case types whose governing law IS in the corpus get proactive grounding.
+      var CONCEPTS = {
+        prone:     {primer:PROPERTY_PRIMER, href:'kodi-civil.html',    name:'Kodi Civil',      kw:PROPERTY_KEYWORDS, limit:6},
+        familjare: {primer:FAMILY_PRIMER,   href:'kodi-familjes.html', name:'Kodi i Familjes', kw:FAMILY_KEYWORDS,   limit:6}
+      };
       // Scan a law's article JSON and return the top-scoring articles by keyword weight.
       function keywordGround(href, lawName, kw, limit){
         return fetchLawData(href).then(function(data){
@@ -1481,7 +1499,31 @@
             tmpl:'{"framework":"prone","vepra":"lloji i padisë reale dhe e drejta që mbrohet","kuadri":[{"id":"titulli","titull":"E drejta reale e paditësit (titulli)","permbajtja":[{"etikete":"Lloji i së drejtës","vlera":"pronësi / posedim / e drejtë tjetër reale"},{"etikete":"Prova e titullit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"çfarë e provon ose çfarë mungon"},{"id":"cenimi","titull":"Cenimi ose privimi","permbajtja":[{"etikete":"Natyra","vlera":"privim posedimi (→ rivendikuese) ose shqetësim pa privim (→ mohuese)"},{"etikete":"Vazhdimësia / rreziku","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"paligjshmeria","titull":"Paligjshmëria e veprimit të të paditurit","permbajtja":[{"etikete":"Mungesa e titullit/të drejtës së tij","vlera":"..."},{"etikete":"Mbrojtje të mundshme të të paditurit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"mbrojtja","titull":"Kërkimi / mbrojtja juridike","permbajtja":[{"etikete":"Çfarë kërkohet","vlera":"kthim sendi / pushim cenimi / njohje pronësie"},{"etikete":"Baza ligjore","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji_padise":"rivendikuese / mohuese / pohuese","parashkrimi":"padia rivendikuese si rregull nuk parashkruhet; për të tjerat sipas rastit"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi mes padisë rivendikuese, mohuese dhe asaj të posedimit","perfundim":"a përmbushen elementet, lloji i padisë së përshtatshme dhe pika kyçe"}'
           };
         }
-        if(type==='civile'||type==='tregtare'||type==='konsumator'||type==='pune'){
+        if(type==='familjare'){
+          return {
+            sys:'Jeni profesor i së drejtës familjare shqiptare. Analizoni çështjen sipas Kodit të Familjes (zgjidhja e martesës, kujdestaria dhe interesi më i lartë i fëmijës, pjesëtimi i pasurisë bashkëshortore, detyrimi ushqimor, atësia/birësimi). Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna; mos shpikni numra.',
+            tmpl:'{"framework":"familjare","vepra":"natyra e çështjes familjare","kuadri":[{"id":"marredhenia","titull":"Marrëdhënia familjare & legjitimimi","permbajtja":[{"etikete":"Lidhja (martesë/farefisni)","vlera":"..."},{"etikete":"Palët & legjitimimi","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"çfarë e provon ose çfarë mungon"},{"id":"baza","titull":"Baza ligjore e kërkesës","permbajtja":[{"etikete":"Shkaqet/kushtet","vlera":"shkaqet e divorcit ose kushtet e kujdestarisë/ushqimores"}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"femija","titull":"Interesi më i lartë i fëmijës","permbajtja":[{"etikete":"Kujdestaria/takimet","vlera":"..."},{"etikete":"Faktorët e vlerësimit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"nëse nuk ka fëmijë, shëno se nuk zbatohet"},{"id":"pasoja","titull":"Pasojat pasurore & detyrimi ushqimor","permbajtja":[{"etikete":"Pjesëtimi i pasurisë","vlera":"..."},{"etikete":"Detyrimi ushqimor","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji_ceshtjes":"divorc / kujdestari / ushqimore / birësim / atësi","afatet":"afate të mundshme"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga procedura të ngjashme familjare","perfundim":"a përmbushen kushtet dhe pika kyçe për interesin e fëmijës dhe palëve"}'
+          };
+        }
+        if(type==='pune'){
+          return {
+            sys:'Jeni profesor i së drejtës së punës shqiptare. Analizoni vlefshmërinë e masës ndaj punëmarrësit (zgjidhja e kontratës, pushimi, diskriminimi). SHËNIM: Kodi i Punës mund të mos jetë në bazën e dhënë; mos shpikni numra nenesh dhe mbështetuni te teksti zyrtar kur jepet. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas.',
+            tmpl:'{"framework":"pune","vepra":"natyra e mosmarrëveshjes së punës","kuadri":[{"id":"marredhenia","titull":"Marrëdhënia e punës","permbajtja":[{"etikete":"Ekzistenca & lloji i kontratës","vlera":"..."},{"etikete":"Kohëzgjatja","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"shkaku","titull":"Shkaku i masës/zgjidhjes","permbajtja":[{"etikete":"Arsyeja","vlera":"..."},{"etikete":"A është i justifikuar","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"procedura","titull":"Procedura & afatet","permbajtja":[{"etikete":"Njoftimi/dëgjimi","vlera":"..."},{"etikete":"Forma & afati","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"pasoja","titull":"Pasojat & mbrojtja","permbajtja":[{"etikete":"Dëmshpërblim/rikthim","vlera":"..."},{"etikete":"Të drejta të papaguara","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji":"zgjidhje kontrate / pushim / diskriminim / pagesa","parashkrimi":"afati i mundshëm i padisë"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga institute të ngjashme të punës","perfundim":"a është e vlefshme masa dhe pika kyçe"}'
+          };
+        }
+        if(type==='administrative'){
+          return {
+            sys:'Jeni profesor i së drejtës administrative shqiptare. Analizoni ligjshmërinë e aktit administrativ sipas shkaqeve klasike të pavlefshmërisë (kompetenca, procedura/forma, ligjshmëria materiale dhe qëllimi, cenimi i të drejtave). Mos shpikni numra nenesh; mbështetuni te teksti zyrtar kur jepet. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas.',
+            tmpl:'{"framework":"administrative","vepra":"akti administrativ i kundërshtuar","kuadri":[{"id":"kompetenca","titull":"Kompetenca e organit","permbajtja":[{"etikete":"A ishte organ kompetent","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"procedura","titull":"Procedura & forma","permbajtja":[{"etikete":"Respektimi i procedurës","vlera":"..."},{"etikete":"Arsyetimi & forma","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"ligjshmeria","titull":"Ligjshmëria materiale & qëllimi","permbajtja":[{"etikete":"Baza ligjore","vlera":"..."},{"etikete":"Keqpërdorim i pushtetit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"e_drejta","titull":"Cenimi i të drejtës & afati","permbajtja":[{"etikete":"Interesi i cenuar","vlera":"..."},{"etikete":"Afati i ankimit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji_aktit":"individual / nënligjor","afati_ankimit":"afati i mundshëm"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga ankimi në rrugë administrative kundrejt asaj gjyqësore","perfundim":"a është i ligjshëm akti dhe baza më e fortë e kundërshtimit"}'
+          };
+        }
+        if(type==='konsumator'){
+          return {
+            sys:'Jeni jurist shqiptar i specializuar në mbrojtjen e konsumatorit. Analizoni çështjen sipas të drejtave të konsumatorit (mospërputhja/defekti, garancia, detyrimet e tregtarit, mjetet juridike). Mos shpikni numra nenesh; mbështetuni te teksti zyrtar kur jepet. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas.',
+            tmpl:'{"framework":"konsumator","vepra":"natyra e ankesës konsumatore","kuadri":[{"id":"subjektet","titull":"Cilësia e konsumatorit & tregtarit","permbajtja":[{"etikete":"Konsumator","vlera":"..."},{"etikete":"Tregtar/ofrues","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"mosperputhja","titull":"Mospërputhja ose defekti","permbajtja":[{"etikete":"Defekti/mungesa e konformitetit","vlera":"..."},{"etikete":"Koha e shfaqjes","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"detyrimet","titull":"Detyrimet e tregtarit & garancia","permbajtja":[{"etikete":"Garancia ligjore/tregtare","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"mjetet","titull":"Mjetet juridike","permbajtja":[{"etikete":"Riparim/zëvendësim","vlera":"..."},{"etikete":"Ulje çmimi/zgjidhje/dëm","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"baza":"Kodi Civil / legjislacioni i mbrojtjes së konsumatorit","afatet":"afati i ankesës ose i garancisë"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga përgjegjësia e përgjithshme civile","perfundim":"a përmbushen kushtet dhe mjeti më i përshtatshëm"}'
+          };
+        }
+        if(type==='civile'||type==='tregtare'){
           return {
             sys:'Jeni profesor i së drejtës private shqiptare. Analizoni elementet e përgjegjësisë juridike (veprimi i paligjshëm, dëmi, lidhja shkakësore, faji ose përgjegjësia objektive). Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna.',
             tmpl:'{"framework":"'+type+'","vepra":"natyra e mosmarrëveshjes","kuadri":[{"id":"veprimi","titull":"Veprimi / mosveprimi i paligjshëm","permbajtja":[{"etikete":"Sjellja","vlera":"..."},{"etikete":"Kundërligjshmëria","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"demi","titull":"Dëmi","permbajtja":[{"etikete":"Dëmi i dalshëm","vlera":"..."},{"etikete":"Fitimi i munguar","vlera":"..."},{"etikete":"Dëmi jopasuror","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"lidhja","titull":"Lidhja shkakësore","permbajtja":[{"etikete":"Shkak → pasojë","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"faji","titull":"Faji / përgjegjësia","permbajtja":[{"etikete":"Forma e fajit","vlera":"..."},{"etikete":"Përgjegjësi objektive (pa faj)?","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji_pergjegjesise":"kontraktore / jashtëkontraktore","parashkrimi":"afati i mundshëm"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga institute të ngjashme","perfundim":"a përmbushen elementet dhe ku qëndron pika kyçe"}'
@@ -1727,7 +1769,7 @@
         if(!d||!d.kuadri||!d.kuadri.length){ if(block) block.hidden=true; return; }
         if(block) block.hidden=false;
         function txt(s){ return linkifyHtml(esc(String(s==null?'':s))); }
-        if(labelEl){ labelEl.textContent=(store.type==='penale')?'Përbërja e Veprës Penale':((d&&d.framework==='prone')?'Mbrojtja e Pronësisë':'Elementet e Përgjegjësisë Juridike'); }
+        if(labelEl){ var DLABEL={penale:'Përbërja e Veprës Penale',prone:'Mbrojtja e Pronësisë',familjare:'Elementet e Çështjes Familjare',pune:'Elementet e Marrëdhënies së Punës',administrative:'Ligjshmëria e Aktit Administrativ',konsumator:'Mbrojtja e Konsumatorit'}; labelEl.textContent=DLABEL[(d&&d.framework)||store.type]||'Elementet e Përgjegjësisë Juridike'; }
         function assess(v){ v=String(v||'').toLowerCase(); if(v.indexOf('plot')===0) return {c:'#3d706a',t:'Plotësuar',cls:'op-el-ok'}; if(v.indexOf('mung')===0) return {c:'#b15c44',t:'Mungon',cls:'op-el-no'}; return {c:'#b8923a',t:'Pjesërisht',cls:'op-el-part'}; }
         var html=d.vepra?'<p class="op-doc-vepra"><span>Natyra</span>'+txt(d.vepra)+'</p>':'';
         html+='<div class="op-el-grid">';
@@ -1764,8 +1806,10 @@
         if(!facts && !attachedText){ showError('Përshkruaj faktet ose ngarko një dokument PDF për të vazhduar.'); $('opinion-facts').focus(); return; }
         var attach=attachedText?('\n\nDOKUMENT I NGARKUAR (përmbajtje e nxjerrë):\n'+attachedText.slice(0,8000)):'';
         var ctx='Lloji: çështje '+type+'.\nFaktet: '+(facts||'(shih dokumentin e ngarkuar)')+(parties?'\nPalët: '+parties:'')+(goal?'\nQëllimi: '+goal:'')+attach;
-        var isProp=(type==='prone')||detectProperty(facts+' '+parties+' '+goal+' '+attachedText);
-        var primer=isProp?PROPERTY_PRIMER:'';
+        var isProp=(type==='prone')||((type==='civile'||type==='tregtare')&&detectProperty(facts+' '+parties+' '+goal+' '+attachedText));
+        var conceptKey=isProp?'prone':(CONCEPTS[type]?type:'');
+        var concept=conceptKey?CONCEPTS[conceptKey]:null;
+        var primer=concept?concept.primer:'';
         running=true; abortCtrl=new AbortController();
         $('opinion-generate-btn').disabled=true;
         $('opinion-form').hidden=true;
@@ -1788,7 +1832,7 @@
           store.strength=safeJson(r2); rowDone(1);
           return (store.groundingP||Promise.resolve({text:'',found:[],missing:[],nums:{}})).then(function(g){
             store.grounding=g;
-            return (isProp?keywordGround('kodi-civil.html','Kodi Civil',PROPERTY_KEYWORDS,6):Promise.resolve(null)).then(function(kg){
+            return (concept?keywordGround(concept.href,concept.name,concept.kw,concept.limit):Promise.resolve(null)).then(function(kg){
             mergeGrounding(g,kg);
             store.groundingText=g.text?('\n\n'+g.text):'';
             var GT=store.groundingText;
@@ -1842,6 +1886,13 @@
               else if(hasPartial&&sc>6.5){ store.strength.score=6.5; store.strength._capped='një element është vetëm pjesërisht i plotësuar'; }
             }
           }
+          _artHref={}; var _amb={};
+          ((store.grounding&&store.grounding.found)||[]).forEach(function(a){
+            var b=String(a.num).split('/')[0];
+            if(_amb[b]) return;
+            if(_artHref[b]&&_artHref[b].href!==a.href){ _amb[b]=true; delete _artHref[b]; return; }
+            _artHref[b]={href:a.href,anchor:a.anchor};
+          });
           renderStrength(store.strength);
           renderAnalysis(store.laws,store.strength);
           renderDoctrine(store);
