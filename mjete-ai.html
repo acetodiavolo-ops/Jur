@@ -1428,7 +1428,7 @@
       function detectProperty(s){ return PROP_RE.test(String(s||'')); }
       var PROPERTY_PRIMER = '\n\nUDHËZIM (mbrojtja e pronësisë): Kjo çështje lidhet me mbrojtjen e së drejtës reale. Merr parasysh paditë reale të së drejtës civile shqiptare: padia rivendikuese (pronari kërkon sendin nga poseduesi ose mbajtësi pa titull), padia mohuese (pronari kërkon pushimin e cenimeve ose shqetësimeve që NUK përbëjnë privim të posedimit) dhe padia pohuese e pronësisë. Identifiko dhe cito nenet përkatëse të Kodit Civil për mbrojtjen e pronësisë dhe të posedimit, sipas tekstit zyrtar të dhënë.';
       var PROPERTY_KEYWORDS = [
-        {w:'mohues',s:3},{w:'rivendik',s:3},{w:'cenim',s:3},{w:'posedim',s:3},
+        {w:'mohues',s:3},{w:'rivendik',s:3},{w:'cenim',s:3},{w:'cenon',s:2},{w:'posedim',s:3},{w:'posedues',s:2},
         {w:'pronar',s:2},{w:'pronës',s:2},{w:'mbajtës',s:2},
         {w:'send',s:1},{w:'pengo',s:1},{w:'tjetërsim',s:1}
       ];
@@ -1480,7 +1480,7 @@
             tmpl:'{"framework":"prone","vepra":"lloji i padisë reale dhe e drejta që mbrohet","kuadri":[{"id":"titulli","titull":"E drejta reale e paditësit (titulli)","permbajtja":[{"etikete":"Lloji i së drejtës","vlera":"pronësi / posedim / e drejtë tjetër reale"},{"etikete":"Prova e titullit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"çfarë e provon ose çfarë mungon"},{"id":"cenimi","titull":"Cenimi ose privimi","permbajtja":[{"etikete":"Natyra","vlera":"privim posedimi (→ rivendikuese) ose shqetësim pa privim (→ mohuese)"},{"etikete":"Vazhdimësia / rreziku","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"paligjshmeria","titull":"Paligjshmëria e veprimit të të paditurit","permbajtja":[{"etikete":"Mungesa e titullit/të drejtës së tij","vlera":"..."},{"etikete":"Mbrojtje të mundshme të të paditurit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"mbrojtja","titull":"Kërkimi / mbrojtja juridike","permbajtja":[{"etikete":"Çfarë kërkohet","vlera":"kthim sendi / pushim cenimi / njohje pronësie"},{"etikete":"Baza ligjore","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji_padise":"rivendikuese / mohuese / pohuese","parashkrimi":"padia rivendikuese si rregull nuk parashkruhet; për të tjerat sipas rastit"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi mes padisë rivendikuese, mohuese dhe asaj të posedimit","perfundim":"a përmbushen elementet, lloji i padisë së përshtatshme dhe pika kyçe"}'
           };
         }
-        if(type==='civile'||type==='tregtare'||type==='prone'||type==='konsumator'||type==='pune'){
+        if(type==='civile'||type==='tregtare'||type==='konsumator'||type==='pune'){
           return {
             sys:'Jeni profesor i së drejtës private shqiptare. Analizoni elementet e përgjegjësisë juridike (veprimi i paligjshëm, dëmi, lidhja shkakësore, faji ose përgjegjësia objektive). Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna.',
             tmpl:'{"framework":"'+type+'","vepra":"natyra e mosmarrëveshjes","kuadri":[{"id":"veprimi","titull":"Veprimi / mosveprimi i paligjshëm","permbajtja":[{"etikete":"Sjellja","vlera":"..."},{"etikete":"Kundërligjshmëria","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"demi","titull":"Dëmi","permbajtja":[{"etikete":"Dëmi i dalshëm","vlera":"..."},{"etikete":"Fitimi i munguar","vlera":"..."},{"etikete":"Dëmi jopasuror","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"lidhja","titull":"Lidhja shkakësore","permbajtja":[{"etikete":"Shkak → pasojë","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"faji","titull":"Faji / përgjegjësia","permbajtja":[{"etikete":"Forma e fajit","vlera":"..."},{"etikete":"Përgjegjësi objektive (pa faj)?","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji_pergjegjesise":"kontraktore / jashtëkontraktore","parashkrimi":"afati i mundshëm"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga institute të ngjashme","perfundim":"a përmbushen elementet dhe ku qëndron pika kyçe"}'
@@ -1702,7 +1702,7 @@
         if(!d||!d.kuadri||!d.kuadri.length){ if(block) block.hidden=true; return; }
         if(block) block.hidden=false;
         function txt(s){ return linkifyHtml(esc(String(s==null?'':s))); }
-        if(labelEl){ labelEl.textContent=(store.type==='penale')?'Përbërja e Veprës Penale':'Elementet e Përgjegjësisë Juridike'; }
+        if(labelEl){ labelEl.textContent=(store.type==='penale')?'Përbërja e Veprës Penale':((d&&d.framework==='prone')?'Mbrojtja e Pronësisë':'Elementet e Përgjegjësisë Juridike'); }
         function assess(v){ v=String(v||'').toLowerCase(); if(v.indexOf('plot')===0) return {c:'#3d706a',t:'Plotësuar',cls:'op-el-ok'}; if(v.indexOf('mung')===0) return {c:'#b15c44',t:'Mungon',cls:'op-el-no'}; return {c:'#b8923a',t:'Pjesërisht',cls:'op-el-part'}; }
         var html=d.vepra?'<p class="op-doc-vepra"><span>Natyra</span>'+txt(d.vepra)+'</p>':'';
         html+='<div class="op-el-grid">';
