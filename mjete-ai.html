@@ -63,7 +63,7 @@
     .op-fact-v{flex:1;font-size:.9rem;}
     .print-cover{display:none;}
     @media print{
-      .print-cover{display:flex!important;flex-direction:column;align-items:center;justify-content:center;height:100vh;overflow:hidden;text-align:center;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      .print-cover{display:flex!important;flex-direction:column;align-items:center;justify-content:center;min-height:86vh;text-align:center;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
       .print-cover .pc-emblem{font-size:52px;color:#b8923a;line-height:1;margin-bottom:28px;}
       .print-cover .pc-title{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:600;font-size:34pt;color:#1b1b19;margin:0;}
       .print-cover .pc-rule{width:64px;height:2px;background:#b8923a;margin:24px auto;}
@@ -74,6 +74,7 @@
       #inherit-modal:not([hidden]),#inherit-modal:not([hidden]) *{visibility:visible;}
       #inherit-modal:not([hidden]){position:static;inset:auto;background:none;padding:0;backdrop-filter:none;}
       #inherit-modal .opinion-modal-inner{box-shadow:none;max-height:none;max-width:none;overflow:visible;}
+      #inherit-modal .op-stat,#inherit-modal .opinion-section-block,#inherit-modal .inh-bar,#inherit-modal .op-breakdown{box-shadow:none !important;break-inside:avoid;}
       #inherit-modal .opinion-modal-header,#inherit-modal .opinion-form,#inherit-modal .opinion-progress,#inherit-modal .opinion-doc-footer,#inherit-modal .opinion-doc-banner,#inherit-close{display:none !important;}
     }
   </style>
@@ -2456,7 +2457,8 @@
       $('opinion-close').addEventListener('click',closeModal);
       $('opinion-generate-btn').addEventListener('click',generate);
       (function(){ var tp=$('opinion-thin-proceed'); if(tp) tp.addEventListener('click',function(){ thinConfirmed=true; $('opinion-thin-gate').hidden=true; generate(); }); })();
-      $('opinion-print-btn').addEventListener('click',function(){ window.print(); });
+      function printScope(sel){ var ds=Array.prototype.slice.call(document.querySelectorAll(sel+' details')); var were=ds.map(function(d){ return d.open; }); ds.forEach(function(d){ d.open=true; }); function restore(){ ds.forEach(function(d,i){ d.open=were[i]; }); window.removeEventListener('afterprint',restore); } window.addEventListener('afterprint',restore); setTimeout(restore,3000); window.print(); }
+      $('opinion-print-btn').addEventListener('click',function(){ printScope('#opinion-modal'); });
       $('opinion-copy-btn').addEventListener('click',function(){
         var t=lastOpinion; if(!t) return;
         var done=function(){ var b=$('opinion-copy-btn'),o=b.textContent; b.textContent='U kopjua ✓'; setTimeout(function(){ b.textContent=o; },1500); };
@@ -2720,7 +2722,7 @@
       $('inherit-close').addEventListener('click',closeModal);
       $('inherit-generate-btn').addEventListener('click',generate);
       $('inherit-restart-btn').addEventListener('click',restart);
-      $('inherit-print-btn').addEventListener('click',function(){ window.print(); });
+      $('inherit-print-btn').addEventListener('click',function(){ var ds=Array.prototype.slice.call(document.querySelectorAll('#inherit-modal details')); var were=ds.map(function(d){ return d.open; }); ds.forEach(function(d){ d.open=true; }); function restore(){ ds.forEach(function(d,i){ d.open=were[i]; }); window.removeEventListener('afterprint',restore); } window.addEventListener('afterprint',restore); setTimeout(restore,3000); window.print(); });
       $('inherit-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
       document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('inherit-modal').hidden) closeModal(); });
       ['inh-spouse','inh-children','inh-minor','inh-predeceased','inh-parents','inh-siblings','inh-grandparents','inh-dependents','inh-will','inh-willexcl','inh-estate','inh-marital','inh-debts','inh-names'].forEach(function(id){ var e=$(id); if(e){ e.addEventListener('input',renderPreview); e.addEventListener('change',renderPreview); } });

@@ -7,6 +7,11 @@
   --muted: #737068;
   --border: #e0ddd8;
   --accent: #3d706a;
+  --gold: #b8923a;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow-sm: 0 1px 2px rgba(40,33,18,.04), 0 2px 6px rgba(40,33,18,.05);
+  --shadow-md: 0 2px 6px rgba(40,33,18,.05), 0 10px 24px rgba(40,33,18,.07);
   --border-strong: #000000;
   --highlight: #fff3b0;
   --highlight-active: #ffc400;
@@ -511,12 +516,13 @@ h4:hover .art-ai-trigger,
 /* ── Plain-language toggle ──────────────────────── */
 .plain-lang-btn, .memo-btn, .hdr-action-btn {
   font-family: var(--font); font-size: 0.7rem; font-weight: 500;
-  border: 1px solid var(--border); border-radius: 5px;
-  padding: 6px 13px; background: transparent; color: var(--muted);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 7px 14px; background: #fff; color: var(--muted);
   cursor: pointer; display: inline-block; margin-top: 16px; margin-right: 6px;
-  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.12s, box-shadow 0.12s;
 }
-.plain-lang-btn:hover, .memo-btn:hover, .hdr-action-btn:hover { background: #111; color: #fff; border-color: #111; }
+.plain-lang-btn:hover, .memo-btn:hover, .hdr-action-btn:hover { background: #111; color: #fff; border-color: #111; transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .plain-lang-btn:disabled { opacity: 0.45; cursor: default; background: transparent; color: var(--muted); border-color: var(--border); }
 
 #_pl-overlay { max-width: var(--content); }
@@ -603,7 +609,7 @@ h4:hover .art-ai-trigger,
   ._memo-head, ._comp-head { display: none; }
   #_memo-body, #_comp-body { padding: 0; overflow: visible; }
   ._comp-form { display: none; }
-  .print-cover{display:flex!important;flex-direction:column;align-items:center;justify-content:center;height:100vh;overflow:hidden;text-align:center;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .print-cover{display:flex!important;flex-direction:column;align-items:center;justify-content:center;min-height:86vh;text-align:center;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .print-cover .pc-emblem{font-size:52px;color:#b8923a;line-height:1;margin-bottom:28px;}
   .print-cover .pc-title{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:600;font-size:34pt;color:#1b1b19;margin:0;}
   .print-cover .pc-rule{width:64px;height:2px;background:#b8923a;margin:24px auto;}
