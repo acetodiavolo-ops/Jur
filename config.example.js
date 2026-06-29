@@ -9,8 +9,8 @@
 const GROQ_KEY = 'YOUR_GROQ_KEY_HERE';
 // Fallback 1 - Cerebras (free, same Llama 3.3 70B): https://cloud.cerebras.ai  (API Keys)
 const CEREBRAS_KEY = 'YOUR_CEREBRAS_KEY_HERE';
-// Fallback 2 - SambaNova (free, same Llama 3.3 70B):  https://cloud.sambanova.ai
-const SAMBANOVA_KEY = 'YOUR_SAMBANOVA_KEY_HERE';
+// Fallback 2 - Google Gemini (free, browser-CORS OK): https://aistudio.google.com/apikey
+const GEMINI_KEY = 'YOUR_GEMINI_KEY_HERE';
 
 // Login credentials (any of the three pairs grants access):
 const LOGIN_USER = 'user1';  const LOGIN_PASS = 'pass1';

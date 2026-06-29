@@ -15,7 +15,7 @@ var AI_PROVIDERS = [];
   }
   add(typeof GROQ_KEY       !== 'undefined' ? GROQ_KEY       : '', 'https://api.groq.com/openai/v1/chat/completions',   'llama-3.3-70b-versatile');
   add(typeof CEREBRAS_KEY   !== 'undefined' ? CEREBRAS_KEY   : '', 'https://api.cerebras.ai/v1/chat/completions',       'gpt-oss-120b');
-  add(typeof SAMBANOVA_KEY  !== 'undefined' ? SAMBANOVA_KEY  : '', 'https://api.sambanova.ai/v1/chat/completions',        'Meta-Llama-3.3-70B-Instruct');
+  add(typeof GEMINI_KEY     !== 'undefined' ? GEMINI_KEY     : '', 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', 'gemini-2.0-flash');
 })();
 
 function aiReady() { return AI_PROVIDERS.length > 0; }
