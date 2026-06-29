@@ -97,6 +97,7 @@
   </main>
 
   <script src="config.js"></script>
+  <script src="ai.js"></script>
   <script>
     'use strict';
 
@@ -128,14 +129,15 @@
       var lotdLink = document.querySelector('.lotd-link');
 
       var _key = (typeof GROQ_KEY !== 'undefined') ? GROQ_KEY : '';
-      if (!lotdText || !_key || _key === 'YOUR_GROQ_KEY_HERE') {
+      var _ready = (typeof aiReady === 'function') ? aiReady() : (!!_key && _key !== 'YOUR_GROQ_KEY_HERE');
+      if (!lotdText || !_ready) {
         if (lotdText) lotdText.textContent = law.title;
         return;
       }
 
       lotdLink.href = law.file;
 
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + GROQ_KEY,
@@ -182,7 +184,7 @@
       tipEl.textContent = '…';
       lotdLink.insertAdjacentElement('beforebegin', tipEl);
 
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + _key, 'Content-Type': 'application/json' },
         body: JSON.stringify({

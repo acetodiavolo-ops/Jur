@@ -614,6 +614,7 @@
 
   <script src="config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="ai.js"></script>
   <script>
     'use strict';
 
@@ -660,7 +661,7 @@
       aiText.textContent = '';
       requestAnimationFrame(function () { aiAnswer.style.opacity = '1'; });
 
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + GROQ_KEY,
@@ -744,7 +745,7 @@
       resultEl.textContent = 'Duke analizuar…';
       alsoEl.hidden = true;
 
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -775,7 +776,7 @@
       _wizFreeAnswer.style.opacity = '0'; _wizFreeAnswer.style.display = 'block'; requestAnimationFrame(function () { _wizFreeAnswer.style.opacity = '1'; });
       _wizFreeAnswer.textContent = 'Duke menduar…';
 
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -811,7 +812,7 @@
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke krahasuar…';
 
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -842,7 +843,7 @@
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke krijuar rastin…';
 
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -873,7 +874,7 @@
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke hartuar dokumentin…';
 
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -904,7 +905,7 @@
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke hartuar emailin…';
 
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -953,7 +954,7 @@
           if (_glCache[term]) { resultEl.textContent = _glCache[term]; return; }
 
           resultEl.textContent = 'Duke kërkuar…';
-          fetch('https://api.groq.com/openai/v1/chat/completions', {
+          aiFetch({
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -995,7 +996,7 @@
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke analizuar shkeljen…';
 
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1028,7 +1029,7 @@
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke llogaritur afatin e parashkrimit…';
 
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1058,7 +1059,7 @@
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke analizuar kontratën…';
 
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1087,7 +1088,7 @@
       btn.disabled = true; btn.textContent = 'Duke kërkuar…';
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke analizuar të drejtat tuaja…';
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1116,7 +1117,7 @@
       btn.disabled = true; btn.textContent = 'Duke kërkuar…';
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke identifikuar autoritetin kompetent…';
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1146,7 +1147,7 @@
       btn.disabled = true; btn.textContent = 'Duke gjeneruar…';
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke hartuar listën e provave…';
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1176,7 +1177,7 @@
       btn.disabled = true; btn.textContent = 'Duke gjeneruar…';
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke hartuar vijën kohore…';
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1207,7 +1208,7 @@
       btn.disabled = true; btn.textContent = 'Duke analizuar…';
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke gjetur strategjinë e negocimit…';
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1239,7 +1240,7 @@
       btn.disabled = true; btn.textContent = 'Duke llogaritur…';
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke analizuar trashëgiminë ligjore…';
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1269,7 +1270,7 @@
       btn.disabled = true; btn.textContent = 'Duke kontrolluar…';
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke analizuar kërkesat ligjore…';
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1299,7 +1300,7 @@
       btn.disabled = true; btn.textContent = 'Duke kërkuar…';
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke analizuar të drejtat si konsumator…';
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
+      aiFetch({
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1571,25 +1572,35 @@
       var abortCtrl = null;
 
       function callGroq(sys, usr, maxTok, temp){
-        var key = getKey();
-        var body = JSON.stringify({ model:MODEL, max_tokens:maxTok, temperature:(typeof temp==='number')?temp:0.4, messages:[{role:'system',content:sys},{role:'user',content:usr}] });
-        function attempt(n){
-          return fetch(GROQ_URL, { method:'POST', signal:abortCtrl?abortCtrl.signal:undefined, headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'}, body:body })
-          .then(function(res){
-            if((res.status===429||res.status>=500)&&n<MAX_RETRIES) return delay(backoff(n)).then(function(){ return attempt(n+1); });
-            return res.json().catch(function(){ return {}; }).then(function(data){
-              if(!res.ok){ var msg=(data&&data.error&&data.error.message)||('HTTP '+res.status); throw new Error(msg); }
-              var content=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
-              if(!content) throw new Error('Përgjigje boshe nga modeli');
-              return content;
+        var payload = { max_tokens:maxTok, temperature:(typeof temp==='number')?temp:0.4, messages:[{role:'system',content:sys},{role:'user',content:usr}] };
+        var providers = (typeof AI_PROVIDERS!=='undefined' && AI_PROVIDERS.length) ? AI_PROVIDERS : [{url:GROQ_URL, key:getKey(), model:MODEL}];
+        function tryProvider(pi){
+          var p = providers[pi];
+          var body = JSON.stringify(Object.assign({model:p.model}, payload));
+          function attempt(n){
+            return fetch(p.url, { method:'POST', signal:abortCtrl?abortCtrl.signal:undefined, headers:{'Authorization':'Bearer '+p.key,'Content-Type':'application/json'}, body:body })
+            .then(function(res){
+              if((res.status===429||res.status>=500)&&n<MAX_RETRIES) return delay(backoff(n)).then(function(){ return attempt(n+1); });
+              return res.json().catch(function(){ return {}; }).then(function(data){
+                if(!res.ok){ var msg=(data&&data.error&&data.error.message)||('HTTP '+res.status); throw new Error(msg); }
+                var content=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
+                if(!content) throw new Error('Përgjigje boshe nga modeli');
+                return content;
+              });
+            }).catch(function(err){
+              if(err&&err.name==='AbortError') throw err;
+              if(n<MAX_RETRIES) return delay(backoff(n)).then(function(){ return attempt(n+1); });
+              throw err;
             });
-          }).catch(function(err){
+          }
+          // per-provider retries exhausted -> fall back to the next configured provider
+          return attempt(0).catch(function(err){
             if(err&&err.name==='AbortError') throw err;
-            if(n<MAX_RETRIES) return delay(backoff(n)).then(function(){ return attempt(n+1); });
+            if(pi+1 < providers.length) return tryProvider(pi+1);
             throw err;
           });
         }
-        return attempt(0);
+        return tryProvider(0);
       }
 
       function runCall(id, sys, usr, maxTok, temp){ return callGroq(sys, usr, maxTok, temp); }
