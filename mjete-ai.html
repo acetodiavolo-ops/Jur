@@ -1334,6 +1334,22 @@
     var ADR_SYS='Jeni ndërmjetës dhe arbitër me përvojë në Shqipëri (kuadri i ndërmjetësimit, Ligji nr. 10385/2011). Vlerësoni realisht nëse mosmarrëveshja mund të zgjidhet me ndërmjetësim ose arbitrazh. Mos shpikni numra nenesh apo vendime. Përgjigjuni VETËM me JSON të vlefshëm.';
     var ADR_JSON='\n\nJSON:\n{"mode":"ndërmjetësim|arbitrazh|të dyja","likelihood":"e lartë/e mesme/e ulët + arsye e shkurtër","best_case":"rezultati më i mirë i mundshëm me ADR","worst_case":"rezultati më i keq / rreziqet nëse dështon","factors_for":["..."],"factors_against":["..."],"recommendation":"mendim i përgjithshëm: a ia vlen dhe si t\'i qasesh"}';
 
+    // ── Article cross-linking → full law text (absolute URLs so links work in saved PDFs too) ──
+    var LAW_BASE = (function(){ try { return location.href.replace(/[^\/]*(?:[?#].*)?$/, ''); } catch(e){ return ''; } })();
+    function linkNene(html, lawFile){
+      if(html==null) return '';
+      lawFile = lawFile || 'kodi-civil.html';
+      return String(html).replace(/(<a\b[^>]*>[\s\S]*?<\/a>)|(<[^>]+>)|([^<]+)/g, function(m, anchor, tag, text){
+        if(anchor||tag) return m;
+        return text.replace(/\bnen(?:i|it|in|e|et|eve)?\s+\d+(?:\/[\w]+)?(?:\s*[,–\-]\s*\d+(?:\/[\w]+)?)*/gi, function(run){
+          return run.replace(/\d+(?:\/[\w]+)?/g, function(numTok){
+            var base=numTok.split('/')[0];
+            return '<a class="opinion-law-link" target="_blank" rel="noopener noreferrer" href="'+LAW_BASE+lawFile+'#neni-'+base+'">'+numTok+'</a>';
+          });
+        });
+      });
+    }
+
     // Contract Analyzer — PDF upload fills the textarea
     (function () {
       var inp = document.getElementById('ca-pdf'),
@@ -1643,10 +1659,10 @@
 
       var _artHref={};  // base article number -> {href,anchor}, for linking "Neni X" to real text
       function linkifyText(t){
-        t = t.replace(LAW_RE, function(m){ return '<a href="' + LAW_MAP[m] + '" target="_blank" rel="noopener noreferrer" class="opinion-law-link">' + m + '</a>'; });
+        t = t.replace(LAW_RE, function(m){ return '<a href="' + LAW_BASE + LAW_MAP[m] + '" target="_blank" rel="noopener noreferrer" class="opinion-law-link">' + m + '</a>'; });
         t = t.replace(/\b([Nn]eni(?:t|n|ve)?)\s+(\d+(?:\/[\w]+)?)/g, function(m,word,num){
           var a=_artHref[String(num).split('/')[0]];
-          return a ? '<a href="'+a.href+'#'+a.anchor+'" target="_blank" rel="noopener noreferrer" class="opinion-law-link">'+m+'</a>' : m;
+          return a ? '<a href="'+LAW_BASE+a.href+'#'+a.anchor+'" target="_blank" rel="noopener noreferrer" class="opinion-law-link">'+m+'</a>' : m;
         });
         return t;
       }
@@ -2497,6 +2513,8 @@
             renderVerify(store);
             renderReferences(store);
             applyConfidenceBadges(store);
+            // link article/law citations across the structured sections (skip ones that already have links)
+            ['op-out-summary','op-out-factsheet','op-out-analysis','op-out-forecast','op-out-doctrine','op-out-adr','op-out-plan','op-out-strengthen','op-out-verify','op-out-breakdown'].forEach(function(id){ var e=$(id); if(e&&e.innerHTML&&e.innerHTML.indexOf('<a ')<0) e.innerHTML=linkifyHtml(e.innerHTML); });
             $('opinion-progress').hidden=true;
             $('opinion-output').hidden=false;
             $('opinion-modal-inner').scrollTop=0;
@@ -2588,7 +2606,7 @@
       function fracStr(x){ if(!isFinite(x)||x<=0) return '0'; for(var den=1;den<=24;den++){ var num=x*den; if(Math.abs(num-Math.round(num))<1e-6){ var nu=Math.round(num); var g=gcd(nu,den); return (nu/g)+'/'+(den/g); } } return (x*100).toFixed(1)+'%'; }
       function parseAmt(s){ if(s==null) return null; var str=String(s).toLowerCase().replace(/\s/g,''); var mult=1; if(/milion|mln/.test(str)) mult=1000000; else if(/mij[ëe]|mije/.test(str)) mult=1000; var m=str.match(/(\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,](\d{1,2}))?/); if(!m) return null; var num=parseFloat(m[1].replace(/[.,]/g,'')+(m[2]?('.'+m[2]):'')); return (isFinite(num)&&num>0)?Math.round(num*mult):null; }
       function inl(t){ return t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>'); }
-      function iMd(raw){ if(!raw) return '<p class="op-degraded">Nuk u gjenerua kjo pjesë.</p>'; var lines=esc(raw).split('\n'), out='', list=false; function close(){ if(list){ out+='</ul>'; list=false; } } lines.forEach(function(ln){ ln=ln.trim(); if(!ln){ close(); return; } var b=ln.match(/^[-•*]\s+(.*)$/); if(b){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(b[1])+'</li>'; return; } var o=ln.match(/^\d+[.)]\s+(.*)$/); if(o){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(o[1])+'</li>'; return; } var h=ln.match(/^#{1,4}\s+(.*)$/); if(h){ close(); out+='<h3 class="opinion-section-head">'+inl(h[1])+'</h3>'; return; } close(); out+='<p>'+inl(ln)+'</p>'; }); close(); return out.replace(/\b([Nn]eni(?:t|n)?)\s+(\d+)/g, function(m,w,n){ return '<a href="kodi-civil.html#neni-'+n+'" target="_blank" rel="noopener noreferrer" class="opinion-law-link">'+m+'</a>'; }); }
+      function iMd(raw){ if(!raw) return '<p class="op-degraded">Nuk u gjenerua kjo pjesë.</p>'; var lines=esc(raw).split('\n'), out='', list=false; function close(){ if(list){ out+='</ul>'; list=false; } } lines.forEach(function(ln){ ln=ln.trim(); if(!ln){ close(); return; } var b=ln.match(/^[-•*]\s+(.*)$/); if(b){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(b[1])+'</li>'; return; } var o=ln.match(/^\d+[.)]\s+(.*)$/); if(o){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(o[1])+'</li>'; return; } var h=ln.match(/^#{1,4}\s+(.*)$/); if(h){ close(); out+='<h3 class="opinion-section-head">'+inl(h[1])+'</h3>'; return; } close(); out+='<p>'+inl(ln)+'</p>'; }); close(); return linkNene(out, 'kodi-civil.html'); }
 
       // ── soundproof calculator (verified in node) ──
       function computeInheritance(inp){
@@ -2740,7 +2758,7 @@
         el.innerHTML='<div class="inh-prev-label">Parashikim i shpejtë (llogaritje e saktë)</div><div class="inh-bar">'+segs+'</div><div style="display:flex;flex-wrap:wrap;gap:10px">'+rows+'</div>';
       }
       function renderReserve(c){ var block=$('inh-reserve-block'), el=$('inh-out-reserve'); if(!c.reserve){ block.hidden=true; return; } var r=c.reserve, html='<p>Fëmijët e mitur dhe personat e paaftë për punë nuk mund të përjashtohen me testament (neni 379); pjesa e tyre llogaritet sipas nenit 413.</p>'; html+='<div class="op-stat-grid"><div class="op-stat"><div class="op-stat-label">Pjesa e rezervuar (e pacenueshme)</div><div class="op-stat-value">'+fracStr(r.reservedFrac)+(c.netEstate>0?' <small>≈ '+fmtN(Math.round(r.reservedFrac*c.netEstate))+' L</small>':'')+'</div></div><div class="op-stat"><div class="op-stat-label">Pjesa e disponueshme me testament</div><div class="op-stat-value">'+fracStr(r.disposableFrac)+(c.netEstate>0?' <small>≈ '+fmtN(Math.round(r.disposableFrac*c.netEstate))+' L</small>':'')+'</div></div></div>'; if(r.warning) html+='<div class="op-deadline-note"><div>⚠ '+esc(r.warning)+'</div></div>'; el.innerHTML=html; block.hidden=false; }
-      function renderRefs(refs){ var block=$('inh-refs-block'), el=$('inh-out-refs'); if(!refs||!refs.length){ block.hidden=true; return; } var html='<ul class="op-ref-list">'; refs.forEach(function(a){ html+='<li class="op-ref op-ref-ok"><details class="op-ref-details"><summary><span class="op-ref-icon">✓</span><span class="op-ref-label">Neni '+a.num+(a.xref?' <span style="color:var(--muted);font-weight:400">· referuar</span>':'')+'</span><a href="kodi-civil.html#neni-'+a.num+'" target="_blank" rel="noopener noreferrer" class="op-ref-hint" style="text-decoration:none">hap →</a></summary><p class="op-ref-text">'+esc(a.text)+'</p></details></li>'; }); el.innerHTML=html+'</ul>'; block.hidden=false; }
+      function renderRefs(refs){ var block=$('inh-refs-block'), el=$('inh-out-refs'); if(!refs||!refs.length){ block.hidden=true; return; } var html='<p style="margin:0 0 12px"><a class="opinion-law-link" target="_blank" rel="noopener noreferrer" href="'+LAW_BASE+'kodi-civil.html">Shiko Kodin Civil të plotë →</a></p><ul class="op-ref-list">'; refs.forEach(function(a){ html+='<li class="op-ref op-ref-ok"><details class="op-ref-details"><summary><span class="op-ref-icon">✓</span><span class="op-ref-label">Neni '+a.num+(a.xref?' <span style="color:var(--muted);font-weight:400">· referuar</span>':'')+'</span><a href="'+LAW_BASE+'kodi-civil.html#neni-'+a.num+'" target="_blank" rel="noopener noreferrer" class="op-ref-hint" style="text-decoration:none">hap →</a></summary><p class="op-ref-text">'+esc(a.text)+'</p></details></li>'; }); el.innerHTML=html+'</ul>'; block.hidden=false; }
       function inhVerifier(ctx, sharesText, draft){
         if(typeof iCall!=='function') return Promise.resolve(null);
         var usr='ARSYETIMI PËR T\'U KONTROLLUAR:\n'+String(draft||'').slice(0,4000)+'\n\nNDARJA E SAKTË E LLOGARITUR (autoritative): '+sharesText+'\n\n'+ctx+'\n\nKontrollo nëse arsyetimi pajtohet me ndarjen e llogaritur dhe me tekstin zyrtar të neneve. Jep JSON:\n{"confidence":"high|medium|low","issues":["..."]}';
@@ -2802,6 +2820,7 @@
             renderADRInh(c, inp, res[4]);
             $('inh-out-plan').innerHTML=iMd(res[3]);
             renderRefs(g.refs);
+            ['inh-out-shares','inh-out-property','inh-out-reserve','inh-out-assume','inh-out-scenarios','inh-out-adr'].forEach(function(id){ var e=$(id); if(e&&e.innerHTML&&e.innerHTML.indexOf('<a ')<0) e.innerHTML=linkNene(e.innerHTML,'kodi-civil.html'); });
             var draft=[res[0],res[1],res[2]].filter(Boolean).join('\n\n');
             return inhVerifier(ctx,sharesText,draft).then(function(v){ if(v) renderInhVerify(v); $('inherit-progress').hidden=true; $('inherit-output').hidden=false; $('inherit-modal-inner').scrollTop=0; });
           });
