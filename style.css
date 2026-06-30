@@ -113,6 +113,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   border-color: var(--accent);
   width: 270px;
   background: #fff;
+  box-shadow: 0 0 0 3px rgba(61,112,106,0.13);
 }
 #search-input::placeholder { color: #aaa; }
 
