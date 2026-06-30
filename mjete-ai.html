@@ -670,6 +670,10 @@
           <div class="opinion-block-label">Parashikimi i Riskut &amp; Kostos</div>
           <div id="op-out-forecast" class="opinion-section-body"></div>
         </div>
+        <div class="opinion-section-block opinion-block-c" id="op-adr-block" hidden>
+          <div class="opinion-block-label">Ndërmjetësimi &amp; Arbitrazhi</div>
+          <div id="op-out-adr" class="opinion-section-body"></div>
+        </div>
         <div class="opinion-section-block opinion-block-e">
           <div class="opinion-block-label">Plani i Veprimit</div>
           <div id="op-out-plan" class="opinion-section-body"></div>
@@ -788,6 +792,7 @@
         <div class="opinion-section-block opinion-block-d" id="inh-scenarios-block" hidden><div class="opinion-block-label">Çfarë Ndryshon Nëse…</div><div id="inh-out-scenarios" class="opinion-section-body"></div></div>
         <div class="opinion-section-block opinion-block-b" id="inh-will-block" hidden><div class="opinion-block-label">Analiza e Testamentit</div><div id="inh-out-will" class="opinion-section-body"></div></div>
         <div class="opinion-section-block opinion-block-c"><div class="opinion-block-label">Rreziqet &amp; Kontestimet</div><div id="inh-out-risks" class="opinion-section-body"></div></div>
+        <div class="opinion-section-block opinion-block-d" id="inh-adr-block" hidden><div class="opinion-block-label">Ndërmjetësimi &amp; Arbitrazhi</div><div id="inh-out-adr" class="opinion-section-body"></div></div>
         <div class="opinion-section-block opinion-block-e"><div class="opinion-block-label">Hapat Praktikë</div><div id="inh-out-plan" class="opinion-section-body"></div></div>
         <div class="opinion-section-block opinion-block-g" id="inh-refs-block" hidden><div class="opinion-block-label">Referencat (Kodi Civil)</div><div id="inh-out-refs" class="opinion-section-body"></div></div>
         <div class="opinion-doc-footer">
@@ -1297,6 +1302,37 @@
         else { previewEl.hidden = true; viewBtn.textContent = 'Shiko tekstin'; }
       });
     }
+
+    // ── ADR (ndërmjetësim/arbitrazh) — shared by both engines ──
+    var ADR_TYPES = { civile:1, tregtare:1, familjare:1, pune:1, prone:1, konsumator:1 };
+    function adrApplicable(type){ return !!ADR_TYPES[type]; }
+    function adrApplicableInh(c, inp){ var n=0; (c&&c.heirs||[]).forEach(function(h){ n+=h.count; }); return n>1 || !!(inp&&inp.hasWill) || ((inp&&inp.predeceasedWithKids)|0)>0; }
+    function adrSuitability(type, forecast){
+      var base=({familjare:3,pune:3,konsumator:3,tregtare:2,civile:2,prone:2})[type]; if(base==null) base=2;
+      var settle=forecast?Math.round(forecast.settle||0):0;
+      var sc=base+(settle>=40?1:0)-(settle>0&&settle<15?1:0);
+      var level=sc>=3?'hi':sc>=2?'mid':'lo';
+      var lbl={hi:['op-conf-hi','E përshtatshme'],mid:['op-conf-mid','Mesatarisht e përshtatshme'],lo:['op-conf-lo','Pak e përshtatshme']}[level];
+      return { level:level, cls:lbl[0], label:lbl[1], settle:settle, note:'Bazuar te lloji i çështjes'+(settle?(' dhe gjasat e marrëveshjes (~'+settle+'%)'):'')+'.' };
+    }
+    function adrHtml(det, ai){
+      ai=ai||{};
+      function e(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+      var html='';
+      if(det) html+='<p>Përshtatshmëria për zgjidhje alternative: <span class="op-conf '+det.cls+'">'+e(det.label)+'</span> <small>('+e(det.note)+')</small></p>';
+      if(ai.mode||ai.likelihood) html+='<p class="op-fc-basis">'+(ai.mode?('<strong>Rruga:</strong> '+e(ai.mode)):'')+(ai.likelihood?((ai.mode?' · ':'')+'<strong>Gjasat për zgjidhje:</strong> '+e(ai.likelihood)):'')+'</p>';
+      if(ai.best_case||ai.worst_case){ html+='<div class="op-stat-grid">';
+        if(ai.best_case) html+='<div class="op-stat"><div class="op-stat-label">Skenari më i mirë</div><div class="op-stat-value" style="font-size:.88rem;font-weight:500;line-height:1.5">'+e(ai.best_case)+'</div></div>';
+        if(ai.worst_case) html+='<div class="op-stat"><div class="op-stat-label">Skenari më i keq</div><div class="op-stat-value" style="font-size:.88rem;font-weight:500;line-height:1.5">'+e(ai.worst_case)+'</div></div>';
+        html+='</div>'; }
+      function lst(t,cls,arr){ if(!arr||!arr.length) return ''; return '<p class="op-subhead '+cls+'" style="margin:12px 0 4px;">'+t+'</p><ul class="op-checklist">'+arr.filter(Boolean).map(function(x){ return '<li>'+e(x)+'</li>'; }).join('')+'</ul>'; }
+      html+=lst('Faktorë në favor','op-green',ai.factors_for);
+      html+=lst('Faktorë kundër','op-amber',ai.factors_against);
+      if(ai.recommendation) html+='<p class="op-subhead" style="margin:12px 0 4px;">Rekomandim</p><p>'+e(ai.recommendation)+'</p>';
+      return html || '<p class="op-degraded">Vlerësimi i zgjidhjes alternative nuk u gjenerua.</p>';
+    }
+    var ADR_SYS='Jeni ndërmjetës dhe arbitër me përvojë në Shqipëri (kuadri i ndërmjetësimit, Ligji nr. 10385/2011). Vlerësoni realisht nëse mosmarrëveshja mund të zgjidhet me ndërmjetësim ose arbitrazh. Mos shpikni numra nenesh apo vendime. Përgjigjuni VETËM me JSON të vlefshëm.';
+    var ADR_JSON='\n\nJSON:\n{"mode":"ndërmjetësim|arbitrazh|të dyja","likelihood":"e lartë/e mesme/e ulët + arsye e shkurtër","best_case":"rezultati më i mirë i mundshëm me ADR","worst_case":"rezultati më i keq / rreziqet nëse dështon","factors_for":["..."],"factors_against":["..."],"recommendation":"mendim i përgjithshëm: a ia vlen dhe si t\'i qasesh"}';
 
     // Contract Analyzer — PDF upload fills the textarea
     (function () {
@@ -2108,6 +2144,11 @@
         el.innerHTML=html; block.hidden=false;
       }
 
+      function renderADR(store){
+        var block=$('op-adr-block'), el=$('op-out-adr'); if(!block||!el) return;
+        if(!store.adr || !adrApplicable(store.type)){ block.hidden=true; return; }
+        el.innerHTML=adrHtml(adrSuitability(store.type, store.forecast), store.adr); block.hidden=false;
+      }
       function renderForecast(f){
         var el=$('op-out-forecast');
         if(!f||(f.win==null&&f.settle==null&&f.lose==null)){ el.innerHTML=DEGRADED; return; }
@@ -2398,6 +2439,7 @@
                   1900,0.3)
                 .then(function(v){ rowDone(6); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(6); return null; }); }
             ];
+            if(adrApplicable(type)) tasks.push(function(){ return runCall(10, ADR_SYS, ctx+'\n\nLLOJI: çështje '+type+'. Vlerëso nëse kjo mosmarrëveshje mund të zgjidhet me ndërmjetësim ose arbitrazh, sa gjasa ka, dhe skenarët më të mirë/të keq.'+ADR_JSON, 750,0.4).then(function(v){ return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }); });
             return runLimited(tasks,PARALLEL_LIMIT);
             });
             });
@@ -2405,6 +2447,7 @@
         })
         .then(function(res){
           store.opposition=res[0]; store.jurisprudence=res[1]; var _r5=safeJson(res[2])||{}; store.forecastDrivers=_r5.drivers||[]; store.forecastDamages=_r5.damages||[]; store.plan=safeJson(res[3]); store.doctrine=safeJson(res[4]);
+          store.adr=adrApplicable(type)?(safeJson(res[5])||null):null;
           rowActive(7);
           var S=store.strength;
           return runCall(7,'Jeni jurist i lartë shqiptar. Shkruani mendim ligjor formal, të strukturuar dhe profesional. Citoni nenet sipas tekstit zyrtar të dhënë më poshtë dhe, kur është e mundur, përdorni formulimin e tij. MOS citoni nene që nuk janë dhënë. Përfshi në analizë dekompozimin doktrinor të dhënë (objekti, ana objektive, subjekti, ana subjektive ose elementet e përgjegjësisë), duke vlerësuar nëse secili element përmbushet.',
@@ -2447,6 +2490,7 @@
             renderText('op-out-opposition',store.opposition);
             renderText('op-out-jurisprudence',store.jurisprudence);
             renderForecast(store.forecast);
+            renderADR(store);
             renderPlan(store.plan,store.type,store.limitation);
             renderStrengthen(store);
             renderText('op-out-opinion',store.opinion);
@@ -2704,6 +2748,13 @@
           .then(function(r){ try{ var j=JSON.parse(String(r).replace(/```json?|```/g,'').trim()); return {confidence:String(j.confidence||'').toLowerCase(), issues:j.issues||[]}; }catch(e){ return null; } })
           .catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; });
       }
+      function renderADRInh(c, inp, raw){
+        var block=$('inh-adr-block'), el=$('inh-out-adr'); if(!block||!el) return;
+        var ai=null; try{ ai=JSON.parse(String(raw||'').replace(/```json?|```/g,'').trim()); }catch(e){ ai=null; }
+        if(!ai || !adrApplicableInh(c,inp)){ block.hidden=true; return; }
+        var det={ cls:'op-conf-hi', label:'E përshtatshme', note:'Mosmarrëveshjet e trashëgimisë mes familjarëve i përshtaten zakonisht ndërmjetësimit.' };
+        el.innerHTML=adrHtml(det, ai); block.hidden=false;
+      }
       function renderInhVerify(v){
         var re=$('inh-out-refs'), rb=$('inh-refs-block'); if(!re||!v) return;
         var lab={high:['op-conf-hi','E lartë'],medium:['op-conf-mid','Mesatare'],low:['op-conf-lo','E ulët']}[v.confidence]||['op-conf-mid','Mesatare'];
@@ -2736,6 +2787,7 @@
             iCall('Jeni avokat shqiptar i trashëgimisë.', ctx+'\n\nListo rreziqet dhe shkaqet e mundshme të kontestimit: padenjësia, heqja dorë, përfaqësimi, atësia/birësimi, pasuria e përbashkët martesore (neni 358). 4–6 pika.', 600,0.45).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }),
             iCall('Jeni noter/jurist shqiptar.', ctx+'\n\nJep hapat praktikë: dëshmia e trashëgimisë te noteri, inventari (neni 415), regjistrimi i pronës, afatet, heqja dorë nëse duhet. Listë e numëruar.', 600,0.4).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; })
           ];
+          tasks.push(adrApplicableInh(c,inp) ? iCall(ADR_SYS, ctx+'\n\nVlerëso nëse mosmarrëveshja e mundshme mes trashëgimtarëve (ndarja ose kontestimi i testamentit) mund të zgjidhet me ndërmjetësim familjar ose arbitrazh, sa gjasa ka, dhe skenarët më të mirë e më të keq.'+ADR_JSON, 700,0.4).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }) : Promise.resolve(null));
           return Promise.all(tasks).then(function(res){
             step(1,res[0]?'done':'failed'); step(2,attachedWill?(res[1]?'done':'failed'):'done'); step(3,res[2]?'done':'failed'); step(4,res[3]?'done':'failed');
             try{ $('inherit-doc-meta').textContent=new Date().toLocaleDateString('sq-AL')+' · Trashëgimi ligjore'; }catch(e){ $('inherit-doc-meta').textContent='Trashëgimi ligjore'; }
@@ -2747,6 +2799,7 @@
             renderScenarios(inp,c);
             if(attachedWill&&res[1]){ $('inh-out-will').innerHTML=iMd(res[1]); $('inh-will-block').hidden=false; } else { $('inh-will-block').hidden=true; }
             $('inh-out-risks').innerHTML=iMd(res[2]);
+            renderADRInh(c, inp, res[4]);
             $('inh-out-plan').innerHTML=iMd(res[3]);
             renderRefs(g.refs);
             var draft=[res[0],res[1],res[2]].filter(Boolean).join('\n\n');
