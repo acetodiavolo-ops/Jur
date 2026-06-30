@@ -10,7 +10,13 @@ const GROQ_KEY = 'YOUR_GROQ_KEY_HERE';
 // Fallback 1 - Cerebras (free, same Llama 3.3 70B): https://cloud.cerebras.ai  (API Keys)
 const CEREBRAS_KEY = 'YOUR_CEREBRAS_KEY_HERE';
 // Fallback 2 - Google Gemini (free, browser-CORS OK): https://aistudio.google.com/apikey
+// (Gemini also powers semantic grounding + the "real web sources" search — keep it set.)
 const GEMINI_KEY = 'YOUR_GEMINI_KEY_HERE';
+// Optional - stronger reasoner for the critical calls (opinion/verifier/correction).
+// OpenRouter (free, browser-CORS OK): https://openrouter.ai/keys  — uses deepseek-r1:free
+const OPENROUTER_KEY = 'YOUR_OPENROUTER_KEY_HERE';
+// Mistral (https://console.mistral.ai) — browser CORS not guaranteed; falls back automatically if blocked.
+const MISTRAL_KEY = 'YOUR_MISTRAL_KEY_HERE';
 
 // Login credentials (any of the three pairs grants access):
 const LOGIN_USER = 'user1';  const LOGIN_PASS = 'pass1';

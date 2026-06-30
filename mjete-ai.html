@@ -660,6 +660,10 @@
           <div class="opinion-block-label">Jurisprudenca &amp; Praktika Gjyqësore</div>
           <div id="op-out-jurisprudence" class="opinion-section-body"></div>
         </div>
+        <div class="opinion-section-block opinion-block-g" id="op-webground-block" hidden>
+          <div class="opinion-block-label">Statusi Aktual &amp; Burime të Jashtme</div>
+          <div id="op-out-webground" class="opinion-section-body"></div>
+        </div>
         <div class="opinion-section-block opinion-block-d">
           <div class="opinion-block-label">Parashikimi i Riskut &amp; Kostos</div>
           <div id="op-out-forecast" class="opinion-section-body"></div>
@@ -1926,9 +1930,10 @@
 
       var abortCtrl = null;
 
-      function callGroq(sys, usr, maxTok, temp){
+      function callGroq(sys, usr, maxTok, temp, strong){
         var payload = { max_tokens:maxTok, temperature:(typeof temp==='number')?temp:0.4, messages:[{role:'system',content:sys},{role:'user',content:usr}] };
-        var providers = (typeof AI_PROVIDERS!=='undefined' && AI_PROVIDERS.length) ? AI_PROVIDERS : [{url:GROQ_URL, key:getKey(), model:MODEL}];
+        var chain = (typeof aiChain==='function') ? aiChain(strong) : (typeof AI_PROVIDERS!=='undefined'?AI_PROVIDERS:null);
+        var providers = (chain && chain.length) ? chain : [{url:GROQ_URL, key:getKey(), model:MODEL}];
         function tryProvider(pi){
           var p = providers[pi];
           var body = JSON.stringify(Object.assign({model:p.model}, payload));
@@ -1960,7 +1965,7 @@
         return tryProvider(0);
       }
 
-      function runCall(id, sys, usr, maxTok, temp){ return callGroq(sys, usr, maxTok, temp); }
+      function runCall(id, sys, usr, maxTok, temp, strong){ return callGroq(sys, usr, maxTok, temp, strong); }
 
       function runLimited(tasks, limit){
         var results=new Array(tasks.length), idx=0;
@@ -2156,7 +2161,7 @@
           +(store.groundingText||'')
           +'\n\nSHIFRAT AUTORITATIVE: vlerësim '+sc+'/10; fitim '+Math.round(f.win||0)+'%, marrëveshje '+Math.round(f.settle||0)+'%, humbje '+Math.round(f.lose||0)+'%.'
           +'\n\nRishkruaj TË NJËJTIN mendim ligjor me të njëjtat seksione (FAKTE, BAZË LIGJORE, ANALIZË LIGJORE, KUNDËRPËRGJIGJE, KONKLUZIONE, REKOMANDIME), duke RREGULLUAR problemet: hiq ose korrigjo citimet e kundërshtuara, mos cito nene jashtë tekstit zyrtar, dhe bëje konkluzionin në përputhje me shifrat e llogaritura. Mos shto pohime të reja të paverifikuara.';
-        return runCall(11,'Jeni jurist i lartë shqiptar që rishikon e korrigjon një mendim ligjor sipas vërejtjeve të audituesit. Mbështetu vetëm te teksti zyrtar i dhënë.', usr, 2300, 0.35)
+        return runCall(11,'Jeni jurist i lartë shqiptar që rishikon e korrigjon një mendim ligjor sipas vërejtjeve të audituesit. Mbështetu vetëm te teksti zyrtar i dhënë.', usr, 2300, 0.35, true)
           .then(function(r){ return r||null; });
       }
       function computeConfidence(store){
@@ -2183,7 +2188,7 @@
           +(store.groundingText||'')
           +'\n\nSHIFRAT AUTORITATIVE: vlerësim '+sc+'/10; fitim '+Math.round(f.win||0)+'%, marrëveshje '+Math.round(f.settle||0)+'%, humbje '+Math.round(f.lose||0)+'%.'
           +'\n\nPër secilin nen të cituar jep verdiktin "verified" (teksti zyrtar e mbështet), "unconfirmed" (s\'ka tekst për ta vërtetuar), ose "contradicted" (teksti e kundërshton). Listo mospërputhjet dhe teprite kundrejt shifrave. JSON:\n{"citations":[{"neni":"X","verdict":"verified|unconfirmed|contradicted","note":"..."}],"issues":["..."],"corrections":["..."],"confidence":"high|medium|low"}';
-        return runCall(9,'Jeni auditues i pavarur ligjor. Kontrolloni mendimin kundrejt tekstit zyrtar të neneve dhe shifrave të dhëna. Përgjigjuni VETËM me JSON të vlefshëm.',usr,800,0.2)
+        return runCall(9,'Jeni auditues i pavarur ligjor. Kontrolloni mendimin kundrejt tekstit zyrtar të neneve dhe shifrave të dhëna. Përgjigjuni VETËM me JSON të vlefshëm.',usr,800,0.2,true)
           .then(function(r){ var j=safeJson(r)||{}; return { citations:j.citations||[], issues:j.issues||[], corrections:j.corrections||[], confidence:String(j.confidence||'').toLowerCase() }; });
       }
       function renderVerify(store){
@@ -2205,6 +2210,22 @@
         var block=$('op-adr-block'), el=$('op-out-adr'); if(!block||!el) return;
         if(!store.adr || !adrApplicable(store.type)){ block.hidden=true; return; }
         el.innerHTML=adrHtml(adrSuitability(store.type, store.forecast), store.adr); block.hidden=false;
+      }
+      function buildWebQuery(laws, type, facts){
+        var names=(laws||[]).map(function(l){ return l.name; }).filter(Boolean).slice(0,4).join('; ');
+        return 'Në shqip, shkurt: a janë ende në fuqi dhe a kanë pasur ndryshime/amendamente të fundit këto akte ligjore shqiptare: '+(names||'legjislacioni përkatës')+'? Jep statusin aktual dhe 2–4 burime zyrtare ose të besueshme (p.sh. QBZ, Kuvendi, vendime). Konteksti: çështje '+type+' — '+String(facts||'').slice(0,300)+'.';
+      }
+      function renderWebGround(store){
+        var block=$('op-webground-block'), el=$('op-out-webground'); if(!block||!el) return;
+        var w=store.webground;
+        if(!w || (!w.text && (!w.sources||!w.sources.length))){ block.hidden=true; return; }
+        var html='';
+        if(w.text) html+='<p>'+esc(w.text)+'</p>';
+        if(w.sources&&w.sources.length){ html+='<p class="op-subhead" style="margin:12px 0 6px;">Burime nga uebi</p><ul class="op-ref-list">';
+          w.sources.slice(0,8).forEach(function(s){ html+='<li class="op-ref op-ref-ok"><span class="op-ref-icon">↗</span><a class="op-ref-label opinion-law-link" href="'+esc(s.uri)+'" target="_blank" rel="noopener noreferrer">'+esc(s.title)+'</a></li>'; });
+          html+='</ul>'; }
+        html+='<p class="op-fc-basis" style="margin-top:10px">Informacion i marrë nga kërkimi në ueb — orientues, verifikoni te burimi zyrtar.</p>';
+        el.innerHTML=html; block.hidden=false;
       }
       function renderForecast(f){
         var el=$('op-out-forecast');
@@ -2459,6 +2480,7 @@
           var agg=aggregateLaws(samples); store.laws=agg.laws; store.understanding=agg.understanding;
           store.lawList=lawListText(store.laws);
           store.groundingP=retrieveGrounding(store.laws);
+          store.webgroundP=(typeof aiGroundedSearch==='function') ? aiGroundedSearch(buildWebQuery(store.laws,type,facts), abortCtrl?abortCtrl.signal:undefined).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }) : Promise.resolve(null);
           rowDone(0); rowActive(1);
           return runCall(2,'Jeni vlerësues i pavarur ligjor. Përgjigjuni VETËM me JSON të vlefshëm.',
             ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nVlerëso pozicionin ligjor në mënyrë realiste. Për secilin faktor, jep fillimisht një arsye të shkurtër ("why") dhe pastaj notën nga 0 në 2 ("score"; 0=shumë dobët, 1=mesatar, 2=shumë mirë). Kujdes: "kundershtimi" mat sa i FORTË është pozicioni i palës kundërshtare (2 = kundërshtim shumë i fortë kundër klientit). JSON:\n{"factors":{"baza":{"score":1.5,"why":"..."},"prova":{"score":1.0,"why":"..."},"kundershtimi":{"score":1.0,"why":"..."},"faktet":{"score":1.5,"why":"..."}},"strengths":["..."],"weaknesses":["..."],"missing_evidence":["..."]}',650,0.2);
@@ -2508,7 +2530,7 @@
           rowActive(7);
           var S=store.strength;
           return runCall(7,'Jeni jurist i lartë shqiptar. Shkruani mendim ligjor formal, të strukturuar dhe profesional. Citoni nenet sipas tekstit zyrtar të dhënë më poshtë dhe, kur është e mundur, përdorni formulimin e tij. MOS citoni nene që nuk janë dhënë. Përfshi në analizë dekompozimin doktrinor të dhënë (objekti, ana objektive, subjekti, ana subjektive ose elementet e përgjegjësisë), duke vlerësuar nëse secili element përmbushet.',
-            'SITUATA:\n'+ctx+primer+'\n\nLIGJET ZBATUESE:\n'+store.lawList+'\n\nFORCAT:\n'+((S.strengths||[]).join('\n')||'-')+'\n\nDOBËSITË:\n'+((S.weaknesses||[]).join('\n')||'-')+(store.opposition?'\n\nARGUMENTET KUNDËRSHTARE:\n'+store.opposition:'')+(store.jurisprudence?'\n\nJURISPRUDENCA:\n'+store.jurisprudence:'')+(store.groundingText||'')+doctrineSummaryText(store.doctrine)+'\n\nDrafto MENDIM LIGJOR formal me seksionet (secili titull në krye rreshti):\nFAKTE\nBAZË LIGJORE\nANALIZË LIGJORE\nKUNDËRPËRGJIGJE\nKONKLUZIONE\nREKOMANDIME\n\nTe KUNDËRPËRGJIGJE, përgjigju argumenteve kundërshtare. Ji i plotë, specifik dhe profesional.',2400,0.45);
+            'SITUATA:\n'+ctx+primer+'\n\nLIGJET ZBATUESE:\n'+store.lawList+'\n\nFORCAT:\n'+((S.strengths||[]).join('\n')||'-')+'\n\nDOBËSITË:\n'+((S.weaknesses||[]).join('\n')||'-')+(store.opposition?'\n\nARGUMENTET KUNDËRSHTARE:\n'+store.opposition:'')+(store.jurisprudence?'\n\nJURISPRUDENCA:\n'+store.jurisprudence:'')+(store.groundingText||'')+doctrineSummaryText(store.doctrine)+'\n\nDrafto MENDIM LIGJOR formal me seksionet (secili titull në krye rreshti):\nFAKTE\nBAZË LIGJORE\nANALIZË LIGJORE\nKUNDËRPËRGJIGJE\nKONKLUZIONE\nREKOMANDIME\n\nTe KUNDËRPËRGJIGJE, përgjigju argumenteve kundërshtare. Ji i plotë, specifik dhe profesional.',2400,0.45,true);
         })
         .then(function(r7){
           store.opinion=r7; lastOpinion=r7||''; rowDone(7);
@@ -2549,7 +2571,9 @@
               : Promise.resolve();
             return corrP;
           })
-          .then(function(){
+          .then(function(){ return store.webgroundP||Promise.resolve(null); })
+          .then(function(wg){
+            store.webground=wg;
             if(store.logic && !store.corrected && store.opinion.indexOf(store.logic.msg)<0) store.opinion=store.opinion+'\n\n— '+store.logic.msg;
             store.confidence=computeConfidence(store);
             renderFactSheet(store);
@@ -2560,6 +2584,7 @@
             renderDoctrine(store);
             renderText('op-out-opposition',store.opposition);
             renderText('op-out-jurisprudence',store.jurisprudence);
+            renderWebGround(store);
             renderForecast(store.forecast);
             renderADR(store);
             renderPlan(store.plan,store.type,store.limitation);
