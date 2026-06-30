@@ -51,6 +51,7 @@
     .op-bd-track{flex:1;height:7px;background:#e7e2d8;border-radius:4px;overflow:hidden;}
     .op-bd-fill{display:block;height:100%;background:var(--accent);}
     .op-bd-v{flex:0 0 auto;font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums;}
+    .op-bd-why{font-size:.76rem;line-height:1.5;color:var(--muted);margin:-2px 0 8px 0;padding-left:2px;}
     .op-bd-final{margin:12px 0 0;font-size:.82rem;}
     .op-conf{display:inline-block;margin-left:8px;font-size:.58rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:10px;vertical-align:middle;}
     .op-conf-hi{background:#e3efe9;color:#2f5d54;}
@@ -1327,6 +1328,25 @@
     var ADR_SYS='Jeni ndërmjetës dhe arbitër me përvojë në Shqipëri (kuadri i ndërmjetësimit, Ligji nr. 10385/2011). Vlerësoni realisht nëse mosmarrëveshja mund të zgjidhet me ndërmjetësim ose arbitrazh. Mos shpikni numra nenesh apo vendime. Përgjigjuni VETËM me JSON të vlefshëm.';
     var ADR_JSON='\n\nJSON:\n{"mode":"ndërmjetësim|arbitrazh|të dyja","likelihood":"e lartë/e mesme/e ulët + arsye e shkurtër","best_case":"rezultati më i mirë i mundshëm me ADR","worst_case":"rezultati më i keq / rreziqet nëse dështon","factors_for":["..."],"factors_against":["..."],"recommendation":"mendim i përgjithshëm: a ia vlen dhe si t\'i qasesh"}';
 
+    // ── Self-consistency: aggregate N samples of the law/article identification (Call 1) ──
+    function aggregateLaws(samples){
+      var valid=(samples||[]).filter(Boolean), n=valid.length||1, thr=n>=2?2:1;
+      var cnt={}, disp={}, arts={}, rel={}, understanding=null;
+      valid.forEach(function(j){
+        if(!understanding && j.facts) understanding={facts:j.facts||{},key_events:j.key_events||[],missing:j.missing||[],clarifying:j.clarifying||[]};
+        (j.laws||[]).forEach(function(l){
+          var name=String(l&&l.name||'').trim(); if(!name) return; var k=name.toLowerCase();
+          cnt[k]=(cnt[k]||0)+1; disp[k]=disp[k]||name; if(l.relevance && !rel[k]) rel[k]=l.relevance;
+          arts[k]=arts[k]||{}; (l.articles||[]).forEach(function(a){ var an=String(a).trim(); if(an) arts[k][an]=1; });
+        });
+      });
+      var laws=Object.keys(cnt).filter(function(k){ return cnt[k]>=thr; })
+        .sort(function(a,b){ return cnt[b]-cnt[a]; })
+        .map(function(k){ return { name:disp[k], articles:Object.keys(arts[k]), relevance:rel[k]||'' }; });
+      if(!laws.length){ var first=valid[0]; laws=(first&&first.laws)||[]; }
+      return { laws:laws, understanding:understanding||{facts:{},key_events:[],missing:[],clarifying:[]} };
+    }
+
     // ── Article cross-linking → full law text (absolute URLs so links work in saved PDFs too) ──
     var LAW_BASE = (function(){ try { return location.href.replace(/[^\/]*(?:[?#].*)?$/, ''); } catch(e){ return ''; } })();
     function linkNene(html, lawFile){
@@ -2044,14 +2064,16 @@
       function SCORE_LABEL(sc){ return sc>=7.5?'Pozicion i fortë':sc>=5?'Pozicion mesatar':sc>=3.5?'Pozicion i dobët':'Pozicion shumë i dobët'; }
       function computeStrengthScore(strength, doctrine, grounding, limitation){
         function clamp2(x){ x=parseFloat(x); return isFinite(x)?Math.max(0,Math.min(2,x)):1; }
+        function fval(x){ return clamp2(x&&typeof x==='object'&&x.score!=null ? x.score : x); }
+        function fwhy(x){ return (x&&typeof x==='object'&&x.why)?String(x.why):''; }
         var br=[], adj=[], f=(strength&&strength.factors)||null, base;
         if(f && (f.baza!=null||f.prova!=null||f.faktet!=null||f.kundershtimi!=null)){
-          var baza=clamp2(f.baza), prova=clamp2(f.prova), kund=clamp2(f.kundershtimi), fakt=clamp2(f.faktet);
+          var baza=fval(f.baza), prova=fval(f.prova), kund=fval(f.kundershtimi), fakt=fval(f.faktet);
           base=(baza*0.30 + prova*0.25 + (2-kund)*0.25 + fakt*0.20)*5;
-          br.push({k:'Baza ligjore', v:baza, max:2});
-          br.push({k:'Forca e provave', v:prova, max:2});
-          br.push({k:'Pozicioni ndaj kundërshtimit', v:Math.round((2-kund)*10)/10, max:2});
-          br.push({k:'Qartësia e fakteve', v:fakt, max:2});
+          br.push({k:'Baza ligjore', v:baza, max:2, why:fwhy(f.baza)});
+          br.push({k:'Forca e provave', v:prova, max:2, why:fwhy(f.prova)});
+          br.push({k:'Pozicioni ndaj kundërshtimit', v:Math.round((2-kund)*10)/10, max:2, why:fwhy(f.kundershtimi)});
+          br.push({k:'Qartësia e fakteve', v:fakt, max:2, why:fwhy(f.faktet)});
         } else {
           base=parseFloat(strength&&strength.score); if(!isFinite(base)) base=5;
           br.push({k:'Vlerësim bazë', v:base, max:10});
@@ -2081,7 +2103,7 @@
       function renderScoreBreakdown(store){
         var el=$('op-out-breakdown'); if(!el) return; var sc=store.strengthCalc; if(!sc){ el.innerHTML=''; return; }
         var html='<details class="op-breakdown"><summary>Pse ky vlerësim? (logjika e pikëve)</summary><div class="op-bd-body">';
-        sc.factors.forEach(function(fa){ var pct=Math.round((fa.v/fa.max)*100); html+='<div class="op-bd-row"><span class="op-bd-k">'+esc(fa.k)+'</span><span class="op-bd-track"><span class="op-bd-fill" style="width:'+pct+'%"></span></span><span class="op-bd-v">'+(Math.round(fa.v*10)/10)+'/'+fa.max+'</span></div>'; });
+        sc.factors.forEach(function(fa){ var pct=Math.round((fa.v/fa.max)*100); html+='<div class="op-bd-row"><span class="op-bd-k">'+esc(fa.k)+'</span><span class="op-bd-track"><span class="op-bd-fill" style="width:'+pct+'%"></span></span><span class="op-bd-v">'+(Math.round(fa.v*10)/10)+'/'+fa.max+'</span></div>'+(fa.why?'<div class="op-bd-why">'+esc(fa.why)+'</div>':''); });
         if(sc.adjustments&&sc.adjustments.length){ html+='<p class="op-subhead" style="margin:12px 0 4px;">Rregullime logjike (deterministe)</p><ul class="op-checklist">'+sc.adjustments.map(function(a){ return '<li>'+esc(a)+'</li>'; }).join('')+'</ul>'; }
         var L=store.limitation;
         if(L&&L.status&&L.status!=='na'){ var cls=L.status==='likely-barred'?'op-red':(L.status==='near'?'op-amber':'op-green'); html+='<p class="op-subhead '+cls+'" style="margin:12px 0 4px;">Afati &amp; Parashkrimi</p><div class="op-deadline-note"><div>'+esc(L.note||'')+'</div></div>'; }
@@ -2111,6 +2133,31 @@
         }
         if(!bad) return text;
         return text+'\n\n— Shënim: gjasat zyrtare të kësaj analize janë fitim '+ok[0]+'%, marrëveshje '+ok[1]+'%, humbje '+ok[2]+'%; çdo përqindje tjetër në tekst është ilustruese.';
+      }
+      // ── D: deterministic logical-consistency check (narrative vs computed) ──
+      function enforceLogic(text, score, forecast){
+        if(!text) return null;
+        var sc=parseFloat(score), win=forecast?Math.round(forecast.win||0):null, lower=String(text).toLowerCase();
+        var strong=/pozicion (shum[ëe] )?i fort[ëe]|gjasa? (shum[ëe] )?t[ëe] larta|shum[ëe] i favorsh[ëe]m|fitim i sigurt|mjaft i fort[ëe]/;
+        var weak=/pozicion i dob[ëe]t|gjasa? t[ëe] ul[ëe]ta|i pafavorsh[ëe]m|v[ëe]shtir[ëe] p[ëe]r t[ëe] fituar/;
+        if(strong.test(lower) && ((isFinite(sc)&&sc<4.5) || (win!=null&&win<40)))
+          return { dir:'over', msg:'Konkluzioni përshkruan pozicion të fortë, por vlerësimi i llogaritur ('+(isFinite(sc)?sc.toFixed(1):'?')+'/10) dhe gjasat e fitimit (~'+(win!=null?win:'?')+'%) nuk e mbështesin plotësisht — vlejnë shifrat e llogaritura.' };
+        if(weak.test(lower) && isFinite(sc) && sc>7)
+          return { dir:'under', msg:'Konkluzioni përshkruan pozicion të dobët, por vlerësimi i llogaritur ('+sc.toFixed(1)+'/10) është i lartë.' };
+        return null;
+      }
+      // ── B: self-correction — rewrite the opinion to fix auditor-flagged problems ──
+      function runCorrection(store, problems){
+        if(!problems.length || !store.opinion) return Promise.resolve(null);
+        var sc=parseFloat(store.strength&&store.strength.score); sc=isFinite(sc)?sc.toFixed(1):'?';
+        var f=store.forecast||{};
+        var usr='MENDIMI EKZISTUES:\n'+String(store.opinion).slice(0,5200)
+          +'\n\nPROBLEME TË GJETURA NGA AUDITUESI (rregulloji të gjitha):\n- '+problems.join('\n- ')
+          +(store.groundingText||'')
+          +'\n\nSHIFRAT AUTORITATIVE: vlerësim '+sc+'/10; fitim '+Math.round(f.win||0)+'%, marrëveshje '+Math.round(f.settle||0)+'%, humbje '+Math.round(f.lose||0)+'%.'
+          +'\n\nRishkruaj TË NJËJTIN mendim ligjor me të njëjtat seksione (FAKTE, BAZË LIGJORE, ANALIZË LIGJORE, KUNDËRPËRGJIGJE, KONKLUZIONE, REKOMANDIME), duke RREGULLUAR problemet: hiq ose korrigjo citimet e kundërshtuara, mos cito nene jashtë tekstit zyrtar, dhe bëje konkluzionin në përputhje me shifrat e llogaritura. Mos shto pohime të reja të paverifikuara.';
+        return runCall(11,'Jeni jurist i lartë shqiptar që rishikon e korrigjon një mendim ligjor sipas vërejtjeve të audituesit. Mbështetu vetëm te teksti zyrtar i dhënë.', usr, 2300, 0.35)
+          .then(function(r){ return r||null; });
       }
       function computeConfidence(store){
         var found=((store.grounding&&store.grounding.found)||[]).length;
@@ -2144,6 +2191,7 @@
         var v=store.verify; if(!v){ block.hidden=true; return; }
         var c=store.confidence||{level:'mid'}, lab={hi:['op-conf-hi','E lartë'],mid:['op-conf-mid','Mesatare'],lo:['op-conf-lo','E ulët']}[c.level]||['op-conf-mid','Mesatare'];
         var html='<p>Besueshmëria e përgjithshme: <span class="op-conf '+lab[0]+'">'+lab[1]+'</span> <small>('+c.found+' nene të konfirmuara në bazën ligjore)</small></p>';
+        if(store.corrected) html+='<p class="op-fc-basis" style="margin-top:8px"><strong>✎ Rishikuar pas kontrollit:</strong> mendimi u rishkrua automatikisht për të rregulluar mospërputhjet e gjetura nga audituesi.</p>';
         var issues=(v.issues||[]).filter(Boolean), corr=(v.corrections||[]).filter(Boolean);
         var contra=(v.citations||[]).filter(function(x){ return String(x.verdict||'').indexOf('contra')===0; });
         if(contra.length){ html+='<p class="op-subhead op-red" style="margin:10px 0 4px;">Citime të kundërshtuara nga teksti zyrtar</p><ul class="op-checklist">'+contra.map(function(x){ return '<li>Neni '+esc(x.neni)+(x.note?': '+esc(x.note):'')+'</li>'; }).join('')+'</ul>'; }
@@ -2404,16 +2452,16 @@
         store.eventDate=($('opinion-event-date')&&$('opinion-event-date').value)||'';
         store.limitation=checkLimitation(type, store.eventDate);
         rowActive(0);
-        runCall(1,'Jeni analist ligjor shqiptar me përvojë. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas dhe pa shenja ```.'+ANTI_HALLUC,
-          ctx+primer+'\n\nIdentifiko 3–5 ligjet shqiptare më relevante dhe nenet kryesore zbatuese (ji gjithëpërfshirës: deri në 8 nene gjithsej, vetëm nene për të cilat je i sigurt). Gjithashtu nxirr një PËRMBLEDHJE të fakteve të kuptuara dhe listo çfarë mungon ose supozohet.\nJSON: {"laws":[{"name":"...","articles":["..."],"relevance":"..."}],"issues":["..."],"arguments":["..."],"facts":{"parties":"...","dates":"...","amounts":"...","claim_type":"...","jurisdiction":"..."},"key_events":["..."],"missing":["..."],"clarifying":["..."]}',700,0.15)
-        .then(function(r1){
-          var j1=safeJson(r1); store.laws=j1.laws||[];
-          store.understanding={facts:j1.facts||{}, key_events:j1.key_events||[], missing:j1.missing||[], clarifying:j1.clarifying||[]};
+        var _c1sys='Jeni analist ligjor shqiptar me përvojë. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas dhe pa shenja ```.'+ANTI_HALLUC;
+        var _c1usr=ctx+primer+'\n\nIdentifiko 3–5 ligjet shqiptare më relevante dhe nenet kryesore zbatuese (ji gjithëpërfshirës: deri në 8 nene gjithsej, vetëm nene për të cilat je i sigurt). Gjithashtu nxirr një PËRMBLEDHJE të fakteve të kuptuara dhe listo çfarë mungon ose supozohet.\nJSON: {"laws":[{"name":"...","articles":["..."],"relevance":"..."}],"issues":["..."],"arguments":["..."],"facts":{"parties":"...","dates":"...","amounts":"...","claim_type":"...","jurisdiction":"..."},"key_events":["..."],"missing":["..."],"clarifying":["..."]}';
+        Promise.all([0.12,0.25,0.4].map(function(tmp){ return runCall(1,_c1sys,_c1usr,700,tmp).then(function(r){ return safeJson(r); }, function(e){ if(e&&e.name==='AbortError') throw e; return null; }); }))
+        .then(function(samples){
+          var agg=aggregateLaws(samples); store.laws=agg.laws; store.understanding=agg.understanding;
           store.lawList=lawListText(store.laws);
           store.groundingP=retrieveGrounding(store.laws);
           rowDone(0); rowActive(1);
           return runCall(2,'Jeni vlerësues i pavarur ligjor. Përgjigjuni VETËM me JSON të vlefshëm.',
-            ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nVlerëso pozicionin ligjor në mënyrë realiste duke notuar secilin faktor nga 0 në 2 (0=shumë dobët, 1=mesatar, 2=shumë mirë). Kujdes: "kundershtimi" mat sa i FORTË është pozicioni i palës kundërshtare (2 = kundërshtim shumë i fortë kundër klientit). JSON:\n{"factors":{"baza":1.5,"prova":1.0,"kundershtimi":1.0,"faktet":1.5},"strengths":["..."],"weaknesses":["..."],"missing_evidence":["..."]}',500,0.2);
+            ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nVlerëso pozicionin ligjor në mënyrë realiste. Për secilin faktor, jep fillimisht një arsye të shkurtër ("why") dhe pastaj notën nga 0 në 2 ("score"; 0=shumë dobët, 1=mesatar, 2=shumë mirë). Kujdes: "kundershtimi" mat sa i FORTË është pozicioni i palës kundërshtare (2 = kundërshtim shumë i fortë kundër klientit). JSON:\n{"factors":{"baza":{"score":1.5,"why":"..."},"prova":{"score":1.0,"why":"..."},"kundershtimi":{"score":1.0,"why":"..."},"faktet":{"score":1.5,"why":"..."}},"strengths":["..."],"weaknesses":["..."],"missing_evidence":["..."]}',650,0.2);
         })
         .then(function(r2){
           store.strength=safeJson(r2); rowDone(1);
@@ -2489,6 +2537,20 @@
             : Promise.resolve().then(function(){ store.verify=null; rowDone(8); });
           return verifyP
           .then(function(){
+            // ── self-correction: if the auditor found real problems, rewrite the opinion to fix them ──
+            var probs=[];
+            var contra=((store.verify&&store.verify.citations)||[]).filter(function(c){ return String(c.verdict||'').indexOf('contra')===0; });
+            contra.forEach(function(c){ probs.push('Citimi i nenit '+c.neni+' kundërshtohet nga teksti zyrtar'+(c.note?(': '+c.note):'')+'.'); });
+            store.logic=enforceLogic(store.opinion, store.strength&&store.strength.score, store.forecast);
+            if(store.logic) probs.push(store.logic.msg);
+            if(store.verify&&String(store.verify.confidence)==='low') ((store.verify.corrections)||[]).forEach(function(x){ if(x) probs.push(String(x)); });
+            var corrP = (probs.length && store.opinion)
+              ? runCorrection(store, probs).then(function(fixed){ if(fixed){ store.opinion=enforceConsistency(fixed, store.forecast, store.strength&&store.strength.score); store.corrected=true; lastOpinion=store.opinion; } }, function(e){ if(e&&e.name==='AbortError') throw e; })
+              : Promise.resolve();
+            return corrP;
+          })
+          .then(function(){
+            if(store.logic && !store.corrected && store.opinion.indexOf(store.logic.msg)<0) store.opinion=store.opinion+'\n\n— '+store.logic.msg;
             store.confidence=computeConfidence(store);
             renderFactSheet(store);
             renderSummary(store);
