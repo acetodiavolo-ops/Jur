@@ -164,7 +164,6 @@
         <button id="ca-btn">Analizo &#8594;</button>
         <span class="ca-hint">AI identifikon klauzolat problematike dhe ligjet relevante</span>
       </div>
-      <div id="ca-result"></div>
     </section>
     <section class="penalty-section">
       <span class="penalty-label">Llogarit dënimin / gjobën</span>
@@ -181,7 +180,6 @@
         <button id="pen-btn">Llogarit &#8594;</button>
       </div>
       <textarea id="pen-sit" placeholder="Përshkruani shkeljen konkrete…"></textarea>
-      <div id="pen-result"></div>
     </section>
     <section class="sol-section">
       <span class="sol-label">Kalkulator i parashkrimit</span>
@@ -217,7 +215,6 @@
         </select>
         <button id="nego-btn">Gjej kompromis &#8594;</button>
       </div>
-      <div id="nego-result"></div>
     </section>
     </section>
 
@@ -1216,36 +1213,7 @@
       });
     }());
 
-    // ── Penalty Estimator ─────────────────────────
-    document.getElementById('pen-btn').addEventListener('click', function () {
-      var type = document.getElementById('pen-type').value;
-      if (!type) return;
-      var sit    = document.getElementById('pen-sit').value.trim();
-      var btn    = document.getElementById('pen-btn');
-      var result = document.getElementById('pen-result');
-      btn.disabled = true; btn.textContent = 'Duke llogaritur…';
-      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
-      result.textContent = 'Duke analizuar shkeljen…';
-
-      aiFetch({
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 400,
-          messages: [
-            { role: 'system', content: 'Jeni jurist shqiptar i specializuar në sanksione dhe dënime ligjore.' },
-            { role: 'user',   content: 'Bazuar në legjislacionin shqiptar, vlerëso dënimin / gjobën për këtë rast:\nLloji i shkeljes: ' + type + (sit ? '\nSituata: ' + sit : '') + '\nJep: 1) Baza ligjore (nenet konkrete), 2) Masa minimale dhe maksimale e dënimit, 3) Faktorët lehtësues / rëndues, 4) Procedura e zbatimit.' }
-          ]
-        })
-      })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
-      })
-      .catch(function () { result.textContent = 'Gabim rrjeti.'; })
-      .finally(function () { btn.disabled = false; btn.textContent = 'Llogarit →'; });
-    });
+    // ── Penalty Estimator → now handled by the RichReport engine (penConfig) at end of script ──
 
     // ── Statute of Limitations ─────────────────────
     document.getElementById('sol-btn').addEventListener('click', function () {
@@ -1443,34 +1411,7 @@
       });
     })();
 
-    document.getElementById('ca-btn').addEventListener('click', function () {
-      var text   = document.getElementById('ca-text').value.trim();
-      if (!text) return;
-      var btn    = document.getElementById('ca-btn');
-      var result = document.getElementById('ca-result');
-      btn.disabled = true; btn.textContent = 'Duke analizuar…';
-      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
-      result.textContent = 'Duke analizuar kontratën…';
-
-      aiFetch({
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 900,
-          messages: [
-            { role: 'system', content: 'Jeni avokat shqiptar ekspert në analizën e kontratave. Jeni kritik, specifik dhe praktik.' },
-            { role: 'user',   content: 'Analizoje kontratën shqipe që vijon. Identifiko:\n1) Klauzola problematike ose të rrezikshme (mungesa mbrojtjesh, detyrime të njëanshme, kushte abuzive)\n2) Të drejta të munguara ose të pamjaftueshme\n3) Ligjet shqiptare relevante të shkelura ose cenuara (nenet konkrete)\n4) Rekomandime specifike për ndryshime\n\nKontrata:\n' + text.slice(0, 8000) }
-          ]
-        })
-      })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
-      })
-      .catch(function () { result.textContent = 'Gabim rrjeti.'; })
-      .finally(function () { btn.disabled = false; btn.textContent = 'Analizo →'; });
-    });
+    // ── Contract Analyzer → now handled by the RichReport engine (CONTRACT) at end of script ──
 
     // ── Rights Finder ────────────────────────────
     document.getElementById('rights-btn').addEventListener('click', function () {
@@ -1590,36 +1531,7 @@
       .finally(function () { btn.disabled = false; btn.textContent = 'Gjenero →'; });
     });
 
-    // ── Negotiation Coach ────────────────────────
-    document.getElementById('nego-btn').addEventListener('click', function () {
-      var pos1 = document.getElementById('nego-pos1').value.trim();
-      var pos2 = document.getElementById('nego-pos2').value.trim();
-      if (!pos1 || !pos2) return;
-      var type   = document.getElementById('nego-type').value;
-      var btn    = document.getElementById('nego-btn');
-      var result = document.getElementById('nego-result');
-      btn.disabled = true; btn.textContent = 'Duke analizuar…';
-      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
-      result.textContent = 'Duke gjetur strategjinë e negocimit…';
-      aiFetch({
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 550,
-          messages: [
-            { role: 'system', content: 'Jeni ndërmjetës ligjor shqiptar i specializuar në zgjidhjen e mosmarrëveshjeve civile.' },
-            { role: 'user',   content: 'Lloji i disputit: ' + (type || 'Civil') + '\n\nPozicioni im: ' + pos1 + '\n\nPozicioni i palës tjetër: ' + pos2 + '\n\nSipas legjislacionit shqiptar:\n1. Cilat argumente ligjore ka secila palë?\n2. Çfarë kompromisi është realist dhe i drejtë?\n3. Si ta shtroj propozimin e zgjidhjes?\n4. Çfarë rreziku ligjor ka secila palë nëse procesi vazhdon në gjykatë?' }
-          ]
-        })
-      })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
-      })
-      .catch(function () { result.textContent = 'Gabim rrjeti.'; })
-      .finally(function () { btn.disabled = false; btn.textContent = 'Gjej kompromis →'; });
-    });
+    // ── Negotiation Coach → now handled by the RichReport engine (negoConfig) at end of script ──
 
     // ── Inheritance Engine lives in its own IIFE near the end of this script ──
 
