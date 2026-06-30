@@ -1263,15 +1263,14 @@
     }
     @media print{
       body{background:#fff !important;}
-      body *{visibility:hidden;}
-      main{display:none !important;}
-      #opinion-modal,#opinion-modal *{visibility:visible;}
-      #opinion-modal{position:static;background:none;padding:0;backdrop-filter:none;}
-      .opinion-modal-inner{box-shadow:none;max-height:none;max-width:none;overflow:visible;}
-      .opinion-modal-header,.opinion-form,.opinion-progress,.opinion-doc-footer,.opinion-doc-banner,#opinion-close{display:none !important;}
-      .opinion-section-block{break-inside:avoid;border-left:none !important;}
-      .op-stat,.opinion-modal-inner,.op-forecast-bar,.opinion-section-block,.op-breakdown,.op-deadline-note,.op-ref,.op-fc-seg{box-shadow:none !important;}
-      .op-stat,.op-plan-step,.op-deadline-note,.op-ref,.op-bd-row,.op-fact-row{break-inside:avoid;}
+      /* show ONLY the open modal, as a normal block document (flex/visibility hijack blanks desktop print) */
+      body > *:not(#opinion-modal):not(#inherit-modal){display:none !important;}
+      .opinion-modal{position:static !important;display:block !important;background:none !important;padding:0 !important;backdrop-filter:none;-webkit-backdrop-filter:none;}
+      .opinion-modal-inner{display:block !important;width:auto !important;max-width:none !important;max-height:none !important;height:auto !important;overflow:visible !important;box-shadow:none !important;border-radius:0 !important;}
+      .opinion-modal-header,.opinion-form,.opinion-progress,.opinion-doc-footer,.opinion-doc-banner,#opinion-close,#inherit-close{display:none !important;}
+      .opinion-section-block{break-inside:avoid;border-left:none !important;box-shadow:none !important;}
+      .op-stat,.op-forecast-bar,.op-breakdown,.op-deadline-note,.op-ref,.op-fc-seg,.inh-bar{box-shadow:none !important;}
+      .op-stat,.op-plan-step,.op-deadline-note,.op-ref,.op-bd-row,.op-fact-row,.inh-share-row{break-inside:avoid;}
       .opinion-section-block,.op-stat,.op-forecast-bar,.op-fc-seg{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
       .opinion-law-link{color:inherit;border-bottom:none;}
       @page{margin:1.6cm;}
