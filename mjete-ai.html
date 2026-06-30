@@ -15,6 +15,9 @@
     .opinion-pdf-status{font-size:.76rem;color:var(--muted);}
     .opinion-pdf-status.warn{color:#a3361f;}
     .opinion-pdf-clear{font-family:var(--font);font-size:.72rem;background:none;border:none;color:var(--accent);cursor:pointer;text-decoration:underline;padding:0;}
+    .opinion-pdf-view{font-family:var(--font);font-size:.72rem;background:none;border:none;color:var(--accent);cursor:pointer;text-decoration:underline;padding:0;}
+    .opinion-pdf-preview{margin-top:8px;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-size:.8rem;line-height:1.55;border:1px solid var(--border);border-radius:8px;padding:11px 13px;background:#faf8f4;color:#26241f;}
+    @media print{.opinion-pdf-view,.opinion-pdf-preview{display:none !important;}}
     #opinion-claim{font-family:var(--font);font-size:.9rem;color:var(--text);background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px;width:100%;box-sizing:border-box;}
     #opinion-claim:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(61,112,106,.12);}
     .op-fc-note{font-size:.8rem;color:#a3361f;margin-top:8px;}
@@ -547,8 +550,10 @@
           <input id="opinion-pdf" type="file" accept="application/pdf,.pdf">
           <div class="opinion-pdf-row">
             <span id="opinion-pdf-status" class="opinion-pdf-status"></span>
+            <button id="opinion-pdf-view" class="opinion-pdf-view" type="button" hidden>Shiko tekstin</button>
             <button id="opinion-pdf-clear" class="opinion-pdf-clear" type="button" hidden>Hiq dokumentin</button>
           </div>
+          <div id="opinion-pdf-preview" class="opinion-pdf-preview" hidden></div>
         </div>
         <div class="opinion-form-row">
           <label for="opinion-parties">Palët e përfshira (opsionale)</label>
@@ -745,7 +750,8 @@
         <div class="opinion-form-row">
           <label for="inh-pdf">Ngarko testamentin (PDF) — opsionale</label>
           <input id="inh-pdf" type="file" accept="application/pdf,.pdf">
-          <div class="opinion-pdf-row"><span id="inh-pdf-status" class="opinion-pdf-status"></span><button id="inh-pdf-clear" class="opinion-pdf-clear" type="button" hidden>Hiq</button></div>
+          <div class="opinion-pdf-row"><span id="inh-pdf-status" class="opinion-pdf-status"></span><button id="inh-pdf-view" class="opinion-pdf-view" type="button" hidden>Shiko tekstin</button><button id="inh-pdf-clear" class="opinion-pdf-clear" type="button" hidden>Hiq</button></div>
+          <div id="inh-pdf-preview" class="opinion-pdf-preview" hidden></div>
         </div>
         <div class="opinion-form-row"><label for="inh-details">Detaje shtesë (opsionale)</label>
           <textarea id="inh-details" rows="2" placeholder="Prona specifike, rrethana, dyshime për padenjësi/heqje dorë…"></textarea></div>
@@ -1281,6 +1287,15 @@
           .then(function () { return out.join('\n').replace(/\s+/g, ' ').trim(); })
           .catch(function () { try { worker.terminate(); } catch (e) {} return out.join('\n').trim(); });
       }).catch(function () { return ''; });
+    }
+
+    // "Check the uploaded PDF" — toggle a read-only preview of the extracted text.
+    function attachPdfPreview(viewBtn, previewEl, getText) {
+      if (!viewBtn || !previewEl) return;
+      viewBtn.addEventListener('click', function () {
+        if (previewEl.hidden) { previewEl.textContent = getText() || '(pa tekst)'; previewEl.hidden = false; viewBtn.textContent = 'Fshih tekstin'; }
+        else { previewEl.hidden = true; viewBtn.textContent = 'Shiko tekstin'; }
+      });
     }
 
     // Contract Analyzer — PDF upload fills the textarea
@@ -2483,20 +2498,21 @@
 
       // ── PDF upload → client-side text extraction via pdf.js ──
       (function(){
-        var inp=$('opinion-pdf'), status=$('opinion-pdf-status'), clr=$('opinion-pdf-clear');
+        var inp=$('opinion-pdf'), status=$('opinion-pdf-status'), clr=$('opinion-pdf-clear'), view=$('opinion-pdf-view'), preview=$('opinion-pdf-preview');
         if(!inp) return;
         if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        function reset(){ attachedText=''; inp.value=''; if(status){ status.textContent=''; status.classList.remove('warn'); } if(clr) clr.hidden=true; }
+        attachPdfPreview(view, preview, function(){ return attachedText; });
+        function reset(){ attachedText=''; inp.value=''; if(status){ status.textContent=''; status.classList.remove('warn'); } if(clr) clr.hidden=true; if(view){ view.hidden=true; view.textContent='Shiko tekstin'; } if(preview){ preview.hidden=true; preview.textContent=''; } }
         resetPdf=reset;
         if(clr) clr.addEventListener('click',reset);
         inp.addEventListener('change',function(){
           var f=inp.files&&inp.files[0]; if(!f) return;
           if(!window.pdfjsLib){ status.textContent='Lexuesi i PDF nuk u ngarkua — provoni sërish.'; status.classList.add('warn'); return; }
-          status.classList.remove('warn'); status.textContent='Duke lexuar PDF…'; clr.hidden=false; attachedText='';
+          status.classList.remove('warn'); status.textContent='Duke lexuar PDF…'; clr.hidden=false; attachedText=''; if(view){ view.hidden=true; view.textContent='Shiko tekstin'; } if(preview){ preview.hidden=true; preview.textContent=''; }
           extractPdfText(f, 8000, function(m){ status.textContent=m; }).then(function(txt){
             if(!txt){ status.textContent='PDF-ja duket e skanuar (pa tekst) — shkruani faktet manualisht.'; status.classList.add('warn'); attachedText=''; return; }
             attachedText=txt;
-            status.textContent=f.name+' · '+txt.split(/\s+/).length+' fjalë';
+            status.textContent=f.name+' · '+txt.split(/\s+/).length+' fjalë'; if(view) view.hidden=false;
           }).catch(function(){
             status.textContent='Nuk u lexua dot PDF-ja.'; status.classList.add('warn'); attachedText='';
           });
@@ -2741,9 +2757,10 @@
       }
 
       // PDF (reuses shared extractPdfText with OCR)
-      (function(){ var inp=$('inh-pdf'), st=$('inh-pdf-status'), clr=$('inh-pdf-clear'); if(!inp) return;
-        function reset(){ attachedWill=''; inp.value=''; if(st){ st.textContent=''; st.classList.remove('warn'); } if(clr) clr.hidden=true; } resetWillPdf=reset; if(clr) clr.addEventListener('click',reset);
-        inp.addEventListener('change',function(){ var f=inp.files&&inp.files[0]; if(!f) return; if(typeof extractPdfText!=='function'){ st.textContent='Lexuesi i PDF mungon.'; st.classList.add('warn'); return; } st.classList.remove('warn'); st.textContent='Duke lexuar…'; clr.hidden=false; attachedWill=''; extractPdfText(f,8000,function(m){ st.textContent=m; }).then(function(t){ if(!t){ st.textContent='PDF pa tekst (i skanuar?).'; st.classList.add('warn'); return; } attachedWill=t; st.textContent=f.name+' · '+t.split(/\s+/).length+' fjalë'; }).catch(function(){ st.textContent='Nuk u lexua dot.'; st.classList.add('warn'); }); });
+      (function(){ var inp=$('inh-pdf'), st=$('inh-pdf-status'), clr=$('inh-pdf-clear'), view=$('inh-pdf-view'), preview=$('inh-pdf-preview'); if(!inp) return;
+        attachPdfPreview(view, preview, function(){ return attachedWill; });
+        function reset(){ attachedWill=''; inp.value=''; if(st){ st.textContent=''; st.classList.remove('warn'); } if(clr) clr.hidden=true; if(view){ view.hidden=true; view.textContent='Shiko tekstin'; } if(preview){ preview.hidden=true; preview.textContent=''; } } resetWillPdf=reset; if(clr) clr.addEventListener('click',reset);
+        inp.addEventListener('change',function(){ var f=inp.files&&inp.files[0]; if(!f) return; if(typeof extractPdfText!=='function'){ st.textContent='Lexuesi i PDF mungon.'; st.classList.add('warn'); return; } st.classList.remove('warn'); st.textContent='Duke lexuar…'; clr.hidden=false; attachedWill=''; if(view){ view.hidden=true; view.textContent='Shiko tekstin'; } if(preview){ preview.hidden=true; preview.textContent=''; } extractPdfText(f,8000,function(m){ st.textContent=m; }).then(function(t){ if(!t){ st.textContent='PDF pa tekst (i skanuar?).'; st.classList.add('warn'); return; } attachedWill=t; st.textContent=f.name+' · '+t.split(/\s+/).length+' fjalë'; if(view) view.hidden=false; }).catch(function(){ st.textContent='Nuk u lexua dot.'; st.classList.add('warn'); }); });
       })();
 
       function openModal(){ $('inherit-modal').hidden=false; document.body.style.overflow='hidden'; $('inherit-close').focus(); }
