@@ -22,6 +22,9 @@
 }
 
 /* ── Reset ─────────────────────────────────────── */
+/* CRITICAL: author display rules (e.g. #_comp-modal{display:flex}) beat UA [hidden]{display:none},
+   which breaks every .hidden-toggled panel/modal (Ankesë, Memo, AI chat…). Must override. */
+[hidden]{display:none !important;}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; scroll-behavior: smooth; }
 body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }

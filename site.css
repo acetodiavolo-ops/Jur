@@ -241,7 +241,14 @@
       color: var(--text);
       transition: background .18s, border-color .18s, transform .18s, box-shadow .18s;
     }
-    .law-row a:hover { background: #fff; border-left-color: var(--gold); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .law-row a:hover { background: #fff; transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    /* category-colored left edge — visible at all sizes (carries the category on mobile where the badge is hidden) */
+    .law-row[data-domain="kushtetuese"] a { border-left-color:#7a7468; }
+    .law-row[data-domain="civile"] a      { border-left-color:var(--accent); }
+    .law-row[data-domain="penale"] a      { border-left-color:#b15c44; }
+    .law-row[data-domain="tregtare"] a    { border-left-color:var(--gold); }
+    .law-row[data-domain="doganore"] a    { border-left-color:#5b7596; }
+    .law-row[data-domain="gjyqesore"] a   { border-left-color:#4e8268; }
 
     .badge {
       font-size: 0.58rem;
@@ -971,7 +978,7 @@
       .sol-section, .contract-analyzer-section,
       .rights-section, .court-section, .evidence-section, .timeline-section,
       .nego-section, .inherit-section, .biz-section, .consumer-section { padding: 20px 18px; }
-      .law-row a { padding: 15px 10px; gap: 12px; }
+      .law-row a { padding: 16px 18px; gap: 14px; }
     }
 
     /* ── Mobile ────────────────────────────────── */
@@ -1015,8 +1022,10 @@
       #sol-date, #ca-btn { width: 100%; }
       .ca-hint { display: none; }
 
-      /* Law rows - tighter */
-      .law-row a { gap: 10px; padding: 14px 8px; }
+      /* Law rows - comfortable card padding */
+      .law-row a { gap: 12px; padding: 15px 16px; }
+      .home-card { padding: 18px 20px; }
+      .home-card-title { font-size: 1.4rem; }
 
       /* Wizard / scenario */
       .w-pill  { font-size: 0.73rem; padding: 6px 12px; }
