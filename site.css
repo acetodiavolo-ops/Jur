@@ -1264,8 +1264,8 @@
     @media print{
       body{background:#fff !important;}
       /* show ONLY the open modal, as a normal block document (flex/visibility hijack blanks desktop print) */
-      body > *:not(#opinion-modal):not(#inherit-modal){display:none !important;}
-      .opinion-modal{position:static !important;display:block !important;background:none !important;padding:0 !important;backdrop-filter:none;-webkit-backdrop-filter:none;}
+      body > *:not(.opinion-modal){display:none !important;}
+      .opinion-modal:not([hidden]){position:static !important;display:block !important;background:none !important;padding:0 !important;backdrop-filter:none;-webkit-backdrop-filter:none;}
       .opinion-modal-inner{display:block !important;width:auto !important;max-width:none !important;max-height:none !important;height:auto !important;overflow:visible !important;box-shadow:none !important;border-radius:0 !important;}
       .opinion-modal-header,.opinion-form,.opinion-progress,.opinion-doc-footer,.opinion-doc-banner,#opinion-close,#inherit-close{display:none !important;}
       .opinion-section-block{break-inside:avoid;border-left:none !important;box-shadow:none !important;}

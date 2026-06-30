@@ -74,6 +74,17 @@
       .print-cover .pc-sub{font-family:Arial,Helvetica,sans-serif;font-size:12pt;font-weight:700;letter-spacing:.45em;text-transform:uppercase;color:#8a7430;margin:0;padding-left:.45em;}
       .print-cover .pc-foot{margin-top:42px;font-family:Arial,Helvetica,sans-serif;font-size:8pt;letter-spacing:.2em;text-transform:uppercase;color:#a39e95;}
     }
+    /* Markdown rendered into the simpler tools' result boxes (toolMd output) */
+    [id$="-result"] p, .ai-answer-text p, .wizard-result p, #wizard-free-answer p, .compare-result p{margin:0 0 9px;}
+    [id$="-result"] p:last-child, .ai-answer-text p:last-child, #wizard-free-answer p:last-child{margin-bottom:0;}
+    [id$="-result"] .op-subhead:first-child, .ai-answer-text .op-subhead:first-child{margin-top:0;}
+    /* Deterministic clause checklist in the Contract report */
+    .tool-checklist{list-style:none;padding:0;margin:12px 0 0;}
+    .tool-checklist li{font-size:.9rem;padding:5px 0 5px 24px;position:relative;line-height:1.5;color:#3a362f;}
+    .tool-checklist .tc-mark{position:absolute;left:0;top:3px;font-size:.95rem;font-weight:700;}
+    .tool-checklist li.tc-miss .tc-mark{color:#b4532a;}
+    .tool-checklist li.tc-ok{opacity:.72;}
+    .tool-checklist li.tc-ok .tc-mark{color:#3d706a;}
   </style>
 </head>
 <body>
@@ -803,6 +814,34 @@
     </div>
   </div>
 
+  <!-- Shared rich-report modal for the upgraded tools (sibling of <main> for print; .opinion-modal class) -->
+  <div id="tool-report-modal" class="opinion-modal" role="dialog" aria-modal="true" hidden>
+    <div class="opinion-modal-inner" id="tool-report-inner">
+      <div class="opinion-modal-header"><span id="tool-modal-title">Raport</span><button id="tool-close" type="button" aria-label="Mbyll">&#215;</button></div>
+      <div id="tool-progress" class="opinion-progress" role="status" aria-live="polite" hidden>
+        <div class="opinion-step active"><span class="op-step-icon">&#167;</span><div><div class="op-step-label" id="tool-progress-label">Duke përgatitur raportin…</div><div class="op-step-sub">Bazë ligjore + analizë e strukturuar</div></div></div>
+      </div>
+      <div id="tool-output" class="opinion-output" hidden>
+        <div class="print-cover" aria-hidden="true">
+          <div class="pc-emblem">&#9878;</div>
+          <h1 class="pc-title">programi i Henri Sila</h1>
+          <div class="pc-rule"></div>
+          <p class="pc-sub">Jurist</p>
+          <div class="pc-foot">Legjislacioni Shqiptar</div>
+        </div>
+        <div class="opinion-doc-banner">Raport i krijuar nga AI mbi tekstin zyrtar të ligjit. Orientues — verifikoni nenet dhe konsultohuni me një avokat.</div>
+        <div class="opinion-doc-header"><div class="opinion-doc-eyebrow" id="tool-doc-eyebrow">Raport Ligjor</div><div class="opinion-doc-meta" id="tool-doc-meta"></div></div>
+        <div id="tool-sections"></div>
+        <div class="opinion-doc-footer">
+          <button id="tool-print-btn" class="opinion-print-btn" type="button">Printo / Shkarko PDF</button>
+          <button id="tool-restart-btn" class="opinion-restart-btn" type="button">Mbyll</button>
+          <p class="opinion-disclaimer">Mbështetur te teksti zyrtar i ligjit · Analizë nga AI · Nuk përbën këshillë ligjore.</p>
+        </div>
+      </div>
+      <div id="tool-error" class="opinion-form-error" style="margin:20px 28px" hidden></div>
+    </div>
+  </div>
+
   <script src="config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -870,7 +909,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        aiText.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim në përgjigje.';
+        aiText.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim në përgjigje.');
       })
       .catch(function () {
         aiText.textContent = 'Gabim rrjeti. Kontrolloni lidhjen tuaj.';
@@ -951,7 +990,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        resultEl.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Nuk u gjet asgjë.';
+        resultEl.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Nuk u gjet asgjë.');
         alsoEl.hidden = false;
       })
       .catch(function () { resultEl.textContent = 'Gabim rrjeti.'; document.getElementById('w-back2').hidden = false; });
@@ -982,7 +1021,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        _wizFreeAnswer.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        _wizFreeAnswer.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { _wizFreeAnswer.textContent = 'Gabim rrjeti.'; })
       .finally(function () { _wizFreeSend.disabled = false; });
@@ -1018,7 +1057,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; });
@@ -1049,7 +1088,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Gjenero →'; });
@@ -1080,7 +1119,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Gjenero →'; });
@@ -1111,7 +1150,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Gjenero →'; });
@@ -1202,7 +1241,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Llogarit →'; });
@@ -1235,7 +1274,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Kontrollo →'; });
@@ -1367,6 +1406,23 @@
       });
     }
 
+    // Lightweight markdown -> HTML (+ clickable "Neni X" links) for the simpler tool outputs.
+    function toolMd(raw, lawFile){
+      function escH(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+      function inl(t){ return t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>'); }
+      var lines=escH(raw).split('\n'), out='', list=false;
+      function close(){ if(list){ out+='</ul>'; list=false; } }
+      lines.forEach(function(ln){ ln=ln.trim();
+        if(!ln){ close(); return; }
+        var h=ln.match(/^#{1,4}\s+(.*)$/); if(h){ close(); out+='<h4 class="op-subhead">'+inl(h[1])+'</h4>'; return; }
+        var b=ln.match(/^[-•*]\s+(.*)$/); if(b){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(b[1])+'</li>'; return; }
+        var o=ln.match(/^\d+[.)]\s+(.*)$/); if(o){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(o[1])+'</li>'; return; }
+        close(); out+='<p>'+inl(ln)+'</p>';
+      });
+      close();
+      return linkNene(out, lawFile||'kodi-civil.html');
+    }
+
     // Contract Analyzer — PDF upload fills the textarea
     (function () {
       var inp = document.getElementById('ca-pdf'),
@@ -1410,7 +1466,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Analizo →'; });
@@ -1439,7 +1495,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Gjej të drejtat →'; });
@@ -1468,7 +1524,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Gjej autoritetin →'; });
@@ -1498,7 +1554,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Gjenero listën →'; });
@@ -1528,7 +1584,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Gjenero →'; });
@@ -1559,7 +1615,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Gjej kompromis →'; });
@@ -1591,7 +1647,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Kontrollo →'; });
@@ -1621,7 +1677,7 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        result.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
       .catch(function () { result.textContent = 'Gabim rrjeti.'; })
       .finally(function () { btn.disabled = false; btn.textContent = 'Gjej të drejtat →'; });
@@ -2926,6 +2982,138 @@
       $('inherit-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
       document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('inherit-modal').hidden) closeModal(); });
       ['inh-spouse','inh-children','inh-minor','inh-predeceased','inh-parents','inh-siblings','inh-grandparents','inh-dependents','inh-will','inh-willexcl','inh-regime','inh-community','inh-personal','inh-debts','inh-names'].forEach(function(id){ var e=$(id); if(e){ e.addEventListener('input',renderPreview); e.addEventListener('change',renderPreview); } });
+    })();
+
+    /* ── Rich-report engine for the upgraded tools (Contract / Penal / Negotiator) ── */
+    (function(){
+      'use strict';
+      if(typeof aiFetch!=='function' || !document.getElementById('tool-report-modal')) return;
+      function $(id){ return document.getElementById(id); }
+      function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+      function inl(t){ return t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>'); }
+      function md(raw, lawFile){
+        var lines=esc(raw||'').split('\n'), out='', list=false;
+        function close(){ if(list){ out+='</ul>'; list=false; } }
+        lines.forEach(function(ln){ ln=ln.trim();
+          if(!ln){ close(); return; }
+          var h=ln.match(/^#{1,4}\s+(.*)$/); if(h){ close(); out+='<h3 class="opinion-section-head">'+inl(h[1])+'</h3>'; return; }
+          var b=ln.match(/^[-•*]\s+(.*)$/); if(b){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(b[1])+'</li>'; return; }
+          var o=ln.match(/^\d+[.)]\s+(.*)$/); if(o){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(o[1])+'</li>'; return; }
+          close(); out+='<p>'+inl(ln)+'</p>';
+        });
+        close();
+        return (typeof linkNene==='function') ? linkNene(out, lawFile||'kodi-civil.html') : out;
+      }
+      var abort=null, running=false;
+      function ai(sys, usr, maxTok, temp){
+        return aiFetch({ signal:abort?abort.signal:undefined, body:JSON.stringify({ max_tokens:maxTok||900, temperature:(typeof temp==='number')?temp:0.4, messages:[{role:'system',content:sys},{role:'user',content:usr}] }) }, true)
+          .then(function(r){ return r.json(); })
+          .then(function(d){ var c=(d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||''; if(!c) throw new Error('bosh'); return c; });
+      }
+      var STOP={}; 'dhe ose nje per nga me te ta se si ku kur qe ne eshte jane qene ka kane mbi nen sipas cdo kjo ato kete keto'.split(' ').forEach(function(w){ STOP[w]=1; });
+      function terms(s){ var seen={},out=[]; String(s||'').toLowerCase().split(/[^a-zçë0-9]+/).forEach(function(w){ if(w.length>=4&&!STOP[w]&&!seen[w]){ seen[w]=1; out.push(w); } }); return out; }
+      function ground(lawFiles, text){
+        var tms=terms(text); if(!tms.length||!(lawFiles&&lawFiles.length)) return Promise.resolve({textBlock:'',refs:[]});
+        return Promise.all(lawFiles.map(function(f){
+          return fetch('data/'+f.replace(/\.html$/,'.json'),{signal:abort?abort.signal:undefined}).then(function(r){ return r.ok?r.json():{}; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; return {}; }).then(function(data){ return {file:f,data:data||{}}; });
+        })).then(function(rows){
+          var cands=[];
+          rows.forEach(function(row){ Object.keys(row.data).forEach(function(num){ var t=String(row.data[num]||''); if(!t) return; var tl=t.toLowerCase(),sc=0; tms.forEach(function(w){ if(tl.indexOf(w)!==-1) sc++; }); if(sc>0) cands.push({file:row.file,num:num,text:t.replace(/\s+/g,' ').trim(),kw:sc}); }); });
+          if(!cands.length) return {textBlock:'',refs:[]};
+          cands.sort(function(a,b){ return b.kw-a.kw; }); cands=cands.slice(0,30);
+          function finish(top){ var refs=top.map(function(c){ return {file:c.file,num:c.num,text:c.text}; });
+            var block=top.length?('TEKSTI ZYRTAR I NENEVE (mbështetu VETËM te këto; mos cito nene jashtë tyre):\n\n'+top.map(function(c){ return 'Neni '+c.num+': «'+c.text.slice(0,650)+'»'; }).join('\n\n')):'';
+            return {textBlock:block, refs:refs}; }
+          if(typeof aiEmbed!=='function') return finish(cands.slice(0,8));
+          var inputs=[String(text).slice(0,1500)].concat(cands.map(function(c){ return c.text.slice(0,500); }));
+          return aiEmbed(inputs).then(function(vecs){ if(!vecs||vecs.length!==inputs.length) return finish(cands.slice(0,8));
+            function cos(a,b){ var s=0,na=0,nb=0,n=Math.min(a.length,b.length); for(var i=0;i<n;i++){ s+=a[i]*b[i]; na+=a[i]*a[i]; nb+=b[i]*b[i]; } return (na&&nb)?s/(Math.sqrt(na)*Math.sqrt(nb)):0; }
+            var q=vecs[0]; cands.forEach(function(c,i){ c.sim=cos(q,vecs[i+1]); }); cands.sort(function(a,b){ return b.sim-a.sim; }); return finish(cands.slice(0,8));
+          }).catch(function(){ return finish(cands.slice(0,8)); });
+        }).catch(function(e){ if(e&&e.name==='AbortError') throw e; return {textBlock:'',refs:[]}; });
+      }
+      function refsHtml(refs){ if(!refs||!refs.length) return ''; var base=(typeof LAW_BASE!=='undefined')?LAW_BASE:'';
+        var html='<ul class="op-ref-list">';
+        refs.forEach(function(a){ var href=base+a.file+'#neni-'+String(a.num).split('/')[0];
+          html+='<li class="op-ref op-ref-ok"><details class="op-ref-details"><summary><span class="op-ref-icon">✓</span><span class="op-ref-label">Neni '+esc(a.num)+'</span><a href="'+href+'" target="_blank" rel="noopener noreferrer" class="op-ref-hint" style="text-decoration:none">hap →</a></summary><p class="op-ref-text">'+esc(a.text)+'</p></details></li>'; });
+        return html+'</ul>'; }
+      var BLK=['opinion-block-a','opinion-block-b','opinion-block-c','opinion-block-d','opinion-block-e','opinion-block-f'];
+      function section(label, body, i){ return '<div class="opinion-section-block '+BLK[i%BLK.length]+'"><div class="opinion-block-label">'+esc(label)+'</div><div class="opinion-section-body">'+body+'</div></div>'; }
+      function openModal(){ $('tool-report-modal').hidden=false; document.body.style.overflow='hidden'; }
+      function closeModal(){ if(abort) abort.abort(); running=false; $('tool-report-modal').hidden=true; document.body.style.overflow=''; }
+
+      function runToolReport(cfg){
+        if(running) return; running=true; abort=new AbortController();
+        var primary=(cfg.lawFiles&&cfg.lawFiles[0])||'kodi-civil.html';
+        openModal();
+        $('tool-modal-title').textContent=cfg.title||'Raport';
+        $('tool-doc-eyebrow').textContent=cfg.eyebrow||cfg.title||'Raport Ligjor';
+        try{ $('tool-doc-meta').textContent=new Date().toLocaleDateString('sq-AL'); }catch(e){ $('tool-doc-meta').textContent=''; }
+        $('tool-error').hidden=true; $('tool-output').hidden=true; $('tool-sections').innerHTML=''; $('tool-progress').hidden=false; $('tool-progress-label').textContent='Duke lexuar bazën ligjore…';
+        ground(cfg.lawFiles, cfg.input).then(function(g){
+          $('tool-progress-label').textContent='Duke analizuar…';
+          var GT=g.textBlock?('\n\n'+g.textBlock):'';
+          var tasks=(cfg.aiSections||[]).map(function(sec){
+            return ai(sec.sys, sec.usr(cfg.input, GT), sec.maxTok, sec.temp)
+              .then(function(t){ return {label:sec.label, body:md(t, primary)}; })
+              .catch(function(e){ if(e&&e.name==='AbortError') throw e; return {label:sec.label, body:'<p class="op-degraded">Kjo pjesë nuk u gjenerua.</p>'}; });
+          });
+          return Promise.all(tasks).then(function(aiRes){
+            var html='', i=0;
+            if(typeof cfg.compute==='function'){ var det=cfg.compute(cfg.input); if(det&&det.body) html+=section(det.label, det.body, i++); }
+            aiRes.forEach(function(r){ if(r) html+=section(r.label, r.body, i++); });
+            if(g.refs&&g.refs.length) html+=section('Referencat (nene të lidhura)', refsHtml(g.refs), i++);
+            $('tool-sections').innerHTML=html;
+            $('tool-progress').hidden=true; $('tool-output').hidden=false; $('tool-report-inner').scrollTop=0;
+          });
+        }).catch(function(err){ if(err&&err.name==='AbortError') return; $('tool-progress').hidden=true; var e=$('tool-error'); e.textContent='Gabim gjatë analizës: '+((err&&err.message)||'provoni sërish.'); e.hidden=false; })
+        .then(function(){ running=false; });
+      }
+
+      // ── tool configs ──
+      function need(text, ws){ var t=String(text||'').toLowerCase(); return !ws.some(function(w){ return t.indexOf(w)!==-1; }); }
+      var CONTRACT={ title:'Analizë e Kontratës', eyebrow:'Analizë Kontrate', lawFiles:['kodi-civil.html','shoqerite-tregtare.html'], input:'',
+        compute:function(text){
+          var checks=[['Afati / kohëzgjatja',['afat','kohëzgjatj','periudh','vlefshmër']],['Zgjidhja/anulimi i kontratës',['zgjidh','anulim','ndërpres','prish']],['Përgjegjësia & dëmshpërblimi',['përgjegjës','dëmshpërblim','penalitet','gjob']],['Garancia',['garanci','garanton']],['Forcë madhore',['forcë madhore','force majeure']],['Gjykata kompetente / juridiksioni',['gjykat','juridiksion','arbitrazh','mosmarrëveshj']],['Konfidencialiteti',['konfidencial','fshehtës']],['Pagesa (mënyra & afatet)',['pages','paguh','faturë','këst']]];
+          var body='<p>Kontroll automatik i klauzolave thelbësore — mungesat shpesh rrisin rrezikun:</p><ul class="tool-checklist">';
+          checks.forEach(function(c){ var miss=need(text,c[1]); body+='<li class="'+(miss?'tc-miss':'tc-ok')+'"><span class="tc-mark">'+(miss?'⚠':'✓')+'</span> '+esc(c[0])+(miss?' — mungon ose e paqartë':'')+'</li>'; });
+          return { label:'Lista e Klauzolave (kontroll automatik)', body:body+'</ul>' };
+        },
+        aiSections:[
+          { label:'Klauzola problematike & rreziqe', maxTok:1050, temp:0.4, sys:'Jeni avokat shqiptar ekspert në kontrata, kritik dhe specifik. Mbështetu te teksti zyrtar i neneve të dhëna; mos shpik numra nenesh.', usr:function(input,gt){ return 'Analizo klauzolë për klauzolë kontratën që vijon. Identifiko klauzolat problematike, të njëanshme ose abuzive, dhe nenet konkrete të cenuara.'+gt+'\n\nKONTRATA:\n'+String(input).slice(0,7000); } },
+          { label:'Mbrojtje që mungojnë & ndryshime të rekomanduara', maxTok:850, temp:0.4, sys:'Jeni avokat shqiptar. Rekomandime praktike e konkrete, me referenca te nenet e dhëna.', usr:function(input,gt){ return 'Për të njëjtën kontratë: (1) të drejtat/mbrojtjet që mungojnë për klientin; (2) ndryshime konkrete të rekomanduara në tekst.'+gt+'\n\nKONTRATA:\n'+String(input).slice(0,5000); } }
+        ]
+      };
+      var PEN_LAW={'Shkelje penale':'kodi-penal.html','Shkelje rrugore':'kodi-rrugor.html','Shkelje doganore':'kodi-doganor.html','Shkelje kontraktuale':'kodi-civil.html','Shkelje e marrëdhënies së punës':'kodi-civil.html'};
+      function penConfig(){ var typ=$('pen-type').value, sit=$('pen-sit').value.trim(); if(!sit){ $('pen-sit').focus(); return null; } var lf=PEN_LAW[typ]||'kodi-penal.html';
+        return { title:'Analizë e Shkeljes & Sanksioni', eyebrow:'Analizë Sanksioni', lawFiles:[lf], input:(typ?('Lloji: '+typ+'. '):'')+sit,
+          aiSections:[
+            { label:'Kualifikimi i shkeljes & përbërja', maxTok:1100, temp:0.3, sys:'Jeni jurist penalist shqiptar. Mbështetu te teksti zyrtar i neneve të dhëna; mos shpik numra nenesh apo emra veprash. Nëse është vepër penale, analizo përbërjen me 4 elementet (OBJEKTI, ANA OBJEKTIVE, SUBJEKTI, ANA SUBJEKTIVE); përndryshe kualifiko shkeljen.', usr:function(input,gt){ return 'Kualifiko shkeljen që vijon dhe analizo përbërjen e saj.'+gt+'\n\nSITUATA:\n'+input; } },
+            { label:'Sanksioni / dënimi i mundshëm', maxTok:700, temp:0.35, sys:'Jeni jurist shqiptar. Jep diapazonin orientues të dënimit/gjobës sipas tekstit zyrtar; mos shpik shifra jashtë tij.', usr:function(input,gt){ return 'Jep diapazonin orientues të sanksionit (dënim/gjobë), formën bazë vs të kualifikuar, dhe stadin (tentativë/e konsumuar) nëse zbatohet.'+gt+'\n\nSITUATA:\n'+input; } },
+            { label:'Rrethana lehtësuese/rënduese & mbrojtja', maxTok:700, temp:0.4, sys:'Jeni avokat mbrojtës shqiptar.', usr:function(input,gt){ return 'Listo rrethanat lehtësuese dhe rënduese, dhe linjat kryesore të mbrojtjes/kundërshtimit.'+gt+'\n\nSITUATA:\n'+input; } }
+          ] }; }
+      var NEGO_LAW={'Kontratë / detyrim civil':'kodi-civil.html','Qira / marrëdhënie pronësore':'kodi-civil.html','Punë / marrëdhënie pune':'kodi-civil.html','Familje / trashëgimi':'kodi-familjes.html','Biznes / ortakëri':'shoqerite-tregtare.html','Konsumator / garanci':'kodi-civil.html'};
+      function negoConfig(){ var p1=$('nego-pos1').value.trim(), p2=$('nego-pos2').value.trim(), typ=$('nego-type').value; if(!p1&&!p2){ $('nego-pos1').focus(); return null; } var lf=NEGO_LAW[typ]||'kodi-civil.html';
+        var input='Lloji: '+(typ||'mosmarrëveshje')+'.\nPozicioni i klientit: '+p1+'\nPozicioni i palës tjetër: '+p2;
+        return { title:'Strategji Negocimi', eyebrow:'Strategji Negocimi & Ndërmjetësim', lawFiles:[lf], input:input,
+          aiSections:[
+            { label:'BATNA, ZOPA & pikat e levës', maxTok:900, temp:0.45, sys:'Jeni strateg negocimi dhe ndërmjetës shqiptar. Mbështetu te nenet e dhëna ku është e rëndësishme; mos shpik numra nenesh.', usr:function(input,gt){ return 'Analizo: BATNA e secilës palë, zona e marrëveshjes së mundshme (ZOPA), dhe pikat kryesore të levës për klientin.'+gt+'\n\n'+input; } },
+            { label:'Plani i lëshimeve & skenarët', maxTok:800, temp:0.45, sys:'Jeni strateg negocimi shqiptar.', usr:function(input,gt){ return 'Jep një plan lëshimesh (çfarë të ofrosh dhe çfarë të mbash), plus skenarin më të mirë dhe më të keq të një marrëveshjeje.'+gt+'\n\n'+input; } },
+            { label:'Draft kushtesh marrëveshjeje', maxTok:800, temp:0.4, sys:'Jeni jurist shqiptar që harton marrëveshje.', usr:function(input,gt){ return 'Harto një draft të shkurtër me 4–7 kushte kryesore për një marrëveshje/akord pajtimi mes palëve.'+gt+'\n\n'+input; } }
+          ] }; }
+
+      // rewire the three tool buttons (clone to drop the old single-call handlers)
+      function rewire(id, build){ var b=$(id); if(!b) return; var nb=b.cloneNode(true); b.parentNode.replaceChild(nb,b);
+        nb.addEventListener('click', function(){ var cfg=build(); if(cfg) runToolReport(cfg); }); }
+      rewire('ca-btn', function(){ var t=$('ca-text').value.trim(); if(!t){ $('ca-text').focus(); return null; } return Object.assign({},CONTRACT,{input:t}); });
+      rewire('pen-btn', penConfig);
+      rewire('nego-btn', negoConfig);
+
+      $('tool-close').addEventListener('click', closeModal);
+      $('tool-restart-btn').addEventListener('click', closeModal);
+      $('tool-report-modal').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
+      document.addEventListener('keydown', function(e){ if(e.key==='Escape'&&!$('tool-report-modal').hidden) closeModal(); });
+      $('tool-print-btn').addEventListener('click', function(){ window.print(); });
     })();
   </script>
   <script src="site.js"></script>

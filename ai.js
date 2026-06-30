@@ -34,14 +34,15 @@ function aiChain(strong) {
 // Drop-in replacement for fetch() to the chat endpoint. Accepts the same options object
 // the call sites already build; it ignores the url/headers/model in there and instead
 // tries each provider in order, returning the first OK Response (caller still does r.json()).
-function aiFetch(opts) {
+function aiFetch(opts, strong) {
   var payload = {};
   try { payload = JSON.parse((opts && opts.body) || '{}'); } catch (e) { payload = {}; }
   delete payload.model;
   var signal = opts && opts.signal;
-  if (!AI_PROVIDERS.length) return Promise.reject(new Error('No AI provider key configured'));
+  var chain = (typeof aiChain === 'function') ? aiChain(strong) : AI_PROVIDERS;  // strong -> prefer strong reasoners
+  if (!chain.length) return Promise.reject(new Error('No AI provider key configured'));
   function tryP(i) {
-    var p = AI_PROVIDERS[i];
+    var p = chain[i];
     var body = JSON.stringify(Object.assign({ model: p.model }, payload));
     return fetch(p.url, {
       method: 'POST', signal: signal,
@@ -49,11 +50,11 @@ function aiFetch(opts) {
       body: body
     }).then(function (res) {
       if (res.ok) return res;                                   // success
-      if (i + 1 < AI_PROVIDERS.length) return tryP(i + 1);      // bad key / rate-limit -> next provider
+      if (i + 1 < chain.length) return tryP(i + 1);             // bad key / rate-limit -> next provider
       return res;                                               // last one: let caller read the error
     }).catch(function (err) {
       if (err && err.name === 'AbortError') throw err;
-      if (i + 1 < AI_PROVIDERS.length) return tryP(i + 1);      // network error -> next provider
+      if (i + 1 < chain.length) return tryP(i + 1);             // network error -> next provider
       throw err;
     });
   }
