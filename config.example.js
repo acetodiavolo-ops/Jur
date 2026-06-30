@@ -1,7 +1,7 @@
 // Copy this file to config.js and fill in your keys. config.js is gitignored.
 // On deploy, GitHub Actions regenerates config.js from the repo's Secrets.
 //
-// The app tries the AI providers in order (Groq -> Cerebras -> OpenRouter) and
+// The app tries the AI providers in order (Groq -> Cerebras -> Gemini) and
 // automatically falls back to the next one whose key is set when a key expires or
 // is rate-limited. Leave a key as its 'YOUR_..._HERE' placeholder (or '') to skip it.
 //
@@ -12,11 +12,8 @@ const CEREBRAS_KEY = 'YOUR_CEREBRAS_KEY_HERE';
 // Fallback 2 - Google Gemini (free, browser-CORS OK): https://aistudio.google.com/apikey
 // (Gemini also powers semantic grounding + the "real web sources" search — keep it set.)
 const GEMINI_KEY = 'YOUR_GEMINI_KEY_HERE';
-// Optional - stronger reasoner for the critical calls (opinion/verifier/correction).
-// OpenRouter (free, browser-CORS OK): https://openrouter.ai/keys  — uses deepseek-r1:free
-const OPENROUTER_KEY = 'YOUR_OPENROUTER_KEY_HERE';
-// Mistral (https://console.mistral.ai) — browser CORS not guaranteed; falls back automatically if blocked.
-const MISTRAL_KEY = 'YOUR_MISTRAL_KEY_HERE';
+// Note: the stronger-model tier for the critical calls (opinion/verifier/correction) reuses the
+// Groq + Cerebras keys above (Kimi K2 / Qwen3-235B) — no extra key needed.
 
 // Login credentials (any of the three pairs grants access):
 const LOGIN_USER = 'user1';  const LOGIN_PASS = 'pass1';

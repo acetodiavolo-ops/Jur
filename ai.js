@@ -17,9 +17,10 @@ var AI_PROVIDERS = [];
   add(typeof GROQ_KEY       !== 'undefined' ? GROQ_KEY       : '', 'https://api.groq.com/openai/v1/chat/completions',   'llama-3.3-70b-versatile');
   add(typeof CEREBRAS_KEY   !== 'undefined' ? CEREBRAS_KEY   : '', 'https://api.cerebras.ai/v1/chat/completions',       'gpt-oss-120b');
   add(typeof GEMINI_KEY     !== 'undefined' ? GEMINI_KEY     : '', 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', 'gemini-2.5-flash');
-  // Stronger reasoners (preferred for the critical calls when configured; both free-tier capable):
-  add(typeof OPENROUTER_KEY !== 'undefined' ? OPENROUTER_KEY : '', 'https://openrouter.ai/api/v1/chat/completions',     'deepseek/deepseek-r1:free', true);
-  add(typeof MISTRAL_KEY    !== 'undefined' ? MISTRAL_KEY    : '', 'https://api.mistral.ai/v1/chat/completions',         'mistral-large-latest', true);
+  // Stronger reasoners for the critical calls — reuse the EXISTING free Groq/Cerebras keys (no new key, CORS-OK).
+  // If a model id is ever retired, the call just falls back to the fast chain. To swap, edit the model id here.
+  add(typeof GROQ_KEY       !== 'undefined' ? GROQ_KEY       : '', 'https://api.groq.com/openai/v1/chat/completions',   'moonshotai/kimi-k2-instruct',     true);
+  add(typeof CEREBRAS_KEY   !== 'undefined' ? CEREBRAS_KEY   : '', 'https://api.cerebras.ai/v1/chat/completions',       'qwen-3-235b-a22b-instruct-2507',  true);
 })();
 
 function aiReady() { return AI_PROVIDERS.length > 0; }
