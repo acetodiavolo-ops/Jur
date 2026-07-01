@@ -4,7 +4,7 @@
 // Bump VERSION to force a fresh shell + drop old caches on the next visit.
 'use strict';
 
-var VERSION = 'v1';
+var VERSION = 'v2';
 var SHELL = 'shell-' + VERSION;
 var RUNTIME = 'runtime-' + VERSION;
 
@@ -12,7 +12,7 @@ var RUNTIME = 'runtime-' + VERSION;
 // so this works under the GitHub project-page base path /Jur/ too).
 var SHELL_ASSETS = [
   'index.html', 'ligjet.html', 'mjete-ai.html',
-  'site.css', 'site.js', 'ai.js', 'style.css', 'app.js',
+  'site.css', 'site.js', 'ai.js', 'mjete-ai.js', 'style.css', 'app.js',
   'manifest.webmanifest', 'icon.svg', 'data/laws.json'
 ];
 

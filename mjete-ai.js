@@ -1,0 +1,2068 @@
+    'use strict';
+
+    // ── GROQ API ── key loaded from config.js ─────
+
+    var aiQuestion = document.getElementById('ai-question');
+    var aiAsk      = document.getElementById('ai-ask');
+    var aiAnswer   = document.getElementById('ai-answer');
+    var aiText     = aiAnswer.querySelector('.ai-answer-text');
+
+    var _SYS_HOME =
+      'Jeni asistent ligjor i specializuar në legjislacionin shqiptar. ' +
+      'Kjo platformë përmban 18 akte ligjore:\n\n' +
+      '1. Kushtetuta e Republikës së Shqipërisë (1998) - të drejtat themelore, ndarje pushtetesh\n' +
+      '2. Kodi Civil - prona, kontratat, detyrimet, trashëgimia\n' +
+      '3. Kodi Penal - veprat penale dhe dënimet\n' +
+      '4. Kodi i Procedurës Civile - procesi gjyqësor civil\n' +
+      '5. Kodi i Procedurës Penale - procesi penal, të drejtat e të pandehurit\n' +
+      '6. Kodi i Familjes - martesa, divorci, kujdestaria, birësimi\n' +
+      '7. Kodi Rrugor - trafiku, lejet e drejtimit, aksidentet\n' +
+      '8. Kodi Ajror - aviacioni civil, operatorët ajrorë\n' +
+      '9. Kodi Doganor - importi, eksporti, tarifat doganore\n' +
+      '10. Kodi i Drejtësisë Penale për të Mitur - personat nën 18 vjeç\n' +
+      '11. Dispozita Zbatuese të Kodit Doganor - procedura doganore të detajuara\n' +
+      '12. Ligj për Tregtarët dhe Shoqëritë Tregtare - sh.p.k., sh.a., bizneset\n' +
+      '13. Ligj për Falimentimin - procedurat e falimentimit\n' +
+      '14. Statusi i Gjyqtarëve dhe Prokurorëve - karriera gjyqësore\n' +
+      '15. Organizimi i Pushtetit Gjyqësor - struktura e gjykatave\n' +
+      '16. Organizimi i Pushtetit Gjyqësor (i përditësuar)\n' +
+      '17. Ligj për Noterinë - aktet noteriale\n' +
+      '18. Shërbimi Përmbarimor Gjyqësor Privat - ekzekutimi i vendimeve\n\n' +
+      'Ndihmoni përdoruesin të gjejë ligjin e duhur dhe kuptojë dispozitat. ' +
+      'Nëse pyetja është shqip, përgjigjuni shqip. Nëse është anglisht, përgjigjuni anglisht. ' +
+      'Jini të saktë dhe konciz (3-5 fjali).';
+
+    function askGroq() {
+      var q = aiQuestion.value.trim();
+      if (!q) return;
+      if (!aiConfigured()) { aiAnswer.hidden = false; toolFail(aiText, 'Shërbimi AI nuk është i konfiguruar (mungon çelësi).'); return; }
+
+      aiAsk.disabled = true;
+      aiAsk.textContent = 'Duke menduar…';
+      aiAnswer.style.opacity = '0';
+      aiAnswer.hidden = false;
+      aiText.textContent = '';
+      requestAnimationFrame(function () { aiAnswer.style.opacity = '1'; });
+
+      aiFetch({
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + GROQ_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 450,
+          messages: [
+            { role: 'system', content: _SYS_HOME },
+            { role: 'user',   content: q }
+          ]
+        })
+      })
+      .then(function (r) { if (!r.ok) { var e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
+      .then(function (data) {
+        aiText.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim në përgjigje.');
+      })
+      .catch(function (err) {
+        toolFail(aiText, aiErrMsg(err && err.status, err), askGroq);
+      })
+      .finally(function () {
+        aiAsk.disabled = false;
+        aiAsk.textContent = 'Pyet →';
+      });
+    }
+
+    aiAsk.addEventListener('click', askGroq);
+    aiQuestion.addEventListener('keydown', function (e) { if (e.key === 'Enter') askGroq(); });
+
+    // ── Scenario buttons ──────────────────────────
+    document.querySelectorAll('.sc-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        aiQuestion.value = btn.dataset.q;
+        aiAnswer.hidden = false;
+        aiText.textContent = '';
+        askGroq();
+      });
+    });
+
+    // ── Law Finder Wizard ─────────────────────────
+    var _wRole = '';
+    var _wSit  = '';
+    var _wSituations = {
+      'Individ':         ['Pronë', 'Familje / Divorc', 'Akuzë penale', 'Punë', 'Trashëgimi', 'Aksident rrugor', 'Kontratë'],
+      'Biznes':          ['Regjistrim biznesi', 'Kontratë tregtare', 'Dogana & taksa', 'Punëmarrës', 'Falimentim', 'Shoqëri tregtare'],
+      'Avokat / Jurist': ['Procedurë civile', 'Procedurë penale', 'Ekzekutim vendimi', 'Çështje familjare', 'E drejtë doganore'],
+      'Studiues':        ['E drejtë kushtetuese', 'E drejtë civile', 'E drejtë penale', 'E drejtë tregtare', 'Organizim gjyqësor']
+    };
+
+    function _wSetStep(n) {
+      document.querySelectorAll('.wizard-step').forEach(function (s, i) {
+        s.classList.toggle('active', (i + 1) === n);
+      });
+    }
+
+    document.querySelectorAll('[data-role]').forEach(function (pill) {
+      pill.addEventListener('click', function () {
+        _wRole = pill.dataset.role;
+        var pills2 = document.getElementById('w-step2-pills');
+        pills2.innerHTML = '';
+        (_wSituations[_wRole] || []).forEach(function (sit) {
+          var btn = document.createElement('button');
+          btn.className = 'w-pill';
+          btn.textContent = sit;
+          btn.addEventListener('click', function () { _wSit = sit; _wRunWizard(); });
+          pills2.appendChild(btn);
+        });
+        _wSetStep(2);
+      });
+    });
+
+    document.getElementById('w-back').addEventListener('click',    function () { _wSetStep(1); });
+    document.getElementById('w-back2').addEventListener('click',   function () { _wSetStep(2); });
+    document.getElementById('w-restart').addEventListener('click', function () { _wSetStep(1); });
+
+    function _wRunWizard() {
+      _wSetStep(3);
+      var resultEl = document.getElementById('w-result');
+      var alsoEl   = document.getElementById('w-also');
+      resultEl.textContent = 'Duke analizuar…';
+      alsoEl.hidden = true;
+      if (!aiConfigured()) { toolFail(resultEl, 'Shërbimi AI nuk është i konfiguruar (mungon çelësi).'); return; }
+
+      aiFetch({
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 350,
+          messages: [
+            { role: 'system', content: _SYS_HOME },
+            { role: 'user',   content: 'Profili: ' + _wRole + '. Situata: ' + _wSit + '. Cilat ligje nga koleksioni janë më relevante dhe pse? Listo 2-3 ligje me emra të plotë dhe shpjego shkurt çfarë rregullon secili.' }
+          ]
+        })
+      })
+      .then(function (r) { if (!r.ok) { var e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
+      .then(function (data) {
+        resultEl.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Nuk u gjet asgjë.');
+        alsoEl.hidden = false;
+      })
+      .catch(function (err) { toolFail(resultEl, aiErrMsg(err && err.status, err), _wRunWizard); document.getElementById('w-back2').hidden = false; });
+    }
+
+    var _wizFreeQ      = document.getElementById('wizard-free-q');
+    var _wizFreeSend   = document.getElementById('wizard-free-send');
+    var _wizFreeAnswer = document.getElementById('wizard-free-answer');
+
+    function _wFreeAsk() {
+      var q = _wizFreeQ.value.trim();
+      if (!q) return;
+      if (!aiConfigured()) { _wizFreeAnswer.style.display = 'block'; toolFail(_wizFreeAnswer, 'Shërbimi AI nuk është i konfiguruar (mungon çelësi).'); return; }
+      _wizFreeSend.disabled = true;
+      _wizFreeAnswer.style.opacity = '0'; _wizFreeAnswer.style.display = 'block'; requestAnimationFrame(function () { _wizFreeAnswer.style.opacity = '1'; });
+      _wizFreeAnswer.textContent = 'Duke menduar…';
+
+      aiFetch({
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 350,
+          messages: [
+            { role: 'system', content: _SYS_HOME },
+            { role: 'user',   content: 'Kontekst: profil ' + _wRole + ', situatë ' + _wSit + '. Pyetje: ' + q }
+          ]
+        })
+      })
+      .then(function (r) { if (!r.ok) { var e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
+      .then(function (data) {
+        _wizFreeAnswer.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
+      })
+      .catch(function (err) { toolFail(_wizFreeAnswer, aiErrMsg(err && err.status, err), _wFreeAsk); })
+      .finally(function () { _wizFreeSend.disabled = false; });
+    }
+
+    _wizFreeSend.addEventListener('click', _wFreeAsk);
+    _wizFreeQ.addEventListener('keydown', function (e) { if (e.key === 'Enter') _wFreeAsk(); });
+
+    // ── Two-law comparison ────────────────────────
+    document.getElementById('cmp-btn').addEventListener('click', function () {
+      var law1 = document.getElementById('cmp-law1').value;
+      var law2 = document.getElementById('cmp-law2').value;
+      if (!law1 || !law2) { return; }
+      if (law1 === law2) { return; }
+
+      var btn    = document.getElementById('cmp-btn');
+      var result = document.getElementById('cmp-result');
+      if (!aiConfigured()) { toolFail(result, 'Shërbimi AI nuk është i konfiguruar (mungon çelësi).'); return; }
+      btn.disabled = true;
+      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
+      result.textContent = 'Duke krahasuar…';
+
+      aiFetch({
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 450,
+          messages: [
+            { role: 'system', content: 'Jeni ekspert i legjislacionit shqiptar.' },
+            { role: 'user',   content: 'Krahaso këto dy ligje:\n\n(1) ' + law1 + '\n(2) ' + law2 + '\n\nTrego: fushat e ndryshme të rregullimit, kur zbatohet secili, nëse ka mbivendosje, dhe cilin duhet konsultuar për situata specifike.' }
+          ]
+        })
+      })
+      .then(function (r) { if (!r.ok) { var e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
+      .then(function (data) {
+        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
+      })
+      .catch(function (err) { toolFail(result, aiErrMsg(err && err.status, err), function () { document.getElementById('cmp-btn').click(); }); })
+      .finally(function () { btn.disabled = false; });
+    });
+
+    // ── Case Study / Document / Email drafters → RichReport engine (csConfig/ddConfig/edConfig at end of script) ──
+
+    // ── Legal Glossary ────────────────────────────
+    (function () {
+      var _glTerms = [
+        'gjykata', 'prokurori', 'gjyqtar', 'paditës', 'i pandehur',
+        'trashëgimtar', 'kreditor', 'debitor', 'noterizim', 'ekzekutim',
+        'apelim', 'rekurs', 'padi', 'vendim', 'urdhër',
+        'neni', 'kreu', 'klauzolë', 'kontratë', 'pronësi',
+        'garanci', 'kaution', 'arbitrazh', 'ndërmjetës'
+      ];
+      var _glCache  = {};
+      var _glActive = null;
+
+      var termsEl  = document.getElementById('glossary-terms');
+      var resultEl = document.getElementById('glossary-result');
+      var searchEl = document.getElementById('glossary-search');
+
+      _glTerms.forEach(function (term) {
+        var btn = document.createElement('button');
+        btn.className = 'gl-term';
+        btn.textContent = term;
+        btn.addEventListener('click', function () {
+          if (_glActive) _glActive.classList.remove('active');
+          _glActive = btn;
+          btn.classList.add('active');
+          resultEl.hidden = false;
+          if (!aiConfigured()) { toolFail(resultEl, 'Shërbimi AI nuk është i konfiguruar (mungon çelësi).'); return; }
+
+          if (_glCache[term]) { resultEl.textContent = _glCache[term]; return; }
+
+          resultEl.textContent = 'Duke kërkuar…';
+          aiFetch({
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'llama-3.3-70b-versatile',
+              max_tokens: 200,
+              messages: [
+                { role: 'system', content: 'Jeni jurist shqiptar. Jepni definicione juridike të qarta dhe praktike.' },
+                { role: 'user',   content: 'Shpjego termin juridik "' + term + '" sipas legjislacionit shqiptar. Jep: 1) Definicion (2 fjali), 2) Ku gjendet zakonisht (ligjet kryesore), 3) Shembull praktik. Max 6 fjali total.' }
+              ]
+            })
+          })
+          .then(function (r) { if (!r.ok) { var e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
+          .then(function (data) {
+            var txt = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+            _glCache[term] = txt;
+            resultEl.textContent = txt;
+          })
+          .catch(function (err) { toolFail(resultEl, aiErrMsg(err && err.status, err), function () { btn.click(); }); });
+        });
+        termsEl.appendChild(btn);
+      });
+
+      searchEl.addEventListener('input', function () {
+        var q = searchEl.value.trim().toLowerCase();
+        termsEl.querySelectorAll('.gl-term').forEach(function (b) {
+          b.hidden = q.length > 0 && !b.textContent.toLowerCase().includes(q);
+        });
+      });
+    }());
+
+    // ── Penalty Estimator → now handled by the RichReport engine (penConfig) at end of script ──
+
+    // ── Statute of Limitations → now handled by the RichReport engine (solConfig) at end of script ──
+
+    // ── Contract Analyzer ──────────────────────────
+    // Reusable client-side PDF text extraction (pdf.js). Returns Promise<string>.
+    function extractPdfText(file, cap, onStatus) {
+      cap = cap || 12000;
+      if (!window.pdfjsLib) return Promise.reject(new Error('pdf-not-loaded'));
+      try { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch (e) {}
+      return file.arrayBuffer().then(function (buf) {
+        return pdfjsLib.getDocument({ data: buf }).promise;
+      }).then(function (pdf) {
+        var pages = [], chain = Promise.resolve();
+        for (var i = 1; i <= pdf.numPages; i++) {
+          (function (i) { chain = chain.then(function () {
+            return pdf.getPage(i).then(function (p) { return p.getTextContent(); }).then(function (tc) {
+              pages.push(tc.items.map(function (it) { return it.str; }).join(' '));
+            });
+          }); })(i);
+        }
+        return chain.then(function () {
+          var txt = pages.join('\n').replace(/\s+/g, ' ').trim();
+          if (txt.length >= 60 || !window.Tesseract) return txt;   // text-layer present (or OCR unavailable)
+          return ocrPdf(pdf, onStatus).then(function (o) { return (o && o.length > txt.length) ? o : txt; });
+        });
+      }).then(function (txt) {
+        return String(txt || '').replace(/\s+/g, ' ').trim().slice(0, cap);
+      });
+    }
+    // OCR fallback for scanned/image PDFs: render up to 8 pages to canvas, recognize via Tesseract (Albanian+English).
+    function ocrPdf(pdf, onStatus) {
+      if (!window.Tesseract) return Promise.resolve('');
+      var maxPages = Math.min(pdf.numPages, 8), out = [];
+      if (onStatus) onStatus('Duke lexuar me OCR (mund të zgjasë pak)…');
+      return Tesseract.createWorker('sqi+eng').then(function (worker) {
+        var chain = Promise.resolve();
+        for (var i = 1; i <= maxPages; i++) {
+          (function (i) { chain = chain.then(function () {
+            if (onStatus) onStatus('OCR faqja ' + i + '/' + maxPages + '…');
+            return pdf.getPage(i).then(function (p) {
+              var vp = p.getViewport({ scale: 2 });
+              var canvas = document.createElement('canvas'); canvas.width = vp.width; canvas.height = vp.height;
+              return p.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise
+                .then(function () { return worker.recognize(canvas); })
+                .then(function (res) { out.push((res && res.data && res.data.text) || ''); });
+            });
+          }); })(i);
+        }
+        return chain.then(function () { return worker.terminate(); })
+          .then(function () { return out.join('\n').replace(/\s+/g, ' ').trim(); })
+          .catch(function () { try { worker.terminate(); } catch (e) {} return out.join('\n').trim(); });
+      }).catch(function () { return ''; });
+    }
+
+    // "Check the uploaded PDF" — toggle a read-only preview of the extracted text.
+    function attachPdfPreview(viewBtn, previewEl, getText) {
+      if (!viewBtn || !previewEl) return;
+      viewBtn.addEventListener('click', function () {
+        if (previewEl.hidden) { previewEl.textContent = getText() || '(pa tekst)'; previewEl.hidden = false; viewBtn.textContent = 'Fshih tekstin'; }
+        else { previewEl.hidden = true; viewBtn.textContent = 'Shiko tekstin'; }
+      });
+    }
+
+    // ── ADR (ndërmjetësim/arbitrazh) — shared by both engines ──
+    var ADR_TYPES = { civile:1, tregtare:1, familjare:1, pune:1, prone:1, konsumator:1 };
+    function adrApplicable(type){ return !!ADR_TYPES[type]; }
+    function adrApplicableInh(c, inp){ var n=0; (c&&c.heirs||[]).forEach(function(h){ n+=h.count; }); return n>1 || !!(inp&&inp.hasWill) || ((inp&&inp.predeceasedWithKids)|0)>0; }
+    function adrSuitability(type, forecast){
+      var base=({familjare:3,pune:3,konsumator:3,tregtare:2,civile:2,prone:2})[type]; if(base==null) base=2;
+      var settle=forecast?Math.round(forecast.settle||0):0;
+      var sc=base+(settle>=40?1:0)-(settle>0&&settle<15?1:0);
+      var level=sc>=3?'hi':sc>=2?'mid':'lo';
+      var lbl={hi:['op-conf-hi','E përshtatshme'],mid:['op-conf-mid','Mesatarisht e përshtatshme'],lo:['op-conf-lo','Pak e përshtatshme']}[level];
+      return { level:level, cls:lbl[0], label:lbl[1], settle:settle, note:'Bazuar te lloji i çështjes'+(settle?(' dhe gjasat e marrëveshjes (~'+settle+'%)'):'')+'.' };
+    }
+    function adrHtml(det, ai){
+      ai=ai||{};
+      function e(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+      var html='';
+      if(det) html+='<p>Përshtatshmëria për zgjidhje alternative: <span class="op-conf '+det.cls+'">'+e(det.label)+'</span> <small>('+e(det.note)+')</small></p>';
+      if(ai.mode||ai.likelihood) html+='<p class="op-fc-basis">'+(ai.mode?('<strong>Rruga:</strong> '+e(ai.mode)):'')+(ai.likelihood?((ai.mode?' · ':'')+'<strong>Gjasat për zgjidhje:</strong> '+e(ai.likelihood)):'')+'</p>';
+      if(ai.best_case||ai.worst_case){ html+='<div class="op-stat-grid">';
+        if(ai.best_case) html+='<div class="op-stat"><div class="op-stat-label">Skenari më i mirë</div><div class="op-stat-value" style="font-size:.88rem;font-weight:500;line-height:1.5">'+e(ai.best_case)+'</div></div>';
+        if(ai.worst_case) html+='<div class="op-stat"><div class="op-stat-label">Skenari më i keq</div><div class="op-stat-value" style="font-size:.88rem;font-weight:500;line-height:1.5">'+e(ai.worst_case)+'</div></div>';
+        html+='</div>'; }
+      function lst(t,cls,arr){ if(!arr||!arr.length) return ''; return '<p class="op-subhead '+cls+'" style="margin:12px 0 4px;">'+t+'</p><ul class="op-checklist">'+arr.filter(Boolean).map(function(x){ return '<li>'+e(x)+'</li>'; }).join('')+'</ul>'; }
+      html+=lst('Faktorë në favor','op-green',ai.factors_for);
+      html+=lst('Faktorë kundër','op-amber',ai.factors_against);
+      if(ai.recommendation) html+='<p class="op-subhead" style="margin:12px 0 4px;">Rekomandim</p><p>'+e(ai.recommendation)+'</p>';
+      return html || '<p class="op-degraded">Vlerësimi i zgjidhjes alternative nuk u gjenerua.</p>';
+    }
+    var ADR_SYS='Jeni ndërmjetës dhe arbitër me përvojë në Shqipëri (kuadri i ndërmjetësimit, Ligji nr. 10385/2011). Vlerësoni realisht nëse mosmarrëveshja mund të zgjidhet me ndërmjetësim ose arbitrazh. Mos shpikni numra nenesh apo vendime. Përgjigjuni VETËM me JSON të vlefshëm.';
+    var ADR_JSON='\n\nJSON:\n{"mode":"ndërmjetësim|arbitrazh|të dyja","likelihood":"e lartë/e mesme/e ulët + arsye e shkurtër","best_case":"rezultati më i mirë i mundshëm me ADR","worst_case":"rezultati më i keq / rreziqet nëse dështon","factors_for":["..."],"factors_against":["..."],"recommendation":"mendim i përgjithshëm: a ia vlen dhe si t\'i qasesh"}';
+
+    // ── Self-consistency: aggregate N samples of the law/article identification (Call 1) ──
+    function aggregateLaws(samples){
+      var valid=(samples||[]).filter(Boolean), n=valid.length||1, thr=n>=2?2:1;
+      var cnt={}, disp={}, arts={}, rel={}, understanding=null;
+      valid.forEach(function(j){
+        if(!understanding && j.facts) understanding={facts:j.facts||{},key_events:j.key_events||[],missing:j.missing||[],clarifying:j.clarifying||[]};
+        (j.laws||[]).forEach(function(l){
+          var name=String(l&&l.name||'').trim(); if(!name) return; var k=name.toLowerCase();
+          cnt[k]=(cnt[k]||0)+1; disp[k]=disp[k]||name; if(l.relevance && !rel[k]) rel[k]=l.relevance;
+          arts[k]=arts[k]||{}; (l.articles||[]).forEach(function(a){ var an=String(a).trim(); if(an) arts[k][an]=1; });
+        });
+      });
+      var laws=Object.keys(cnt).filter(function(k){ return cnt[k]>=thr; })
+        .sort(function(a,b){ return cnt[b]-cnt[a]; })
+        .map(function(k){ return { name:disp[k], articles:Object.keys(arts[k]), relevance:rel[k]||'' }; });
+      if(!laws.length){ var first=valid[0]; laws=(first&&first.laws)||[]; }
+      return { laws:laws, understanding:understanding||{facts:{},key_events:[],missing:[],clarifying:[]} };
+    }
+
+    // ── Article cross-linking → full law text (absolute URLs so links work in saved PDFs too) ──
+    var LAW_BASE = (function(){ try { return location.href.replace(/[^\/]*(?:[?#].*)?$/, ''); } catch(e){ return ''; } })();
+    function linkNene(html, lawFile){
+      if(html==null) return '';
+      lawFile = lawFile || 'kodi-civil.html';
+      return String(html).replace(/(<a\b[^>]*>[\s\S]*?<\/a>)|(<[^>]+>)|([^<]+)/g, function(m, anchor, tag, text){
+        if(anchor||tag) return m;
+        return text.replace(/\bnen(?:i|it|in|e|et|eve)?\s+\d+(?:\/[\w]+)?(?:\s*[,–\-]\s*\d+(?:\/[\w]+)?)*/gi, function(run){
+          return run.replace(/\d+(?:\/[\w]+)?/g, function(numTok){
+            var base=numTok.split('/')[0];
+            return '<a class="opinion-law-link" target="_blank" rel="noopener noreferrer" href="'+LAW_BASE+lawFile+'#neni-'+base+'">'+numTok+'</a>';
+          });
+        });
+      });
+    }
+
+    // Lightweight markdown -> HTML (+ clickable "Neni X" links) for the simpler tool outputs.
+    function toolMd(raw, lawFile){
+      function escH(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+      function inl(t){ return t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>'); }
+      var lines=escH(raw).split('\n'), out='', list=false;
+      function close(){ if(list){ out+='</ul>'; list=false; } }
+      lines.forEach(function(ln){ ln=ln.trim();
+        if(!ln){ close(); return; }
+        var h=ln.match(/^#{1,4}\s+(.*)$/); if(h){ close(); out+='<h4 class="op-subhead">'+inl(h[1])+'</h4>'; return; }
+        var b=ln.match(/^[-•*]\s+(.*)$/); if(b){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(b[1])+'</li>'; return; }
+        var o=ln.match(/^\d+[.)]\s+(.*)$/); if(o){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(o[1])+'</li>'; return; }
+        close(); out+='<p>'+inl(ln)+'</p>';
+      });
+      close();
+      return linkNene(out, lawFile||'kodi-civil.html');
+    }
+
+    // ── Shared AI failure handling (used by the RichReport engine + the remaining light tools) ──
+    function aiConfigured(){ return (typeof aiReady === 'function') ? aiReady() : (typeof GROQ_KEY !== 'undefined' && GROQ_KEY && String(GROQ_KEY).indexOf('YOUR_') !== 0); }
+    function aiErrMsg(status, err){
+      if (err && err.name === 'AbortError') return '';
+      if (status === 429) return 'Limiti i kërkesave u arrit — provoni sërish pas pak.';
+      if (status === 401 || status === 403) return 'Qasja te shërbimi AI u refuzua (çelës i pavlefshëm ose i skaduar).';
+      if (status && status >= 500) return 'Shërbimi AI ka një problem të përkohshëm — provoni sërish.';
+      if (status && status >= 400) return 'Shërbimi AI s\'u përgjigj siç duhet — provoni sërish.';
+      return 'Gabim rrjeti — kontrolloni lidhjen dhe provoni sërish.';
+    }
+    // Render a failure into a result element with an optional "Provo sërish" button.
+    function toolFail(el, msg, retryFn){
+      if (!el) return;
+      el.innerHTML = '';
+      el.style.display = 'block';
+      var p = document.createElement('p'); p.className = 'tool-error-msg'; p.textContent = msg; el.appendChild(p);
+      if (typeof retryFn === 'function') {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'tool-retry-btn'; b.textContent = 'Provo sërish';
+        b.addEventListener('click', retryFn); el.appendChild(b);
+      }
+    }
+
+    // Contract Analyzer — PDF upload fills the textarea
+    (function () {
+      var inp = document.getElementById('ca-pdf'),
+          status = document.getElementById('ca-pdf-status'),
+          clr = document.getElementById('ca-pdf-clear'),
+          ta = document.getElementById('ca-text');
+      if (!inp) return;
+      clr.addEventListener('click', function () { inp.value = ''; status.textContent = ''; status.classList.remove('warn'); clr.hidden = true; });
+      inp.addEventListener('change', function () {
+        var f = inp.files && inp.files[0]; if (!f) return;
+        if (!window.pdfjsLib) { status.textContent = 'Lexuesi i PDF nuk u ngarkua — provoni sërish.'; status.classList.add('warn'); return; }
+        status.classList.remove('warn'); status.textContent = 'Duke lexuar PDF…'; clr.hidden = false;
+        extractPdfText(f, 12000, function (m) { status.textContent = m; }).then(function (txt) {
+          if (!txt) { status.textContent = 'PDF-ja duket e skanuar (pa tekst) — ngjit tekstin manualisht.'; status.classList.add('warn'); return; }
+          ta.value = txt;
+          status.textContent = f.name + ' · ' + txt.split(/\s+/).length + ' fjalë';
+        }).catch(function () { status.textContent = 'Nuk u lexua dot PDF-ja.'; status.classList.add('warn'); });
+      });
+    })();
+
+    // ── Contract Analyzer → now handled by the RichReport engine (CONTRACT) at end of script ──
+
+    // ── Rights / Court / Evidence / Timeline → RichReport engine (rightsConfig/courtConfig/evidenceConfig/timelineConfig at end of script) ──
+
+    // ── Negotiation Coach → now handled by the RichReport engine (negoConfig) at end of script ──
+
+    // ── Inheritance Engine lives in its own IIFE near the end of this script ──
+
+    // ── Business Compliance / Consumer Rights → RichReport engine (bizConfig/consumerConfig at end of script) ──
+
+    /* ── Legal Opinion Engine (7-call pipeline) ── */
+    (function () {
+      'use strict';
+
+      var GROQ_URL       = 'https://api.groq.com/openai/v1/chat/completions';
+      var MODEL          = 'llama-3.3-70b-versatile';
+      var PARALLEL_LIMIT = 5;
+      var MAX_RETRIES    = 3;
+
+      function $(id){ return document.getElementById(id); }
+      function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+      function delay(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+      function backoff(n){ return 600 * Math.pow(2, n) + Math.random() * 250; }
+      function clampPct(v){ var n = Number(v); return isFinite(n) ? Math.max(0, Math.min(100, n)) : 0; }
+      function fmtNum(n){ n = Math.round(Number(n) || 0); return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+      function getKey(){ return (typeof GROQ_KEY !== 'undefined') ? GROQ_KEY : ''; }
+      function keyMissing(){ if(typeof aiReady==='function') return !aiReady(); var k = getKey(); return !k || k === 'YOUR_GROQ_KEY_HERE'; }
+
+      function safeJson(raw){
+        if (raw && typeof raw === 'object') return raw;
+        try { var s = String(raw).replace(/```json|```/g, ''); var m = s.match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : {}; }
+        catch(e){ return {}; }
+      }
+
+      var LAW_MAP = {
+        'Kushtetutës':'kushtetuta.html','Kushtetuta':'kushtetuta.html',
+        'Kodit Civil':'kodi-civil.html','Kodi Civil':'kodi-civil.html',
+        'Kodit Penal':'kodi-penal.html','Kodi Penal':'kodi-penal.html',
+        'Kodit të Procedurës Civile':'kodi-procedure-civile.html','Procedurës Civile':'kodi-procedure-civile.html',
+        'Kodit të Procedurës Penale':'kodi-procedure-penale.html','Procedurës Penale':'kodi-procedure-penale.html',
+        'Kodit të Familjes':'kodi-familjes.html','Kodi i Familjes':'kodi-familjes.html',
+        'Kodit Rrugor':'kodi-rrugor.html','Kodi Rrugor':'kodi-rrugor.html',
+        'Shoqërive Tregtare':'shoqerite-tregtare.html',
+        'Falimentimit':'falimentimi.html',
+        'Noterinë':'noteria.html','Noteria':'noteria.html',
+        'Drejtësisë Penale për të Mitur':'drejtesia-penale-mitur.html',
+        'Shërbimit Përmbarimor':'sherbimi-permbarimor.html',
+        'Organizimit të Pushtetit Gjyqësor':'organizimi-pushtetit-gjyqesor.html',
+        'Kodit Doganor':'kodi-doganor.html','Kodi Doganor':'kodi-doganor.html',
+        'Kodit Ajror':'kodi-ajror.html','Kodi Ajror':'kodi-ajror.html',
+        'Dispozitave Zbatuese të Kodit Doganor':'dispozita-zbatuese-kodi-doganor.html','Dispozita Zbatuese':'dispozita-zbatuese-kodi-doganor.html',
+        'Statusit të Gjyqtarëve dhe Prokurorëve':'statusi-gjyqtareve-prokuroreve.html','Gjyqtarëve dhe Prokurorëve':'statusi-gjyqtareve-prokuroreve.html',
+        'Organizimit të Pushtetit Gjyqësor (i përditësuar)':'organizimi-pushtetit-gjyqesor-v2.html'
+      };
+      var LAW_NAMES_SORTED = Object.keys(LAW_MAP).sort(function(a,b){ return b.length - a.length; });
+      var LAW_RE = new RegExp('(' + LAW_NAMES_SORTED.map(function(n){ return n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }).join('|') + ')','g');
+
+      var _artHref={};  // base article number -> {href,anchor}, for linking "Neni X" to real text
+      function linkifyText(t){
+        t = t.replace(LAW_RE, function(m){ return '<a href="' + LAW_BASE + LAW_MAP[m] + '" target="_blank" rel="noopener noreferrer" class="opinion-law-link">' + m + '</a>'; });
+        t = t.replace(/\b([Nn]eni(?:t|n|ve)?)\s+(\d+(?:\/[\w]+)?)/g, function(m,word,num){
+          var a=_artHref[String(num).split('/')[0]];
+          return a ? '<a href="'+LAW_BASE+a.href+'#'+a.anchor+'" target="_blank" rel="noopener noreferrer" class="opinion-law-link">'+m+'</a>' : m;
+        });
+        return t;
+      }
+      function linkifyHtml(html){ return html.replace(/(<[^>]+>)|([^<]+)/g, function(_,tag,text){ return tag ? tag : linkifyText(text); }); }
+
+      // ── Grounding: fetch real article text from data/<slug>.json ─────────────
+      function lawDataPath(htmlFile){ return 'data/'+htmlFile.replace(/\.html$/,'.json'); }
+      var _lawCache={};
+      function fetchLawData(htmlFile){
+        if(_lawCache[htmlFile]) return Promise.resolve(_lawCache[htmlFile]);
+        return fetch(lawDataPath(htmlFile),{signal:abortCtrl?abortCtrl.signal:undefined})
+          .then(function(r){ return r.ok?r.json():{}; })
+          .catch(function(e){ if(e&&e.name==='AbortError') throw e; return {}; })
+          .then(function(d){ _lawCache[htmlFile]=d||{}; return _lawCache[htmlFile]; });
+      }
+      function artKey(s){ var m=String(s).match(/\d+(?:\/[\w]+)?/); return m?m[0]:''; }
+      function artAnchor(num){ return 'neni-'+String(num).replace('/','-'); }
+      function lawHrefFor(name){
+        if(LAW_MAP[name]) return LAW_MAP[name];
+        for(var i=0;i<LAW_NAMES_SORTED.length;i++){
+          var k=LAW_NAMES_SORTED[i];
+          if(name.indexOf(k)!==-1||k.indexOf(name)!==-1) return LAW_MAP[k];
+        }
+        return '';
+      }
+      function retrieveGrounding(laws){
+        laws=laws||[];
+        var jobs=laws.map(function(l){
+          var href=lawHrefFor(String(l.name||''));
+          if(!href) return Promise.resolve({law:l,href:'',data:{}});
+          return fetchLawData(href).then(function(data){ return {law:l,href:href,data:data}; });
+        });
+        return Promise.all(jobs).then(function(rows){
+          var found=[],missing=[],nums={},seen={},blocks=[];
+          rows.forEach(function(row){
+            var name=String(row.law.name||'').trim();
+            (row.law.articles||[]).forEach(function(a){
+              var num=artKey(a);
+              if(!num) return;
+              var key=name+'|'+num;
+              if(seen[key]) return;
+              seen[key]=true;
+              var text=row.data[num];
+              if(text){
+                var clean=String(text).replace(/\s+/g,' ').trim();
+                found.push({law:name,num:num,href:row.href,anchor:'neni-'+String(num).replace('/','-'),text:clean});
+                nums[num.split('/')[0]]=true;
+                blocks.push('Neni '+num+' ('+name+'): «'+clean.slice(0,1200)+'»');
+              } else {
+                missing.push({law:name,num:num});
+              }
+            });
+          });
+          // cross-reference expansion: pull nene cited INSIDE the grounded texts (one hop, capped)
+          var dataByLaw={}; rows.forEach(function(r){ dataByLaw[String(r.law.name||'').trim()]={data:r.data,href:r.href}; });
+          var baseFound=found.slice(), extra=0, XCAP=6;
+          baseFound.forEach(function(f){
+            if(extra>=XCAP) return; var li=dataByLaw[f.law]; if(!li) return;
+            var rr=/nen(?:i|it|in|et|eve)?\s+(\d+(?:\/[\w]+)?)/gi, mm;
+            while(extra<XCAP && (mm=rr.exec(f.text))!==null){
+              var rn=artKey(mm[1]); if(!rn) continue;
+              var key=f.law+'|'+rn; if(seen[key]) continue;
+              var t=li.data[rn]; if(!t) continue;
+              seen[key]=true;
+              var clean=String(t).replace(/\s+/g,' ').trim();
+              found.push({law:f.law,num:rn,href:li.href,anchor:'neni-'+String(rn).replace('/','-'),text:clean,xref:true});
+              nums[rn.split('/')[0]]=true;
+              blocks.push('Neni '+rn+' ('+f.law+', referuar brenda tekstit): «'+clean.slice(0,900)+'»');
+              extra++;
+            }
+          });
+          var text=blocks.length
+            ?'TEKSTI ZYRTAR I NENEVE (mbështetu VETËM mbi këto; mos cito nene që nuk janë dhënë këtu):\n\n'+blocks.join('\n\n')
+            :'';
+          return {text:text,found:found,missing:missing,nums:nums};
+        });
+      }
+
+      // ── Property-protection concept: detection, primer, keyword grounding ──
+      var PROP_RE = /pron|rivendik|mohues|posedim|cenim|pengo|servitut|kufi|uzurp|tjet[ëe]rsim|mbajt[ëe]s/i;
+      function detectProperty(s){ return PROP_RE.test(String(s||'')); }
+      var PROPERTY_PRIMER = '\n\nUDHËZIM (mbrojtja e pronësisë): Kjo çështje lidhet me mbrojtjen e së drejtës reale. Merr parasysh paditë reale të së drejtës civile shqiptare: padia rivendikuese (pronari kërkon sendin nga poseduesi ose mbajtësi pa titull), padia mohuese (pronari kërkon pushimin e cenimeve ose shqetësimeve që NUK përbëjnë privim të posedimit) dhe padia pohuese e pronësisë. Identifiko dhe cito nenet përkatëse të Kodit Civil për mbrojtjen e pronësisë dhe të posedimit, sipas tekstit zyrtar të dhënë.';
+      var PROPERTY_KEYWORDS = [
+        {w:'mohues',s:3},{w:'rivendik',s:3},{w:'cenim',s:3},{w:'cenon',s:2},{w:'posedim',s:3},{w:'posedues',s:2},
+        {w:'pronar',s:2},{w:'pronës',s:2},{w:'mbajtës',s:2},
+        {w:'send',s:1},{w:'pengo',s:1},{w:'tjetërsim',s:1}
+      ];
+      var FAMILY_PRIMER = '\n\nUDHËZIM (e drejta familjare): Çështja lidhet me Kodin e Familjes. Merr parasysh: padinë për zgjidhjen e martesës (divorci) dhe shkaqet e saj, kujdestarinë dhe interesin më të lartë të fëmijës, pjesëtimin e pasurisë bashkëshortore dhe detyrimin ushqimor, si dhe atësinë ose birësimin sipas rastit. Identifiko dhe cito nenet përkatëse të Kodit të Familjes sipas tekstit zyrtar të dhënë.';
+      var FAMILY_KEYWORDS = [
+        {w:'divorc',s:3},{w:'kujdestar',s:3},{w:'birësim',s:3},{w:'detyrim ushqimor',s:3},
+        {w:'martes',s:2},{w:'fëmij',s:2},{w:'pasuri',s:2},{w:'atësi',s:2},{w:'ushqim',s:1}
+      ];
+      // Concept library: case types whose governing law IS in the corpus get proactive grounding.
+      var CONCEPTS = {
+        prone:     {primer:PROPERTY_PRIMER, href:'kodi-civil.html',    name:'Kodi Civil',      kw:PROPERTY_KEYWORDS, limit:6},
+        familjare: {primer:FAMILY_PRIMER,   href:'kodi-familjes.html', name:'Kodi i Familjes', kw:FAMILY_KEYWORDS,   limit:6}
+      };
+      // Scan a law's article JSON and return the top-scoring articles by keyword weight.
+      function keywordGround(href, lawName, kw, limit){
+        return fetchLawData(href).then(function(data){
+          if(!data) return {found:[]};
+          var scored=[];
+          Object.keys(data).forEach(function(num){
+            var t=String(data[num]||'').toLowerCase();
+            if(!t) return;
+            var score=0;
+            kw.forEach(function(o){ if(t.indexOf(o.w)!==-1) score+=o.s; });
+            if(score>=4) scored.push({num:num,score:score,text:String(data[num]).replace(/\s+/g,' ').trim()});
+          });
+          scored.sort(function(a,b){ return b.score-a.score; });
+          var found=scored.slice(0,limit).map(function(x){
+            return {law:lawName,num:x.num,href:href,anchor:'neni-'+String(x.num).replace('/','-'),text:x.text};
+          });
+          return {found:found};
+        }).catch(function(e){ if(e&&e.name==='AbortError') throw e; return {found:[]}; });
+      }
+      // Merge keyword-grounded articles into an existing grounding object (dedup by law|num).
+      function mergeGrounding(g, kg){
+        if(!g||!kg||!kg.found||!kg.found.length) return;
+        g.found=g.found||[]; g.nums=g.nums||{};
+        var seen={}; g.found.forEach(function(f){ seen[f.law+'|'+f.num]=true; });
+        var added=[];
+        kg.found.forEach(function(f){
+          var k=f.law+'|'+f.num; if(seen[k]) return; seen[k]=true;
+          g.found.push(f); g.nums[String(f.num).split('/')[0]]=true;
+          added.push('Neni '+f.num+' ('+f.law+'): «'+String(f.text).slice(0,1200)+'»');
+        });
+        if(!added.length) return;
+        var intro='TEKSTI ZYRTAR I NENEVE (mbështetu VETËM mbi këto; mos cito nene që nuk janë dhënë këtu):\n\n';
+        g.text=(g.text? g.text+'\n\n' : intro)+added.join('\n\n');
+      }
+
+      // ── Semantic citation re-ranking (Gemini embeddings; additive + graceful) ──
+      function _cosine(a,b){ var s=0,na=0,nb=0,n=Math.min(a.length,b.length); for(var i=0;i<n;i++){ s+=a[i]*b[i]; na+=a[i]*a[i]; nb+=b[i]*b[i]; } return (na&&nb)?s/(Math.sqrt(na)*Math.sqrt(nb)):0; }
+      var _STOP={}; 'dhe ose njё nje per nga me te ta se si ku kur qe ne eshte jane qene ka kane pas para mbi nen sipas cdo kjo ato kete keto'.split(' ').forEach(function(w){ _STOP[w]=1; });
+      function _factTerms(s){ var seen={},out=[]; String(s||'').toLowerCase().split(/[^a-zçë0-9]+/).forEach(function(w){ if(w.length>=4&&!_STOP[w]&&!seen[w]){ seen[w]=1; out.push(w); } }); return out; }
+      // Keyword-recall candidates from the identified laws -> one batch embedding -> cosine top-K.
+      function semanticGround(laws, factsText){
+        if(typeof aiEmbed!=='function') return Promise.resolve(null);
+        var terms=_factTerms(factsText); if(!terms.length) return Promise.resolve(null);
+        return Promise.all((laws||[]).map(function(l){
+          var href=lawHrefFor(String(l.name||'')); if(!href) return Promise.resolve(null);
+          return fetchLawData(href).then(function(data){ return {name:String(l.name||'').trim(),href:href,data:data||{}}; }).catch(function(){ return null; });
+        })).then(function(rows){
+          var cands=[];
+          rows.forEach(function(row){ if(!row) return;
+            Object.keys(row.data).forEach(function(num){
+              var t=String(row.data[num]||''); if(!t) return; var tl=t.toLowerCase(), sc=0;
+              terms.forEach(function(w){ if(tl.indexOf(w)!==-1) sc++; });
+              if(sc>0) cands.push({law:row.name,href:row.href,num:num,text:t.replace(/\s+/g,' ').trim(),kw:sc});
+            });
+          });
+          if(!cands.length) return null;
+          cands.sort(function(a,b){ return b.kw-a.kw; });
+          cands=cands.slice(0,40);
+          var inputs=[String(factsText).slice(0,1500)].concat(cands.map(function(c){ return c.text.slice(0,500); }));
+          return aiEmbed(inputs).then(function(vecs){
+            if(!vecs||vecs.length!==inputs.length) return null;
+            var q=vecs[0];
+            cands.forEach(function(c,i){ c.sim=_cosine(q,vecs[i+1]); });
+            cands.sort(function(a,b){ return b.sim-a.sim; });
+            return {found: cands.slice(0,6).map(function(c){ return {law:c.law,num:c.num,href:c.href,anchor:'neni-'+String(c.num).replace('/','-'),text:c.text}; })};
+          });
+        }).catch(function(){ return null; });
+      }
+
+      function doctrineSpec(type){
+        if(type==='penale'){
+          return {
+            sys:'Jeni profesor i së drejtës penale shqiptare. Analizoni përbërjen e veprës penale sipas teorisë klasike me katër elementë (objekti, ana objektive, subjekti, ana subjektive). Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna; mos shpikni numra nenesh apo emra veprash penale.',
+            tmpl:'{"framework":"penale","vepra":"emri i mundshëm i veprës penale","kuadri":[{"id":"objekti","titull":"Objekti i veprës penale","permbajtja":[{"etikete":"I përgjithshëm","vlera":"..."},{"etikete":"Specifik / i drejtpërdrejtë","vlera":"..."},{"etikete":"Objekti material / subjekti pasiv","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"çfarë e provon ose çfarë mungon"},{"id":"ana_objektive","titull":"Ana objektive","permbajtja":[{"etikete":"Veprimi / mosveprimi","vlera":"..."},{"etikete":"Pasoja","vlera":"..."},{"etikete":"Lidhja shkakësore","vlera":"..."},{"etikete":"Rrethanat (kohë/vend/mjet)","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"subjekti","titull":"Subjekti i veprës penale","permbajtja":[{"etikete":"Lloji i subjektit","vlera":"..."},{"etikete":"Përgjegjshmëria","vlera":"..."},{"etikete":"Mosha","vlera":"..."},{"etikete":"Cilësi të veçanta","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"ana_subjektive","titull":"Ana subjektive","permbajtja":[{"etikete":"Forma e fajit","vlera":"dashje e drejtpërdrejtë/e tërthortë ose pakujdesi (me vetëbesim/nga shkujdesja)"},{"etikete":"Motivi","vlera":"..."},{"etikete":"Qëllimi","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"neni":"neni/paragrafi i mundshëm","forma":"bazë / e kualifikuar / e privilegjuar","stadi":"përgatitje / tentativë / e konsumuar","bashkepunimi":"nëse ka: organizator/ekzekutor/shtytës/ndihmës"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga vepra penale të ngjashme","perfundim":"a përmbushet përbërja e veprës penale dhe ku qëndron pika kyçe"}'
+          };
+        }
+        if(type==='prone'){
+          return {
+            sys:'Jeni profesor i së drejtës civile shqiptare, i specializuar në të drejtat reale dhe mbrojtjen e pronësisë. Analizoni çështjen sipas padive reale (padia rivendikuese, padia mohuese, padia pohuese e pronësisë), jo sipas përgjegjësisë për dëmin. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna; mos shpikni numra nenesh.',
+            tmpl:'{"framework":"prone","vepra":"lloji i padisë reale dhe e drejta që mbrohet","kuadri":[{"id":"titulli","titull":"E drejta reale e paditësit (titulli)","permbajtja":[{"etikete":"Lloji i së drejtës","vlera":"pronësi / posedim / e drejtë tjetër reale"},{"etikete":"Prova e titullit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"çfarë e provon ose çfarë mungon"},{"id":"cenimi","titull":"Cenimi ose privimi","permbajtja":[{"etikete":"Natyra","vlera":"privim posedimi (→ rivendikuese) ose shqetësim pa privim (→ mohuese)"},{"etikete":"Vazhdimësia / rreziku","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"paligjshmeria","titull":"Paligjshmëria e veprimit të të paditurit","permbajtja":[{"etikete":"Mungesa e titullit/të drejtës së tij","vlera":"..."},{"etikete":"Mbrojtje të mundshme të të paditurit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"mbrojtja","titull":"Kërkimi / mbrojtja juridike","permbajtja":[{"etikete":"Çfarë kërkohet","vlera":"kthim sendi / pushim cenimi / njohje pronësie"},{"etikete":"Baza ligjore","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji_padise":"rivendikuese / mohuese / pohuese","parashkrimi":"padia rivendikuese si rregull nuk parashkruhet; për të tjerat sipas rastit"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi mes padisë rivendikuese, mohuese dhe asaj të posedimit","perfundim":"a përmbushen elementet, lloji i padisë së përshtatshme dhe pika kyçe"}'
+          };
+        }
+        if(type==='familjare'){
+          return {
+            sys:'Jeni profesor i së drejtës familjare shqiptare. Analizoni çështjen sipas Kodit të Familjes (zgjidhja e martesës, kujdestaria dhe interesi më i lartë i fëmijës, pjesëtimi i pasurisë bashkëshortore, detyrimi ushqimor, atësia/birësimi). Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna; mos shpikni numra.',
+            tmpl:'{"framework":"familjare","vepra":"natyra e çështjes familjare","kuadri":[{"id":"marredhenia","titull":"Marrëdhënia familjare & legjitimimi","permbajtja":[{"etikete":"Lidhja (martesë/farefisni)","vlera":"..."},{"etikete":"Palët & legjitimimi","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"çfarë e provon ose çfarë mungon"},{"id":"baza","titull":"Baza ligjore e kërkesës","permbajtja":[{"etikete":"Shkaqet/kushtet","vlera":"shkaqet e divorcit ose kushtet e kujdestarisë/ushqimores"}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"femija","titull":"Interesi më i lartë i fëmijës","permbajtja":[{"etikete":"Kujdestaria/takimet","vlera":"..."},{"etikete":"Faktorët e vlerësimit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"nëse nuk ka fëmijë, shëno se nuk zbatohet"},{"id":"pasoja","titull":"Pasojat pasurore & detyrimi ushqimor","permbajtja":[{"etikete":"Pjesëtimi i pasurisë","vlera":"..."},{"etikete":"Detyrimi ushqimor","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji_ceshtjes":"divorc / kujdestari / ushqimore / birësim / atësi","afatet":"afate të mundshme"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga procedura të ngjashme familjare","perfundim":"a përmbushen kushtet dhe pika kyçe për interesin e fëmijës dhe palëve"}'
+          };
+        }
+        if(type==='pune'){
+          return {
+            sys:'Jeni profesor i së drejtës së punës shqiptare. Analizoni vlefshmërinë e masës ndaj punëmarrësit (zgjidhja e kontratës, pushimi, diskriminimi). SHËNIM: Kodi i Punës mund të mos jetë në bazën e dhënë; mos shpikni numra nenesh dhe mbështetuni te teksti zyrtar kur jepet. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas.',
+            tmpl:'{"framework":"pune","vepra":"natyra e mosmarrëveshjes së punës","kuadri":[{"id":"marredhenia","titull":"Marrëdhënia e punës","permbajtja":[{"etikete":"Ekzistenca & lloji i kontratës","vlera":"..."},{"etikete":"Kohëzgjatja","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"shkaku","titull":"Shkaku i masës/zgjidhjes","permbajtja":[{"etikete":"Arsyeja","vlera":"..."},{"etikete":"A është i justifikuar","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"procedura","titull":"Procedura & afatet","permbajtja":[{"etikete":"Njoftimi/dëgjimi","vlera":"..."},{"etikete":"Forma & afati","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"pasoja","titull":"Pasojat & mbrojtja","permbajtja":[{"etikete":"Dëmshpërblim/rikthim","vlera":"..."},{"etikete":"Të drejta të papaguara","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji":"zgjidhje kontrate / pushim / diskriminim / pagesa","parashkrimi":"afati i mundshëm i padisë"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga institute të ngjashme të punës","perfundim":"a është e vlefshme masa dhe pika kyçe"}'
+          };
+        }
+        if(type==='administrative'){
+          return {
+            sys:'Jeni profesor i së drejtës administrative shqiptare. Analizoni ligjshmërinë e aktit administrativ sipas shkaqeve klasike të pavlefshmërisë (kompetenca, procedura/forma, ligjshmëria materiale dhe qëllimi, cenimi i të drejtave). Mos shpikni numra nenesh; mbështetuni te teksti zyrtar kur jepet. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas.',
+            tmpl:'{"framework":"administrative","vepra":"akti administrativ i kundërshtuar","kuadri":[{"id":"kompetenca","titull":"Kompetenca e organit","permbajtja":[{"etikete":"A ishte organ kompetent","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"procedura","titull":"Procedura & forma","permbajtja":[{"etikete":"Respektimi i procedurës","vlera":"..."},{"etikete":"Arsyetimi & forma","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"ligjshmeria","titull":"Ligjshmëria materiale & qëllimi","permbajtja":[{"etikete":"Baza ligjore","vlera":"..."},{"etikete":"Keqpërdorim i pushtetit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"e_drejta","titull":"Cenimi i të drejtës & afati","permbajtja":[{"etikete":"Interesi i cenuar","vlera":"..."},{"etikete":"Afati i ankimit","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji_aktit":"individual / nënligjor","afati_ankimit":"afati i mundshëm"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga ankimi në rrugë administrative kundrejt asaj gjyqësore","perfundim":"a është i ligjshëm akti dhe baza më e fortë e kundërshtimit"}'
+          };
+        }
+        if(type==='konsumator'){
+          return {
+            sys:'Jeni jurist shqiptar i specializuar në mbrojtjen e konsumatorit. Analizoni çështjen sipas të drejtave të konsumatorit (mospërputhja/defekti, garancia, detyrimet e tregtarit, mjetet juridike). Mos shpikni numra nenesh; mbështetuni te teksti zyrtar kur jepet. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas.',
+            tmpl:'{"framework":"konsumator","vepra":"natyra e ankesës konsumatore","kuadri":[{"id":"subjektet","titull":"Cilësia e konsumatorit & tregtarit","permbajtja":[{"etikete":"Konsumator","vlera":"..."},{"etikete":"Tregtar/ofrues","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"mosperputhja","titull":"Mospërputhja ose defekti","permbajtja":[{"etikete":"Defekti/mungesa e konformitetit","vlera":"..."},{"etikete":"Koha e shfaqjes","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"detyrimet","titull":"Detyrimet e tregtarit & garancia","permbajtja":[{"etikete":"Garancia ligjore/tregtare","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"mjetet","titull":"Mjetet juridike","permbajtja":[{"etikete":"Riparim/zëvendësim","vlera":"..."},{"etikete":"Ulje çmimi/zgjidhje/dëm","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"baza":"Kodi Civil / legjislacioni i mbrojtjes së konsumatorit","afatet":"afati i ankesës ose i garancisë"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga përgjegjësia e përgjithshme civile","perfundim":"a përmbushen kushtet dhe mjeti më i përshtatshëm"}'
+          };
+        }
+        if(type==='civile'||type==='tregtare'){
+          return {
+            sys:'Jeni profesor i së drejtës private shqiptare. Analizoni elementet e përgjegjësisë juridike (veprimi i paligjshëm, dëmi, lidhja shkakësore, faji ose përgjegjësia objektive). Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna.',
+            tmpl:'{"framework":"'+type+'","vepra":"natyra e mosmarrëveshjes","kuadri":[{"id":"veprimi","titull":"Veprimi / mosveprimi i paligjshëm","permbajtja":[{"etikete":"Sjellja","vlera":"..."},{"etikete":"Kundërligjshmëria","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"demi","titull":"Dëmi","permbajtja":[{"etikete":"Dëmi i dalshëm","vlera":"..."},{"etikete":"Fitimi i munguar","vlera":"..."},{"etikete":"Dëmi jopasuror","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"lidhja","titull":"Lidhja shkakësore","permbajtja":[{"etikete":"Shkak → pasojë","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"faji","titull":"Faji / përgjegjësia","permbajtja":[{"etikete":"Forma e fajit","vlera":"..."},{"etikete":"Përgjegjësi objektive (pa faj)?","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"lloji_pergjegjesise":"kontraktore / jashtëkontraktore","parashkrimi":"afati i mundshëm"},"rrethanat":{"lehtesuese":["..."],"renduese":["..."]},"dallimi":"dallimi nga institute të ngjashme","perfundim":"a përmbushen elementet dhe ku qëndron pika kyçe"}'
+          };
+        }
+        return {
+          sys:'Jeni jurist i specializuar shqiptar. Dekompononi çështjen në elementet juridike përbërëse. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas. Mbështetuni te teksti zyrtar i neneve të dhëna.',
+          tmpl:'{"framework":"'+(type||'juridik')+'","vepra":"natyra juridike e çështjes","kuadri":[{"id":"subjektet","titull":"Subjektet e marrëdhënies","permbajtja":[{"etikete":"Palët / legjitimimi","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"objekti","titull":"Objekti i marrëdhënies","permbajtja":[{"etikete":"E drejta / detyrimi","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"faktet","titull":"Faktet juridike","permbajtja":[{"etikete":"Veprimi / ngjarja","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."},{"id":"pasojat","titull":"Pasojat juridike","permbajtja":[{"etikete":"Efektet","vlera":"..."}],"vleresim":"plotesuar|pjeserisht|munget","shenim":"..."}],"kualifikimi":{"baza":"baza ligjore","afatet":"afatet e zbatueshme"},"rrethanat":{"lehtesuese":[],"renduese":[]},"dallimi":"","perfundim":"..."}'
+        };
+      }
+      function doctrineSummaryText(d){
+        if(!d||!d.kuadri||!d.kuadri.length) return '';
+        var lines=d.kuadri.map(function(e){ return '- '+(e.titull||e.id)+': '+(e.vleresim||'')+(e.shenim?(' — '+e.shenim):''); });
+        var q='';
+        if(d.kualifikimi){ q=Object.keys(d.kualifikimi).map(function(k){ return d.kualifikimi[k]?(k.replace(/_/g,' ')+': '+d.kualifikimi[k]):''; }).filter(Boolean).join('; '); }
+        return '\n\nDEKOMPOZIMI DOKTRINOR (përfshije në seksionin ANALIZË LIGJORE):\n'+lines.join('\n')+(q?('\nKualifikimi: '+q):'')+(d.perfundim?('\nPërfundim: '+d.perfundim):'');
+      }
+
+      var FORMAL_HEADS = /^(FAKTE|BAZ[ËE] LIGJORE|BAZE LIGJORE|ANALIZ[ËE] LIGJORE|ANALIZE LIGJORE|KUND[ËE]RP[ËE]RGJIGJE|KUNDERPERGJIGJE|KONKLUZIONE|REKOMANDIME)\s*:?\s*$/;
+      function inlineMd(t){ return t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/__([^_]+)__/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>'); }
+      function mdToHtml(raw){
+        var lines = esc(raw).split('\n'), out = '', listType = null, olIdx = 0;
+        function closeList(){ if(listType){ out += '</'+listType+'>'; listType = null; } }
+        for(var i=0;i<lines.length;i++){
+          var line=lines[i].trim();
+          if(!line){ closeList(); continue; }
+          var h=line.match(/^#{1,4}\s+(.*)$/);
+          if(h){ closeList(); olIdx=0; out+='<h3 class="opinion-section-head">'+inlineMd(h[1])+'</h3>'; continue; }
+          if(FORMAL_HEADS.test(line)){ closeList(); olIdx=0; out+='<h3 class="opinion-section-head">'+line.replace(/:$/,'')+'</h3>'; continue; }
+          var ul=line.match(/^[-•*]\s+(.*)$/);
+          if(ul){ if(listType!=='ul'){ closeList(); olIdx=0; out+='<ul class="opinion-md-list">'; listType='ul'; } out+='<li>'+inlineMd(ul[1])+'</li>'; continue; }
+          var ol=line.match(/^\d+[.)]\s+(.*)$/);
+          if(ol){ if(listType!=='ol'){ closeList(); out+='<ol class="opinion-md-list">'; listType='ol'; } out+='<li value="'+(++olIdx)+'">'+inlineMd(ol[1])+'</li>'; continue; }
+          closeList(); olIdx=0; out+='<p>'+inlineMd(line)+'</p>';
+        }
+        closeList(); return linkifyHtml(out);
+      }
+
+      var steps = [1,2,3,4,5,6,7,8,9].map(function(i){ return $('op-step-'+i); });
+      function rowActive(i){ steps[i].classList.add('active'); steps[i].classList.remove('done','failed'); }
+      function rowDone(i){ steps[i].classList.remove('active','failed'); steps[i].classList.add('done'); }
+      function rowFail(i){ steps[i].classList.remove('active','done'); steps[i].classList.add('failed'); }
+      function resetRows(){ steps.forEach(function(s){ s.classList.remove('active','done','failed'); }); }
+
+      var abortCtrl = null;
+
+      function callGroq(sys, usr, maxTok, temp, strong){
+        var payload = { max_tokens:maxTok, temperature:(typeof temp==='number')?temp:0.4, messages:[{role:'system',content:sys},{role:'user',content:usr}] };
+        var chain = (typeof aiChain==='function') ? aiChain(strong) : (typeof AI_PROVIDERS!=='undefined'?AI_PROVIDERS:null);
+        var providers = (chain && chain.length) ? chain : [{url:GROQ_URL, key:getKey(), model:MODEL}];
+        function tryProvider(pi){
+          var p = providers[pi];
+          var body = JSON.stringify(Object.assign({model:p.model}, payload));
+          function attempt(n){
+            return fetch(p.url, { method:'POST', signal:abortCtrl?abortCtrl.signal:undefined, headers:{'Authorization':'Bearer '+p.key,'Content-Type':'application/json'}, body:body })
+            .then(function(res){
+              if((res.status===429||res.status>=500)&&n<MAX_RETRIES) return delay(backoff(n)).then(function(){ return attempt(n+1); });
+              return res.json().catch(function(){ return {}; }).then(function(data){
+                if(!res.ok){ var msg=(data&&data.error&&data.error.message)||('HTTP '+res.status); var e=new Error(msg); e.status=res.status; throw e; }
+                var content=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
+                if(!content) throw new Error('Përgjigje boshe nga modeli');
+                return content;
+              });
+            }).catch(function(err){
+              if(err&&err.name==='AbortError') throw err;
+              var st=err&&err.status;
+              if(st&&st>=400&&st<500&&st!==429) throw err;   // bad key/model -> don't retry, fall to next provider
+              if(n<MAX_RETRIES) return delay(backoff(n)).then(function(){ return attempt(n+1); });
+              throw err;
+            });
+          }
+          // per-provider retries exhausted -> fall back to the next configured provider
+          return attempt(0).catch(function(err){
+            if(err&&err.name==='AbortError') throw err;
+            if(pi+1 < providers.length) return tryProvider(pi+1);
+            throw err;
+          });
+        }
+        return tryProvider(0);
+      }
+
+      function runCall(id, sys, usr, maxTok, temp, strong){ return callGroq(sys, usr, maxTok, temp, strong); }
+
+      function runLimited(tasks, limit){
+        var results=new Array(tasks.length), idx=0;
+        function worker(){ if(idx>=tasks.length) return Promise.resolve(); var cur=idx++; return Promise.resolve().then(function(){ return tasks[cur](); }).then(function(v){ results[cur]=v; return worker(); }); }
+        var n=Math.min(limit,tasks.length), workers=[];
+        for(var i=0;i<n;i++) workers.push(worker());
+        return Promise.all(workers).then(function(){ return results; });
+      }
+
+      var TYPE_LABELS = { civile:'Çështje Civile',penale:'Çështje Penale',tregtare:'Çështje Tregtare',administrative:'Çështje Administrative',familjare:'E Drejtë Familjare',pune:'E Drejtë Pune',prone:'E Drejtë Prone',konsumator:'Mbrojtja e Konsumatorit' };
+      var DEGRADED = '<p class="op-degraded">Kjo pjesë nuk u gjenerua. Mund të rishtypni analizën ose të vazhdoni me seksionet e tjera.</p>';
+      var ANTI_HALLUC = ' Cito vetëm ligje dhe nene për të cilat je i sigurt; nëse nuk je i sigurt për numrin e saktë të nenit, përshkruaje ligjin pa shpikur numra. Mos shpik emra ose numra çështjesh gjyqësore.';
+
+      function pad2(n){ return String(n).padStart(2,'0'); }
+
+      function renderMeta(type){ var d=new Date(); $('opinion-doc-meta').textContent=pad2(d.getDate())+'.'+pad2(d.getMonth()+1)+'.'+d.getFullYear()+' · '+(TYPE_LABELS[type]||''); }
+
+      function renderStrength(s){
+        var score=parseFloat(s.score); if(!isFinite(score)) score=5;
+        var pct=Math.max(0,Math.min(10,score)), col=pct>=7?'#3d706a':pct>=4?'#b8923a':'#b15c44';
+        var bar=$('op-strength-bar');
+        requestAnimationFrame(function(){ bar.style.width=(pct*10)+'%'; bar.style.background=col; });
+        var el=$('op-strength-score'); el.textContent=pct.toFixed(1)+' / 10'+(s.label?' - '+s.label:'')+(s._capped?' · i kufizuar: '+s._capped:''); el.style.color=col;
+      }
+
+      function renderAnalysis(laws, s){
+        var html='';
+        if(laws.length){ html+='<ul class="opinion-list">'; laws.forEach(function(l){ html+='<li><strong>'+esc(l.name)+'</strong>'; if(l.articles&&l.articles.length) html+=' <span class="op-articles">'+esc(l.articles.join(', '))+'</span>'; if(l.relevance) html+='<br><span class="op-relevance">'+esc(l.relevance)+'</span>'; html+='</li>'; }); html+='</ul>'; }
+        function bullets(title,cls,arr){ if(!arr||!arr.length) return ''; var h='<p class="op-subhead '+cls+'">'+title+'</p><ul class="opinion-list">'; arr.forEach(function(x){ h+='<li>'+esc(x)+'</li>'; }); return h+'</ul>'; }
+        html+=bullets('Forcat e pozicionit','op-green',s.strengths);
+        html+=bullets('Dobësi dhe rreziqe','op-amber',s.weaknesses);
+        html+=bullets('Prova që mungojnë','op-red',s.missing_evidence);
+        $('op-out-analysis').innerHTML=html;
+      }
+
+      // ── Compensation/forecast: deterministic computation (replaces LLM number guesses) ──
+      function parseAmount(s){
+        if(s==null) return null;
+        var str=String(s).toLowerCase().replace(/\s/g,'');
+        var mult=1;
+        if(/milion|mln/.test(str)) mult=1000000; else if(/mij[ëe]|mije/.test(str)) mult=1000;
+        var m=str.match(/(\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,](\d{1,2}))?/);
+        if(!m) return null;
+        var num=parseFloat(m[1].replace(/[.,]/g,'')+(m[2]?('.'+m[2]):''));
+        if(!isFinite(num)||num<=0) return null;
+        return Math.round(num*mult);
+      }
+      function extractClaimFromFacts(facts){
+        var best=null, re=/(\d{1,3}(?:[.\s,]\d{3})+|\d{3,})\s*(lek[ëe]?|leke|€|eur|euro|usd|\$|mij[ëe]|milion|mln)?/gi, m;
+        while((m=re.exec(String(facts||'')))!==null){ var v=parseAmount(m[0]); if(v&&(best==null||v>best)) best=v; }
+        return best;
+      }
+      var DURATION={ civile:[8,18], tregtare:[8,18], prone:[8,20], konsumator:[6,14], pune:[4,12], familjare:[3,10], penale:[6,18], administrative:[4,12] };
+      var PARASHKRIM={
+        civile:'~10 vjet për detyrime kontraktore (Kodi Civil); ~3 vjet për dëmin jashtëkontraktor',
+        tregtare:'~10 vjet përgjithësisht; disa kërkesa tregtare kanë afate më të shkurtra',
+        prone:'Padia rivendikuese si rregull NUK parashkruhet; kërkesat e tjera sipas rastit',
+        konsumator:'Garancia ligjore ~2 vjet; ankesa brenda afatit të garancisë',
+        pune:'Afate të shkurtra (shpesh brenda 180 ditësh deri 3 vjet, sipas kërkesës)',
+        familjare:'Shumica e padive familjare pa parashkrim klasik; kërkesat pasurore sipas rastit',
+        penale:'Parashkrimi i ndjekjes penale varion sipas peshës së veprës (Kodi Penal)',
+        administrative:'Afati i ankimit ndaj aktit administrativ është i shkurtër (sipas KPA)'
+      };
+      function scoreWinLose(score){
+        var sc=parseFloat(score); if(!isFinite(sc)) sc=5; sc=Math.max(0,Math.min(10,sc));
+        var win=Math.round(Math.max(5,Math.min(88, sc*8.5)));
+        var lose=Math.round(Math.max(5,Math.min(80, (10-sc)*5.5)));
+        return {win:win, settle:Math.max(5,100-win-lose), lose:lose};
+      }
+      function computeForecast(claim, score, type){
+        var wl=scoreWinLose(score), d=DURATION[type]||[6,16];
+        var f={win:wl.win, settle:wl.settle, lose:wl.lose, currency:'L', months_min:d[0], months_max:d[1], basis:[]};
+        f.basis.push('Gjasat rrjedhin nga pozicioni ('+((parseFloat(score)||5)).toFixed(1)+'/10), pra përputhen me vlerësimin.');
+        f.basis.push('Kohëzgjatja: vlerësim orientues për shkallën e parë sipas llojit të çështjes.');
+        if(claim&&claim>0){
+          var tax=Math.round(claim*0.01), lawMin=Math.max(15000,Math.round(claim*0.04)), lawMax=Math.max(40000,Math.round(claim*0.10));
+          f.cost_min=tax+lawMin; f.cost_max=tax+lawMax;
+          var ev=claim*(wl.win/100); f.settle_min=Math.round(ev*0.6); f.settle_max=Math.round(ev*0.9); f.claim=claim;
+          f.basis.push('Kosto = taksa gjyqësore ~1% ('+fmtNum(tax)+' L) + tarifa avokati/ekspertize (vlerësim).');
+          f.basis.push('Marrëveshja ≈ vlera e kontestit ('+fmtNum(claim)+' L) × gjasat e fitimit, me zbritje për kohë/risk.');
+        }
+        return f;
+      }
+
+      // ── deterministic limitation (parashkrim) check ──
+      var PARASHKRIM_YEARS={ civile:10, tregtare:10, prone:0, konsumator:2, pune:3, familjare:0, penale:10, administrative:0.12 };
+      function checkLimitation(type, dateStr){
+        if(!dateStr) return {status:'na'};
+        var d=new Date(dateStr); if(isNaN(d.getTime())) return {status:'na'};
+        var ms=Date.now()-d.getTime(); if(ms<0) return {status:'na'};
+        var elapsed=ms/(365.25*24*3600*1000), yrs=PARASHKRIM_YEARS[type]; if(yrs==null) yrs=10;
+        var out={ elapsedYears:elapsed, typicalYears:yrs, status:'within', note:'' };
+        if(yrs===0){ out.note='Për këtë lloj çështjeje shumë kërkesa nuk parashkruhen (p.sh. padia rivendikuese); afati varet nga kërkesa konkrete. Kanë kaluar ~'+elapsed.toFixed(1)+' vjet.'; return out; }
+        if(elapsed>yrs){ out.status='likely-barred'; out.note='Kanë kaluar ~'+elapsed.toFixed(1)+' vjet, mbi afatin tipik ~'+yrs+' vjet — kërkesa MUND të jetë parashkruar. Verifikoni afatin e saktë dhe shkaqet e ndërprerjes/pezullimit.'; }
+        else if(elapsed>yrs*0.8){ out.status='near'; out.note='Kanë kaluar ~'+elapsed.toFixed(1)+' nga ~'+yrs+' vjet — afati po afrohet; veproni shpejt.'; }
+        else { out.note='Brenda afatit tipik (~'+elapsed.toFixed(1)+' nga ~'+yrs+' vjet).'; }
+        return out;
+      }
+
+      // ── strength score: AI rates sub-factors, app COMPUTES the 0–10 score ──
+      function SCORE_LABEL(sc){ return sc>=7.5?'Pozicion i fortë':sc>=5?'Pozicion mesatar':sc>=3.5?'Pozicion i dobët':'Pozicion shumë i dobët'; }
+      function computeStrengthScore(strength, doctrine, grounding, limitation){
+        function clamp2(x){ x=parseFloat(x); return isFinite(x)?Math.max(0,Math.min(2,x)):1; }
+        function fval(x){ return clamp2(x&&typeof x==='object'&&x.score!=null ? x.score : x); }
+        function fwhy(x){ return (x&&typeof x==='object'&&x.why)?String(x.why):''; }
+        var br=[], adj=[], f=(strength&&strength.factors)||null, base;
+        if(f && (f.baza!=null||f.prova!=null||f.faktet!=null||f.kundershtimi!=null)){
+          var baza=fval(f.baza), prova=fval(f.prova), kund=fval(f.kundershtimi), fakt=fval(f.faktet);
+          base=(baza*0.30 + prova*0.25 + (2-kund)*0.25 + fakt*0.20)*5;
+          br.push({k:'Baza ligjore', v:baza, max:2, why:fwhy(f.baza)});
+          br.push({k:'Forca e provave', v:prova, max:2, why:fwhy(f.prova)});
+          br.push({k:'Pozicioni ndaj kundërshtimit', v:Math.round((2-kund)*10)/10, max:2, why:fwhy(f.kundershtimi)});
+          br.push({k:'Qartësia e fakteve', v:fakt, max:2, why:fwhy(f.faktet)});
+        } else {
+          base=parseFloat(strength&&strength.score); if(!isFinite(base)) base=5;
+          br.push({k:'Vlerësim bazë', v:base, max:10});
+        }
+        var score=base;
+        var gf=(grounding&&grounding.found&&grounding.found.length)||0;
+        if(gf===0){ score-=1.5; adj.push('Asnjë nen i konfirmuar në bazën ligjore: −1.5'); }
+        else if(gf>=3){ score+=0.3; adj.push(gf+' nene të konfirmuara: +0.3'); }
+        var miss=((strength&&strength.missing_evidence)||[]).length;
+        if(miss>0){ var mp=Math.min(1.5,miss*0.3); score-=mp; adj.push(miss+' prova që mungojnë: −'+mp.toFixed(1)); }
+        var capNote='';
+        if(doctrine&&doctrine.kuadri&&doctrine.kuadri.length){
+          var hasMissing=false,hasPartial=false,tot=0,ful=0;
+          doctrine.kuadri.forEach(function(e){ var v=String(e&&e.vleresim||'').toLowerCase(); tot++; if(v.indexOf('mung')===0) hasMissing=true; else if(v.indexOf('plot')===0) ful+=1; else { hasPartial=true; ful+=0.5; } });
+          if(tot>0){ var fr=ful/tot; score+=(fr-0.75)*0.8; adj.push('Përmbushja doktrinore '+Math.round(fr*100)+'%'); }
+          if(hasMissing){ score=Math.min(score,4); capNote='një element thelbësor mungon'; }
+          else if(hasPartial){ score=Math.min(score,6.5); capNote='një element pjesërisht i plotësuar'; }
+        }
+        if(limitation){
+          if(limitation.status==='likely-barred'){ score=Math.min(score,3); adj.push('Mundësisht i parashkruar → kufizim te 3.0'); if(!capNote) capNote='mundësisht i parashkruar'; }
+          else if(limitation.status==='near'){ score-=1; adj.push('Afati po skadon: −1.0'); }
+        }
+        score=Math.max(0,Math.min(10,score));
+        return { score:score, label:SCORE_LABEL(score), factors:br, adjustments:adj, capNote:capNote };
+      }
+
+      function renderScoreBreakdown(store){
+        var el=$('op-out-breakdown'); if(!el) return; var sc=store.strengthCalc; if(!sc){ el.innerHTML=''; return; }
+        var html='<details class="op-breakdown"><summary>Pse ky vlerësim? (logjika e pikëve)</summary><div class="op-bd-body">';
+        sc.factors.forEach(function(fa){ var pct=Math.round((fa.v/fa.max)*100); html+='<div class="op-bd-row"><span class="op-bd-k">'+esc(fa.k)+'</span><span class="op-bd-track"><span class="op-bd-fill" style="width:'+pct+'%"></span></span><span class="op-bd-v">'+(Math.round(fa.v*10)/10)+'/'+fa.max+'</span></div>'+(fa.why?'<div class="op-bd-why">'+esc(fa.why)+'</div>':''); });
+        if(sc.adjustments&&sc.adjustments.length){ html+='<p class="op-subhead" style="margin:12px 0 4px;">Rregullime logjike (deterministe)</p><ul class="op-checklist">'+sc.adjustments.map(function(a){ return '<li>'+esc(a)+'</li>'; }).join('')+'</ul>'; }
+        var L=store.limitation;
+        if(L&&L.status&&L.status!=='na'){ var cls=L.status==='likely-barred'?'op-red':(L.status==='near'?'op-amber':'op-green'); html+='<p class="op-subhead '+cls+'" style="margin:12px 0 4px;">Afati &amp; Parashkrimi</p><div class="op-deadline-note"><div>'+esc(L.note||'')+'</div></div>'; }
+        html+='<p class="op-bd-final">Rezultati i llogaritur: <strong>'+sc.score.toFixed(1)+'/10</strong>'+(sc.capNote?(' · i kufizuar: '+esc(sc.capNote)):'')+'</p>';
+        el.innerHTML=html+'</div></details>';
+      }
+
+      // ── F3 damages, F4 consistency/confidence, F1 verifier ──
+      function buildDamages(raw, claim, type){
+        var OK={civile:1,tregtare:1,pune:1,konsumator:1,prone:1};
+        if(!OK[type] || !(claim>0) || !raw || !raw.length) return null;
+        var items=raw.filter(function(d){ return d&&d.head; }).map(function(d){ return {head:String(d.head), basis:String(d.basis||''), share:Math.max(0,parseFloat(d.share)||0)}; });
+        if(!items.length) return null;
+        var tot=items.reduce(function(s,d){ return s+d.share; },0); if(tot<=0){ items.forEach(function(d){ d.share=100/items.length; }); tot=100; }
+        items.forEach(function(d){ d.pct=d.share/tot*100; d.amount=Math.round(d.pct/100*claim); });
+        return items;
+      }
+      function stripFakeCitations(t){ if(!t) return t; return String(t).replace(/\bVendim(?:i|in|it|et|eve)?\s*nr\.?\s*[\d\/.\-]+(?:\s*,?\s*dat[ëe][^,.;\n]*)?/gi,'praktikë gjyqësore përkatëse'); }
+      function enforceConsistency(text, f, score){
+        if(!text||!f) return text;
+        var ok=[Math.round(f.win||0),Math.round(f.settle||0),Math.round(f.lose||0)]; var sc=parseFloat(score); if(isFinite(sc)) ok.push(Math.round(sc*10));
+        var ODDS=/fitim|humbj|gjas|sukses|marr[ëe]veshj|probabilitet|shanse/i;
+        var bad=false, m, re=/(\d{1,3})\s*%/g;
+        while((m=re.exec(text))!==null){ var p=parseInt(m[1],10); if(p<15||p>95) continue;
+          var ctx=text.slice(Math.max(0,m.index-40), m.index+m[0].length+8); // only odds-context %
+          if(ODDS.test(ctx) && !ok.some(function(x){ return Math.abs(x-p)<=12; })){ bad=true; }
+        }
+        if(!bad) return text;
+        return text+'\n\n— Shënim: gjasat zyrtare të kësaj analize janë fitim '+ok[0]+'%, marrëveshje '+ok[1]+'%, humbje '+ok[2]+'%; çdo përqindje tjetër në tekst është ilustruese.';
+      }
+      // ── D: deterministic logical-consistency check (narrative vs computed) ──
+      function enforceLogic(text, score, forecast){
+        if(!text) return null;
+        var sc=parseFloat(score), win=forecast?Math.round(forecast.win||0):null, lower=String(text).toLowerCase();
+        var strong=/pozicion (shum[ëe] )?i fort[ëe]|gjasa? (shum[ëe] )?t[ëe] larta|shum[ëe] i favorsh[ëe]m|fitim i sigurt|mjaft i fort[ëe]/;
+        var weak=/pozicion i dob[ëe]t|gjasa? t[ëe] ul[ëe]ta|i pafavorsh[ëe]m|v[ëe]shtir[ëe] p[ëe]r t[ëe] fituar/;
+        if(strong.test(lower) && ((isFinite(sc)&&sc<4.5) || (win!=null&&win<40)))
+          return { dir:'over', msg:'Konkluzioni përshkruan pozicion të fortë, por vlerësimi i llogaritur ('+(isFinite(sc)?sc.toFixed(1):'?')+'/10) dhe gjasat e fitimit (~'+(win!=null?win:'?')+'%) nuk e mbështesin plotësisht — vlejnë shifrat e llogaritura.' };
+        if(weak.test(lower) && isFinite(sc) && sc>7)
+          return { dir:'under', msg:'Konkluzioni përshkruan pozicion të dobët, por vlerësimi i llogaritur ('+sc.toFixed(1)+'/10) është i lartë.' };
+        return null;
+      }
+      // ── B: self-correction — rewrite the opinion to fix auditor-flagged problems ──
+      function runCorrection(store, problems){
+        if(!problems.length || !store.opinion) return Promise.resolve(null);
+        var sc=parseFloat(store.strength&&store.strength.score); sc=isFinite(sc)?sc.toFixed(1):'?';
+        var f=store.forecast||{};
+        var usr='MENDIMI EKZISTUES:\n'+String(store.opinion).slice(0,5200)
+          +'\n\nPROBLEME TË GJETURA NGA AUDITUESI (rregulloji të gjitha):\n- '+problems.join('\n- ')
+          +(store.groundingText||'')
+          +'\n\nSHIFRAT AUTORITATIVE: vlerësim '+sc+'/10; fitim '+Math.round(f.win||0)+'%, marrëveshje '+Math.round(f.settle||0)+'%, humbje '+Math.round(f.lose||0)+'%.'
+          +'\n\nRishkruaj TË NJËJTIN mendim ligjor me të njëjtat seksione (FAKTE, BAZË LIGJORE, ANALIZË LIGJORE, KUNDËRPËRGJIGJE, KONKLUZIONE, REKOMANDIME), duke RREGULLUAR problemet: hiq ose korrigjo citimet e kundërshtuara, mos cito nene jashtë tekstit zyrtar, dhe bëje konkluzionin në përputhje me shifrat e llogaritura. Mos shto pohime të reja të paverifikuara.';
+        return runCall(11,'Jeni jurist i lartë shqiptar që rishikon e korrigjon një mendim ligjor sipas vërejtjeve të audituesit. Mbështetu vetëm te teksti zyrtar i dhënë.', usr, 2300, 0.35, true)
+          .then(function(r){ return r||null; });
+      }
+      function computeConfidence(store){
+        var found=((store.grounding&&store.grounding.found)||[]).length;
+        var v=store.verify, vc=(v&&v.confidence)||'';
+        var base=found>=4?2:found>=2?1:0;
+        if(vc==='high') base+=1; else if(vc==='low') base-=1;
+        var contra=(v&&v.citations)?v.citations.filter(function(c){ return String(c.verdict||'').indexOf('contra')===0; }).length:0;
+        if(contra>0) base-=1;
+        return { level:(base>=2?'hi':base>=1?'mid':'lo'), found:found, vconf:vc };
+      }
+      var CONF_INFO={ hi:['op-conf-hi','besueshmëri e lartë'], mid:['op-conf-mid','besueshmëri mesatare'], lo:['op-conf-lo','besueshmëri e ulët'] };
+      function applyConfidenceBadges(store){
+        var c=store.confidence; if(!c) return; var info=CONF_INFO[c.level]||CONF_INFO.mid;
+        ['op-summary-block','op-references-block'].forEach(function(id){ var b=$(id); if(!b) return; var lab=b.querySelector('.opinion-block-label'); if(!lab) return; var old=lab.querySelector('.op-conf'); if(old) old.parentNode.removeChild(old); var s=document.createElement('span'); s.className='op-conf '+info[0]; s.textContent=info[1]; lab.appendChild(s); });
+      }
+      function runVerifier(store){
+        if(typeof runCall!=='function') return Promise.resolve(null);
+        var cited=[], seen={}, m, re=/\b[Nn]eni(?:t|n|ve)?\s+(\d+(?:\/[\w]+)?)/g;
+        while((m=re.exec(store.opinion||''))!==null){ var n=m[1]; if(!seen[n]){ seen[n]=1; cited.push(n); } }
+        var f=store.forecast||{}, sc=parseFloat(store.strength&&store.strength.score); sc=isFinite(sc)?sc.toFixed(1):'?';
+        var usr='MENDIMI PËR T\'U KONTROLLUAR:\n'+String(store.opinion||'').slice(0,5000)
+          +'\n\nNENET E CITUARA: '+(cited.slice(0,14).join(', ')||'(asnjë)')
+          +(store.groundingText||'')
+          +'\n\nSHIFRAT AUTORITATIVE: vlerësim '+sc+'/10; fitim '+Math.round(f.win||0)+'%, marrëveshje '+Math.round(f.settle||0)+'%, humbje '+Math.round(f.lose||0)+'%.'
+          +'\n\nPër secilin nen të cituar jep verdiktin "verified" (teksti zyrtar e mbështet), "unconfirmed" (s\'ka tekst për ta vërtetuar), ose "contradicted" (teksti e kundërshton). Listo mospërputhjet dhe teprite kundrejt shifrave. JSON:\n{"citations":[{"neni":"X","verdict":"verified|unconfirmed|contradicted","note":"..."}],"issues":["..."],"corrections":["..."],"confidence":"high|medium|low"}';
+        return runCall(9,'Jeni auditues i pavarur ligjor. Kontrolloni mendimin kundrejt tekstit zyrtar të neneve dhe shifrave të dhëna. Përgjigjuni VETËM me JSON të vlefshëm.',usr,800,0.2,true)
+          .then(function(r){ var j=safeJson(r)||{}; return { citations:j.citations||[], issues:j.issues||[], corrections:j.corrections||[], confidence:String(j.confidence||'').toLowerCase() }; });
+      }
+      function renderVerify(store){
+        var block=$('op-verify-block'), el=$('op-out-verify'); if(!block||!el) return;
+        var v=store.verify; if(!v){ block.hidden=true; return; }
+        var c=store.confidence||{level:'mid'}, lab={hi:['op-conf-hi','E lartë'],mid:['op-conf-mid','Mesatare'],lo:['op-conf-lo','E ulët']}[c.level]||['op-conf-mid','Mesatare'];
+        var html='<p>Besueshmëria e përgjithshme: <span class="op-conf '+lab[0]+'">'+lab[1]+'</span> <small>('+c.found+' nene të konfirmuara në bazën ligjore)</small></p>';
+        if(store.corrected) html+='<p class="op-fc-basis" style="margin-top:8px"><strong>✎ Rishikuar pas kontrollit:</strong> mendimi u rishkrua automatikisht për të rregulluar mospërputhjet e gjetura nga audituesi.</p>';
+        var issues=(v.issues||[]).filter(Boolean), corr=(v.corrections||[]).filter(Boolean);
+        var contra=(v.citations||[]).filter(function(x){ return String(x.verdict||'').indexOf('contra')===0; });
+        if(contra.length){ html+='<p class="op-subhead op-red" style="margin:10px 0 4px;">Citime të kundërshtuara nga teksti zyrtar</p><ul class="op-checklist">'+contra.map(function(x){ return '<li>Neni '+esc(x.neni)+(x.note?': '+esc(x.note):'')+'</li>'; }).join('')+'</ul>'; }
+        if(issues.length){ html+='<p class="op-subhead op-amber" style="margin:10px 0 4px;">Mospërputhje / vërejtje</p><ul class="op-checklist">'+issues.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; }
+        if(corr.length){ html+='<p class="op-subhead" style="margin:10px 0 4px;">Korrigjime të sugjeruara</p><ul class="op-checklist">'+corr.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; }
+        if(!contra.length&&!issues.length&&!corr.length) html+='<p>Nuk u gjetën mospërputhje thelbësore me tekstin zyrtar të neneve.</p>';
+        el.innerHTML=html; block.hidden=false;
+      }
+
+      function renderADR(store){
+        var block=$('op-adr-block'), el=$('op-out-adr'); if(!block||!el) return;
+        if(!store.adr || !adrApplicable(store.type)){ block.hidden=true; return; }
+        el.innerHTML=adrHtml(adrSuitability(store.type, store.forecast), store.adr); block.hidden=false;
+      }
+      function buildWebQuery(laws, type, facts){
+        var names=(laws||[]).map(function(l){ return l.name; }).filter(Boolean).slice(0,4).join('; ');
+        return 'Në shqip, shkurt: a janë ende në fuqi dhe a kanë pasur ndryshime/amendamente të fundit këto akte ligjore shqiptare: '+(names||'legjislacioni përkatës')+'? Jep statusin aktual dhe 2–4 burime zyrtare ose të besueshme (p.sh. QBZ, Kuvendi, vendime). Konteksti: çështje '+type+' — '+String(facts||'').slice(0,300)+'.';
+      }
+      function renderWebGround(store){
+        var block=$('op-webground-block'), el=$('op-out-webground'); if(!block||!el) return;
+        var w=store.webground;
+        if(!w || (!w.text && (!w.sources||!w.sources.length))){ block.hidden=true; return; }
+        var html='';
+        if(w.text) html+='<p>'+esc(w.text)+'</p>';
+        if(w.sources&&w.sources.length){ html+='<p class="op-subhead" style="margin:12px 0 6px;">Burime nga uebi</p><ul class="op-ref-list">';
+          w.sources.slice(0,8).forEach(function(s){ html+='<li class="op-ref op-ref-ok"><span class="op-ref-icon">↗</span><a class="op-ref-label opinion-law-link" href="'+esc(s.uri)+'" target="_blank" rel="noopener noreferrer">'+esc(s.title)+'</a></li>'; });
+          html+='</ul>'; }
+        html+='<p class="op-fc-basis" style="margin-top:10px">Informacion i marrë nga kërkimi në ueb — orientues, verifikoni te burimi zyrtar.</p>';
+        el.innerHTML=html; block.hidden=false;
+      }
+      function renderForecast(f){
+        var el=$('op-out-forecast');
+        if(!f||(f.win==null&&f.settle==null&&f.lose==null)){ el.innerHTML=DEGRADED; return; }
+        var win=clampPct(f.win),settle=clampPct(f.settle),lose=clampPct(f.lose),sum=win+settle+lose;
+        if(sum>0){ win=win/sum*100; settle=settle/sum*100; lose=lose/sum*100; }
+        var cur=f.currency||'L';
+        function seg(cls,val){ var w=val.toFixed(0); return '<div class="op-fc-seg '+cls+'" style="width:'+w+'%">'+(val>=12?w+'%':'')+'</div>'; }
+        var html='<div class="op-forecast-bar">'+seg('op-fc-win',win)+seg('op-fc-settle',settle)+seg('op-fc-lose',lose)+'</div>'
+          +'<div class="op-fc-legend"><span><i class="op-fc-dot" style="background:#3d706a"></i>Fitim '+win.toFixed(0)+'%</span><span><i class="op-fc-dot" style="background:#b8923a"></i>Marrëveshje '+settle.toFixed(0)+'%</span><span><i class="op-fc-dot" style="background:#b15c44"></i>Humbje '+lose.toFixed(0)+'%</span></div>';
+        html+='<div class="op-stat-grid">';
+        if(f.months_min!=null||f.months_max!=null) html+='<div class="op-stat"><div class="op-stat-label">Kohëzgjatja</div><div class="op-stat-value">'+esc(f.months_min)+'–'+esc(f.months_max)+' <small>muaj</small></div></div>';
+        if(f.cost_min!=null||f.cost_max!=null) html+='<div class="op-stat"><div class="op-stat-label">Kosto e vlerësuar</div><div class="op-stat-value">'+fmtNum(f.cost_min)+'–'+fmtNum(f.cost_max)+' <small>'+esc(cur)+'</small></div></div>';
+        if(f.settle_min!=null||f.settle_max!=null) html+='<div class="op-stat"><div class="op-stat-label">Diapazoni i marrëveshjes</div><div class="op-stat-value">'+fmtNum(f.settle_min)+'–'+fmtNum(f.settle_max)+' <small>'+esc(cur)+'</small></div></div>';
+        html+='</div>';
+        if(f.cost_min==null&&f.settle_min==null) html+='<p class="op-fc-note">Jepni «Vlerën e kontestit ose dëmin» në formular për një vlerësim të kostos dhe të marrëveshjes.</p>';
+        if(f.drivers&&f.drivers.length){ html+='<p class="op-subhead op-green">Faktorët vendimtarë</p><ul class="opinion-md-list">'; f.drivers.forEach(function(d){ html+='<li>'+esc(d)+'</li>'; }); html+='</ul>'; }
+        if(f.damages&&f.damages.length){ html+='<p class="op-subhead">Zbërthimi i dëmit (orientues)</p>'; var DC=['#3d706a','#b8923a','#b15c44','#6a8caf'], dseg=''; f.damages.forEach(function(d,i){ dseg+='<div class="op-fc-seg" style="width:'+d.pct.toFixed(0)+'%;background:'+DC[i%4]+'">'+(d.pct>=12?d.pct.toFixed(0)+'%':'')+'</div>'; }); html+='<div class="op-forecast-bar">'+dseg+'</div><div class="op-stat-grid">'; f.damages.forEach(function(d){ html+='<div class="op-stat"><div class="op-stat-label">'+esc(d.head)+(d.basis?' <small>('+esc(d.basis)+')</small>':'')+'</div><div class="op-stat-value">'+fmtNum(d.amount)+' <small>'+esc(cur)+'</small></div></div>'; }); html+='</div>'; }
+        if(f.basis&&f.basis.length){ html+='<p class="op-fc-basis"><strong>Si u llogarit:</strong> '+f.basis.map(function(b){ return esc(b); }).join(' ')+' <em>Vlerësime orientuese — verifikoni.</em></p>'; }
+        el.innerHTML=html;
+      }
+
+      function renderSummary(store){
+        var block=$('op-summary-block'), el=$('op-out-summary'); if(!block||!el) return;
+        var s=store.strength||{}, f=store.forecast||{};
+        var score=parseFloat(s.score); if(!isFinite(score)) score=5;
+        var path=(f.win>=55)?'ndjekje gjyqësore':((f.settle>=f.win&&f.settle>=f.lose)?'zgjidhje me marrëveshje':((f.lose>50)?'marrëveshje mbrojtëse ose rishikim strategjie':'ndjekje e kujdesshme'));
+        var money=(f.settle_min!=null)?('Diapazoni i pritshëm i marrëveshjes ~'+fmtNum(f.settle_min)+'–'+fmtNum(f.settle_max)+' L. '):'';
+        var risk=(s.weaknesses&&s.weaknesses[0])?s.weaknesses[0]:'';
+        var L=store.limitation, limWarn=(L&&L.status==='likely-barred')?'<strong style="color:#b15c44">⚠ Kujdes: kërkesa mund të jetë e parashkruar (~'+L.elapsedYears.toFixed(1)+' vjet nga ngjarja). </strong>':'';
+        el.innerHTML='<p>'+limWarn+'Pozicioni vlerësohet <strong>'+score.toFixed(1)+'/10</strong>'+(s.label?' ('+esc(s.label)+')':'')+'. '
+          +'Gjasat: fitim ~'+Math.round(f.win||0)+'%, marrëveshje ~'+Math.round(f.settle||0)+'%, humbje ~'+Math.round(f.lose||0)+'%. '
+          +'Rruga e rekomanduar: <strong>'+path+'</strong>. '+money
+          +'Kohëzgjatja orientuese '+esc(f.months_min)+'–'+esc(f.months_max)+' muaj.'
+          +(risk?(' Rreziku kryesor: '+esc(risk)+'.'):'')+'</p>';
+        block.hidden=false;
+      }
+
+      function renderFactSheet(store){
+        var u=store.understanding, block=$('op-factsheet-block'), el=$('op-out-factsheet'); if(!block||!el) return;
+        if(!u){ block.hidden=true; return; }
+        var f=u.facts||{};
+        function row(k,v){ return (v&&String(v).trim()&&String(v).trim()!=='...')?('<div class="op-fact-row"><span class="op-fact-k">'+k+'</span><span class="op-fact-v">'+esc(String(v))+'</span></div>'):''; }
+        var grid=row('Palët',f.parties)+row('Data',f.dates)+row('Shuma',f.amounts)+row('Lloji i kërkesës',f.claim_type)+row('Juridiksioni',f.jurisdiction);
+        var html=grid?('<div class="op-fact-grid">'+grid+'</div>'):'';
+        if(u.key_events&&u.key_events.length){ html+='<p class="op-subhead" style="margin:12px 0 4px;">Ngjarjet kryesore (si i kuptuam)</p><ul class="opinion-list">'+u.key_events.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; }
+        if(u.missing&&u.missing.length){ html+='<p class="op-subhead op-amber" style="margin:12px 0 4px;">Mungon / Supozojmë</p><ul class="op-checklist">'+u.missing.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; }
+        if(u.clarifying&&u.clarifying.length){ html+='<p class="op-subhead" style="margin:12px 0 4px;">Pyetje për t\'u sqaruar</p><ul class="op-checklist">'+u.clarifying.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; }
+        if(!html){ block.hidden=true; return; }
+        el.innerHTML=html; block.hidden=false;
+      }
+      function renderStrengthen(store){
+        var block=$('op-strengthen-block'), el=$('op-out-strengthen'); if(!block||!el) return;
+        var items=[];
+        ((store.strength&&store.strength.missing_evidence)||[]).forEach(function(x){ if(x) items.push(esc(x)); });
+        if(!(store.claim>0)) items.push('Jepni vlerën e kontestit ose dëmit për një vlerësim financiar (kosto &amp; marrëveshje) më të saktë.');
+        var d=store.doctrine; if(d&&d.kuadri){ d.kuadri.forEach(function(e){ var v=String(e&&e.vleresim||'').toLowerCase(); if(v.indexOf('plot')!==0&&(e&&(e.titull||e.id))) items.push('Forconi elementin «'+esc(e.titull||e.id)+'»'+(e.shenim?(': '+esc(e.shenim)):'')); }); }
+        if(!items.length){ block.hidden=true; el.innerHTML=''; return; }
+        el.innerHTML='<ul class="op-checklist">'+items.slice(0,8).map(function(x){ return '<li>'+x+'</li>'; }).join('')+'</ul>';
+        block.hidden=false;
+      }
+
+      function priorityPill(p){ var v=String(p||'').toLowerCase(); if(v.indexOf('lart')===0||v.indexOf('high')===0) return '<span class="op-pill op-pill-high">Lartë</span>'; if(v.indexOf('mesat')===0||v.indexOf('mid')===0||v.indexOf('med')===0) return '<span class="op-pill op-pill-mid">Mesatare</span>'; if(v.indexOf('ul')===0||v.indexOf('low')===0) return '<span class="op-pill op-pill-low">Ulët</span>'; return p?'<span class="op-pill op-pill-mid">'+esc(p)+'</span>':''; }
+
+      function renderPlan(p, type, lim){
+        var el=$('op-out-plan'), steps_=(p&&p.steps)||[];
+        var par=PARASHKRIM[type], hasDl=p&&p.deadlines&&p.deadlines.length;
+        if(!steps_.length&&(!p||(!p.evidence&&!p.deadlines))&&!par){ el.innerHTML=DEGRADED; return; }
+        var html='';
+        steps_.forEach(function(s,i){ html+='<div class="op-plan-step"><div class="op-plan-num">'+(i+1)+'</div><div class="op-plan-body"><div class="op-plan-action">'+esc(s.action)+'</div><div class="op-plan-meta">'+priorityPill(s.priority)+(s.deadline?'<span class="op-pill op-pill-deadline">'+esc(s.deadline)+'</span>':'')+'</div></div></div>'; });
+        if(p&&p.evidence&&p.evidence.length){ html+='<p class="op-subhead op-amber" style="margin-top:18px;">Prova për t\'u siguruar</p><ul class="op-checklist">'; p.evidence.forEach(function(e){ html+='<li>'+esc(e)+'</li>'; }); html+='</ul>'; }
+        if(par||hasDl||(lim&&lim.status&&lim.status!=='na')){
+          html+='<p class="op-subhead op-red" style="margin-top:18px;">Afate kritike</p>';
+          if(lim&&lim.status&&lim.status!=='na') html+='<div class="op-deadline-note"><div><strong>Llogaritje afati'+(lim.status==='likely-barred'?' — ⚠ MUND TË JETË PARASHKRUAR':(lim.status==='near'?' — afati po skadon':''))+'</strong> — '+esc(lim.note||'')+'</div></div>';
+          if(par) html+='<div class="op-deadline-note"><div><strong>Parashkrimi (orientues)</strong> — '+esc(par)+'. Verifikoni për rastin tuaj konkret.</div></div>';
+          if(hasDl) p.deadlines.forEach(function(d){ html+='<div class="op-deadline-note"><div><strong>'+esc(d.what)+'</strong>'+(d.timeframe?' - '+esc(d.timeframe):'')+'</div></div>'; });
+        }
+        el.innerHTML=html;
+      }
+
+      function renderText(elId,raw){ $(elId).innerHTML=raw?mdToHtml(raw):DEGRADED; }
+
+      function renderReferences(store){
+        var block=$('op-references-block'),el=$('op-out-references');
+        var g=store.grounding||{found:[],missing:[],nums:{}};
+
+        var docText=store.doctrine?JSON.stringify(store.doctrine):'';
+        var corpus=[store.opposition,store.jurisprudence,store.opinion,docText].filter(Boolean).join('\n');
+        var citedNums={},m,artRe=/\b[Nn]eni(?:t|n|ve)?\s+(\d+(?:\/[\w]+)?)/g;
+        while((m=artRe.exec(corpus))!==null) citedNums[m[1].split('/')[0]]=true;
+
+        var confirmed=[],seenHref={};
+        (store.laws||[]).forEach(function(l){
+          var name=String(l.name||'').trim(); if(!name) return;
+          var href=lawHrefFor(name); if(!href||seenHref[href]) return;
+          seenHref[href]=true; confirmed.push({name:name,href:href});
+        });
+
+        var grounded=(g.found||[]).slice();
+        var groundedBase=g.nums||{};
+        var unsourced=Object.keys(citedNums)
+          .filter(function(n){ return !groundedBase[n]; })
+          .sort(function(a,b){ return parseInt(a,10)-parseInt(b,10); })
+          .map(function(n){ return 'Neni '+n; });
+        (g.missing||[]).forEach(function(x){
+          var lbl='Neni '+x.num; if(unsourced.indexOf(lbl)===-1) unsourced.push(lbl);
+        });
+
+        // Post-hoc grounding: any cited article that actually exists in this case's law
+        // data (full article JSON is cached) gets its real text shown and is reclassified
+        // from "Pa burim" to confirmed. Only when the number resolves to a SINGLE law.
+        function postHocGround(num){
+          var hits=[],seen={};
+          (store.laws||[]).forEach(function(l){
+            var href=lawHrefFor(String(l.name||'')); if(!href||seen[href]) return; seen[href]=true;
+            var data=_lawCache[href];
+            if(data && data[num]!=null){
+              hits.push({law:String(l.name||'').trim(),href:href,num:num,anchor:'neni-'+String(num).replace('/','-'),text:String(data[num]).replace(/\s+/g,' ').trim()});
+            }
+          });
+          return hits;
+        }
+        var seenGN={}; grounded.forEach(function(a){ seenGN[a.law+'|'+a.num]=true; });
+        var stillUnsourced=[];
+        unsourced.forEach(function(lbl){
+          var n=String(lbl).replace(/[^\d\/]/g,'').split('/')[0];
+          var hits=n?postHocGround(n):[];
+          if(hits.length===1){ var k=hits[0].law+'|'+hits[0].num; if(!seenGN[k]){ seenGN[k]=true; grounded.push(hits[0]); } }
+          else { stillUnsourced.push(lbl); }
+        });
+        unsourced=stillUnsourced;
+
+        var decSeen={},decRe=/[Vv]endim(?:in|it|et)?\s+(?:[Nn]r\.?\s*)?(\d+(?:\/\d{2,4})?)/g;
+        while((m=decRe.exec(corpus))!==null) decSeen['Vendim nr. '+m[1]]=true;
+        var decisions=Object.keys(decSeen);
+
+        var total=confirmed.length+grounded.length+unsourced.length+decisions.length;
+        if(!total){ block.hidden=true; el.innerHTML=''; return; }
+        block.hidden=false;
+
+        var gCount=grounded.length, aCount=grounded.length+unsourced.length;
+        var html='<p class="op-ref-intro"><b>'+gCount+' nga '+(aCount||gCount)+' nene</b> u mbështetën në tekstin zyrtar të ligjit. '+
+          '<span style="color:#3d706a;font-weight:600">✓ Me tekst</span> — burim i konfirmuar, kliko për ta lexuar. '+
+          '<span style="color:#b8923a;font-weight:600">⚠ Pa burim</span> — cituar nga AI por jo nga teksti i dhënë; verifikoje te '+
+          '<a href="https://qbz.gov.al" target="_blank" rel="noopener noreferrer" class="opinion-law-link">QBZ</a> para se t\'i mbështetesh.</p>';
+
+        var vmap={}; ((store.verify&&store.verify.citations)||[]).forEach(function(c){ var k=String(c.neni||'').split('/')[0]; if(k) vmap[k]=String(c.verdict||'').toLowerCase(); });
+        function vMark(num){ var v=vmap[String(num).split('/')[0]]; if(!v) return ''; if(v.indexOf('verif')===0) return ' <span class="op-vmark op-vmark-ok">✓ verifikuar</span>'; if(v.indexOf('contra')===0) return ' <span class="op-vmark op-vmark-bad">✗ kundërshtuar</span>'; return ' <span class="op-vmark op-vmark-warn">⚠ e pakonfirmuar</span>'; }
+        if(grounded.length){
+          html+='<div class="op-ref-group"><div class="op-ref-count">Nene me tekst zyrtar — '+grounded.length+'</div><ul class="op-ref-list">';
+          grounded.forEach(function(a){
+            html+='<li class="op-ref op-ref-ok"><details class="op-ref-details"><summary>'+
+              '<span class="op-ref-icon">✓</span>'+
+              '<span class="op-ref-label">Neni '+esc(a.num)+' <span style="color:var(--muted);font-weight:400">— '+esc(a.law)+(a.xref?' · referuar':'')+'</span>'+vMark(a.num)+'</span>'+
+              '<a href="'+esc(a.href)+'#'+esc(a.anchor)+'" target="_blank" rel="noopener noreferrer" class="op-ref-hint" style="text-decoration:none">hap nenin →</a>'+
+              '</summary><p class="op-ref-text">'+esc(a.text)+'</p></details></li>';
+          });
+          html+='</ul></div>';
+        }
+        if(confirmed.length){
+          html+='<div class="op-ref-group"><div class="op-ref-count">Ligje të konfirmuara — '+confirmed.length+'</div><ul class="op-ref-list">';
+          confirmed.forEach(function(l){
+            html+='<li class="op-ref op-ref-ok"><span class="op-ref-icon">✓</span>'+
+              '<a href="'+esc(l.href)+'" target="_blank" rel="noopener noreferrer" class="opinion-law-link op-ref-label">'+esc(l.name)+'</a>'+
+              '<span class="op-ref-hint">faqja e ligjit</span></li>';
+          });
+          html+='</ul></div>';
+        }
+        if(unsourced.length){
+          html+='<div class="op-ref-group"><div class="op-ref-count">Cituar pa burim — '+unsourced.length+'</div><ul class="op-ref-list">';
+          unsourced.forEach(function(r){
+            html+='<li class="op-ref op-ref-warn"><span class="op-ref-icon">⚠</span>'+
+              '<span class="op-ref-label">'+esc(r)+'</span><span class="op-ref-hint">verifiko</span></li>';
+          });
+          html+='</ul></div>';
+        }
+        if(decisions.length){
+          html+='<div class="op-ref-group"><div class="op-ref-count">Vendime gjyqësore — '+decisions.length+'</div><ul class="op-ref-list">';
+          decisions.forEach(function(r){
+            html+='<li class="op-ref op-ref-decision"><span class="op-ref-icon">⚠</span>'+
+              '<span class="op-ref-label">'+esc(r)+'</span><span class="op-ref-hint">verifiko QBZ</span></li>';
+          });
+          html+='</ul></div>';
+        }
+        el.innerHTML=html;
+      }
+
+      function renderDoctrine(store){
+        var block=$('op-doctrine-block'),el=$('op-out-doctrine'),labelEl=$('op-doctrine-label');
+        var d=store.doctrine;
+        if(!d||!d.kuadri||!d.kuadri.length){ if(block) block.hidden=true; return; }
+        if(block) block.hidden=false;
+        function txt(s){ return linkifyHtml(esc(String(s==null?'':s))); }
+        if(labelEl){ var DLABEL={penale:'Përbërja e Veprës Penale',prone:'Mbrojtja e Pronësisë',familjare:'Elementet e Çështjes Familjare',pune:'Elementet e Marrëdhënies së Punës',administrative:'Ligjshmëria e Aktit Administrativ',konsumator:'Mbrojtja e Konsumatorit'}; labelEl.textContent=DLABEL[(d&&d.framework)||store.type]||'Elementet e Përgjegjësisë Juridike'; }
+        function assess(v){ v=String(v||'').toLowerCase(); if(v.indexOf('plot')===0) return {c:'#3d706a',t:'Plotësuar',cls:'op-el-ok'}; if(v.indexOf('mung')===0) return {c:'#b15c44',t:'Mungon',cls:'op-el-no'}; return {c:'#b8923a',t:'Pjesërisht',cls:'op-el-part'}; }
+        var html=d.vepra?'<p class="op-doc-vepra"><span>Natyra</span>'+txt(d.vepra)+'</p>':'';
+        html+='<div class="op-el-grid">';
+        d.kuadri.forEach(function(e){
+          if(!e) return;
+          var a=assess(e.vleresim);
+          html+='<div class="op-el-card '+a.cls+'"><div class="op-el-head"><span class="op-el-title">'+esc(e.titull||e.id||'')+'</span><span class="op-el-badge" style="color:'+a.c+';border-color:'+a.c+'">'+a.t+'</span></div>';
+          if(e.permbajtja&&e.permbajtja.length){ html+='<dl class="op-el-list">'; e.permbajtja.forEach(function(p){ if(!p) return; html+='<dt>'+esc(p.etikete||'')+'</dt><dd>'+txt(p.vlera||'—')+'</dd>'; }); html+='</dl>'; }
+          if(e.shenim) html+='<p class="op-el-note">'+txt(e.shenim)+'</p>';
+          html+='</div>';
+        });
+        html+='</div>';
+        if(d.kualifikimi&&typeof d.kualifikimi==='object'){
+          var rows=''; Object.keys(d.kualifikimi).forEach(function(k){ var v=d.kualifikimi[k]; if(!v) return; rows+='<div class="op-qual-row"><span class="op-qual-k">'+esc(k.replace(/_/g,' '))+'</span><span class="op-qual-v">'+txt(v)+'</span></div>'; });
+          if(rows) html+='<div class="op-qual"><p class="op-subhead op-amber">Kualifikimi ligjor</p>'+rows+'</div>';
+        }
+        function chips(title,cls,arr){ if(!arr||!arr.length) return ''; var h='<p class="op-subhead '+cls+'">'+title+'</p><ul class="opinion-md-list">'; arr.forEach(function(x){ if(x) h+='<li>'+txt(x)+'</li>'; }); return h+'</ul>'; }
+        if(d.rrethanat){ html+=chips('Rrethana lehtësuese','op-green',d.rrethanat.lehtesuese); html+=chips('Rrethana rënduese','op-red',d.rrethanat.renduese); }
+        if(d.dallimi) html+='<p class="op-subhead op-amber">Dallimi nga figura të ngjashme</p><p class="op-el-note">'+txt(d.dallimi)+'</p>';
+        if(d.perfundim) html+='<div class="op-doc-concl">'+txt(d.perfundim)+'</div>';
+        el.innerHTML=html;
+      }
+
+      var running=false, thinConfirmed=false;
+      var attachedText='', resetPdf=function(){}, lastOpinion='';
+      function showError(msg){ var box=$('opinion-form-error'); box.textContent=msg; box.hidden=false; }
+      var lawListText=function(laws){ if(!laws.length) return 'Ligjet zbatuese të të drejtës shqiptare.'; return laws.map(function(l){ return '• '+l.name+' ('+((l.articles||[]).join(', ')||'nenet zbatuese')+'): '+(l.relevance||''); }).join('\n'); };
+
+      function generate(){
+        if(running) return;
+        $('opinion-form-error').hidden=true;
+        if(keyMissing()){ showError('Çelësi i AI mungon.'); return; }
+        var type=$('opinion-type').value, facts=$('opinion-facts').value.trim(), parties=$('opinion-parties').value.trim(), goal=$('opinion-goal').value.trim();
+        if(!facts && !attachedText){ showError('Përshkruaj faktet ose ngarko një dokument PDF për të vazhduar.'); $('opinion-facts').focus(); return; }
+        if(facts && facts.length<120 && !attachedText && !thinConfirmed){ var _tg=$('opinion-thin-gate'); if(_tg){ _tg.hidden=false; return; } }
+        thinConfirmed=false; var _tg2=$('opinion-thin-gate'); if(_tg2) _tg2.hidden=true;
+        var attach=attachedText?('\n\nDOKUMENT I NGARKUAR (përmbajtje e nxjerrë):\n'+attachedText.slice(0,8000)):'';
+        var ctx='Lloji: çështje '+type+'.\nFaktet: '+(facts||'(shih dokumentin e ngarkuar)')+(parties?'\nPalët: '+parties:'')+(goal?'\nQëllimi: '+goal:'')+attach;
+        var isProp=(type==='prone')||((type==='civile'||type==='tregtare')&&detectProperty(facts+' '+parties+' '+goal+' '+attachedText));
+        var conceptKey=isProp?'prone':(CONCEPTS[type]?type:'');
+        var concept=conceptKey?CONCEPTS[conceptKey]:null;
+        var primer=concept?concept.primer:'';
+        running=true; abortCtrl=new AbortController();
+        $('opinion-generate-btn').disabled=true;
+        $('opinion-form').hidden=true;
+        $('opinion-progress').hidden=false;
+        resetRows();
+        var store={};
+        store.type=type;
+        store.claim=parseAmount($('opinion-claim')?$('opinion-claim').value:'')||extractClaimFromFacts(facts);
+        store.eventDate=($('opinion-event-date')&&$('opinion-event-date').value)||'';
+        store.limitation=checkLimitation(type, store.eventDate);
+        rowActive(0);
+        var _c1sys='Jeni analist ligjor shqiptar me përvojë. Përgjigjuni VETËM me JSON të vlefshëm, pa tekst para ose pas dhe pa shenja ```.'+ANTI_HALLUC;
+        var _c1usr=ctx+primer+'\n\nIdentifiko 3–5 ligjet shqiptare më relevante dhe nenet kryesore zbatuese (ji gjithëpërfshirës: deri në 8 nene gjithsej, vetëm nene për të cilat je i sigurt). Gjithashtu nxirr një PËRMBLEDHJE të fakteve të kuptuara dhe listo çfarë mungon ose supozohet.\nJSON: {"laws":[{"name":"...","articles":["..."],"relevance":"..."}],"issues":["..."],"arguments":["..."],"facts":{"parties":"...","dates":"...","amounts":"...","claim_type":"...","jurisdiction":"..."},"key_events":["..."],"missing":["..."],"clarifying":["..."]}';
+        Promise.all([0.12,0.25,0.4].map(function(tmp){ return runCall(1,_c1sys,_c1usr,700,tmp).then(function(r){ return safeJson(r); }, function(e){ if(e&&e.name==='AbortError') throw e; return null; }); }))
+        .then(function(samples){
+          var agg=aggregateLaws(samples); store.laws=agg.laws; store.understanding=agg.understanding;
+          store.lawList=lawListText(store.laws);
+          store.groundingP=retrieveGrounding(store.laws);
+          store.webgroundP=(typeof aiGroundedSearch==='function') ? aiGroundedSearch(buildWebQuery(store.laws,type,facts), abortCtrl?abortCtrl.signal:undefined).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }) : Promise.resolve(null);
+          rowDone(0); rowActive(1);
+          return runCall(2,'Jeni vlerësues i pavarur ligjor. Përgjigjuni VETËM me JSON të vlefshëm.',
+            ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nVlerëso pozicionin ligjor në mënyrë realiste. Për secilin faktor, jep fillimisht një arsye të shkurtër ("why") dhe pastaj notën nga 0 në 2 ("score"; 0=shumë dobët, 1=mesatar, 2=shumë mirë). Kujdes: "kundershtimi" mat sa i FORTË është pozicioni i palës kundërshtare (2 = kundërshtim shumë i fortë kundër klientit). JSON:\n{"factors":{"baza":{"score":1.5,"why":"..."},"prova":{"score":1.0,"why":"..."},"kundershtimi":{"score":1.0,"why":"..."},"faktet":{"score":1.5,"why":"..."}},"strengths":["..."],"weaknesses":["..."],"missing_evidence":["..."]}',650,0.2);
+        })
+        .then(function(r2){
+          store.strength=safeJson(r2); rowDone(1);
+          return (store.groundingP||Promise.resolve({text:'',found:[],missing:[],nums:{}})).then(function(g){
+            store.grounding=g;
+            return (concept?keywordGround(concept.href,concept.name,concept.kw,concept.limit):Promise.resolve(null)).then(function(kg){
+            mergeGrounding(g,kg);
+            return semanticGround(store.laws, facts).then(function(sg){
+            mergeGrounding(g,sg);
+            store.groundingText=g.text?('\n\n'+g.text):'';
+            var GT=store.groundingText;
+            [2,3,4,5,6].forEach(rowActive);
+            var W=store.strength.weaknesses||[];
+            var tasks=[
+              function(){ return runCall(3,'Jeni avokati i palës kundërshtare. Ndërtoni argumentet më të forta kundër pozicionit të dhënë. Mbështetu te teksti zyrtar i neneve të dhëna; mos cito nene jashtë tij.',
+                  ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nDobësitë e palës: '+W.join('; ')+GT+'\n\nGjenero 4–5 argumente të forta. Citoji nenet sipas tekstit zyrtar të mësipërm.',700,0.5)
+                .then(function(v){ rowDone(2); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(2); return null; }); },
+              function(){ return runCall(4,'Jeni ekspert i praktikës gjyqësore shqiptare. Përshkruani tendencat e përgjithshme pa shpikur vendime ose numra çështjesh. Mbështetu te teksti zyrtar i neneve të dhëna.',
+                  'Ligjet: '+store.laws.map(function(l){ return l.name; }).join(', ')+'\nLloji: '+type+'\nSituata: '+facts.slice(0,400)+GT+'\n\nPërshkruaj: (1) si i kanë trajtuar gjykatat shqiptare raste të ngjashme, (2) parimet interpretuese dominuese, (3) çfarë duhet pasur parasysh.',700,0.4)
+                .then(function(v){ rowDone(3); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(3); return null; }); },
+              function(){ return runCall(5,'Jeni analist risku ligjor. Përgjigjuni VETËM me JSON të vlefshëm.',
+                  ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nListo 3–5 faktorët kryesorë cilësorë që përcaktojnë rezultatin (mos jep shifra). Nëse ka dëm pasuror, jep edhe zbërthimin e dëmit në zëra (dëm material, dëm jo-pasuror/moral, fitim i munguar) me bazën ligjore dhe një peshë përqindjeje (share 0–100) për secilin. JSON:\n{"drivers":["..."],"damages":[{"head":"Dëm material","basis":"neni ...","share":60}]}',550,0.3)
+                .then(function(v){ rowDone(4); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(4); return null; }); },
+              function(){ return runCall(6,'Jeni strateg ligjor. Përgjigjuni VETËM me JSON të vlefshëm.',
+                  ctx+'\n\nBazë ligjore:\n'+store.lawList+'\n\nKrijo plan veprimi praktik. JSON:\n{"steps":[{"action":"...","priority":"Lartë|Mesatare|Ulët","deadline":"..."}],"evidence":["..."],"deadlines":[{"what":"...","timeframe":"..."}]}',600,0.35)
+                .then(function(v){ rowDone(5); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(5); return null; }); },
+              function(){
+                var spec=doctrineSpec(isProp?'prone':type);
+                return runCall(8,spec.sys,
+                  'SITUATA:\n'+ctx+primer+'\n\nBazë ligjore:\n'+store.lawList+GT+
+                  '\n\nKryej dekompozimin doktrinor të çështjes. Për çdo element jep vlerësimin "plotesuar", "pjeserisht" ose "munget" te fusha "vleresim", dhe te "shenim" shpjego shkurt çfarë e provon elementin ose çfarë mungon për ta vërtetuar. Mbështetu te teksti zyrtar i neneve të dhëna; mos shpik numra ose vepra. Përdor SAKTËSISHT këtë strukturë JSON:\n'+spec.tmpl,
+                  1900,0.3)
+                .then(function(v){ rowDone(6); return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; rowFail(6); return null; }); }
+            ];
+            if(adrApplicable(type)) tasks.push(function(){ return runCall(10, ADR_SYS, ctx+'\n\nLLOJI: çështje '+type+'. Vlerëso nëse kjo mosmarrëveshje mund të zgjidhet me ndërmjetësim ose arbitrazh, sa gjasa ka, dhe skenarët më të mirë/të keq.'+ADR_JSON, 750,0.4).then(function(v){ return v; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }); });
+            return runLimited(tasks,PARALLEL_LIMIT);
+            });
+            });
+          });
+        })
+        .then(function(res){
+          store.opposition=res[0]; store.jurisprudence=res[1]; var _r5=safeJson(res[2])||{}; store.forecastDrivers=_r5.drivers||[]; store.forecastDamages=_r5.damages||[]; store.plan=safeJson(res[3]); store.doctrine=safeJson(res[4]);
+          store.adr=adrApplicable(type)?(safeJson(res[5])||null):null;
+          rowActive(7);
+          var S=store.strength;
+          return runCall(7,'Jeni jurist i lartë shqiptar. Shkruani mendim ligjor formal, të strukturuar dhe profesional. Citoni nenet sipas tekstit zyrtar të dhënë më poshtë dhe, kur është e mundur, përdorni formulimin e tij. MOS citoni nene që nuk janë dhënë. Përfshi në analizë dekompozimin doktrinor të dhënë (objekti, ana objektive, subjekti, ana subjektive ose elementet e përgjegjësisë), duke vlerësuar nëse secili element përmbushet.',
+            'SITUATA:\n'+ctx+primer+'\n\nLIGJET ZBATUESE:\n'+store.lawList+'\n\nFORCAT:\n'+((S.strengths||[]).join('\n')||'-')+'\n\nDOBËSITË:\n'+((S.weaknesses||[]).join('\n')||'-')+(store.opposition?'\n\nARGUMENTET KUNDËRSHTARE:\n'+store.opposition:'')+(store.jurisprudence?'\n\nJURISPRUDENCA:\n'+store.jurisprudence:'')+(store.groundingText||'')+doctrineSummaryText(store.doctrine)+'\n\nDrafto MENDIM LIGJOR formal me seksionet (secili titull në krye rreshti):\nFAKTE\nBAZË LIGJORE\nANALIZË LIGJORE\nKUNDËRPËRGJIGJE\nKONKLUZIONE\nREKOMANDIME\n\nTe KUNDËRPËRGJIGJE, përgjigju argumenteve kundërshtare. Ji i plotë, specifik dhe profesional.',2400,0.45,true);
+        })
+        .then(function(r7){
+          store.opinion=r7; lastOpinion=r7||''; rowDone(7);
+          renderMeta($('opinion-type').value);
+          if(!store.strength) store.strength={};
+          store.strengthCalc=computeStrengthScore(store.strength, store.doctrine, store.grounding, store.limitation);
+          store.strength.score=store.strengthCalc.score;
+          store.strength.label=store.strengthCalc.label;
+          store.strength._capped=store.strengthCalc.capNote||'';
+          _artHref={}; var _amb={};
+          ((store.grounding&&store.grounding.found)||[]).forEach(function(a){
+            var b=String(a.num).split('/')[0];
+            if(_amb[b]) return;
+            if(_artHref[b]&&_artHref[b].href!==a.href){ _amb[b]=true; delete _artHref[b]; return; }
+            _artHref[b]={href:a.href,anchor:a.anchor};
+          });
+          store.forecast=computeForecast(store.claim,(store.strength&&store.strength.score),type);
+          store.forecast.drivers=store.forecastDrivers||[];
+          store.forecast.damages=buildDamages(store.forecastDamages,store.claim,type);
+          store.jurisprudence=stripFakeCitations(store.jurisprudence);
+          store.opinion=enforceConsistency(store.opinion,store.forecast,(store.strength&&store.strength.score));
+          lastOpinion=store.opinion||'';
+          rowActive(8);
+          var verifyP = store.opinion
+            ? runVerifier(store).then(function(vr){ store.verify=vr; rowDone(8); }, function(e){ if(e&&e.name==='AbortError') throw e; rowFail(8); store.verify=null; })
+            : Promise.resolve().then(function(){ store.verify=null; rowDone(8); });
+          return verifyP
+          .then(function(){
+            // ── self-correction: if the auditor found real problems, rewrite the opinion to fix them ──
+            var probs=[];
+            var contra=((store.verify&&store.verify.citations)||[]).filter(function(c){ return String(c.verdict||'').indexOf('contra')===0; });
+            contra.forEach(function(c){ probs.push('Citimi i nenit '+c.neni+' kundërshtohet nga teksti zyrtar'+(c.note?(': '+c.note):'')+'.'); });
+            store.logic=enforceLogic(store.opinion, store.strength&&store.strength.score, store.forecast);
+            if(store.logic) probs.push(store.logic.msg);
+            if(store.verify&&String(store.verify.confidence)==='low') ((store.verify.corrections)||[]).forEach(function(x){ if(x) probs.push(String(x)); });
+            var corrP = (probs.length && store.opinion)
+              ? runCorrection(store, probs).then(function(fixed){ if(fixed){ store.opinion=enforceConsistency(fixed, store.forecast, store.strength&&store.strength.score); store.corrected=true; lastOpinion=store.opinion; } }, function(e){ if(e&&e.name==='AbortError') throw e; })
+              : Promise.resolve();
+            return corrP;
+          })
+          .then(function(){ return store.webgroundP||Promise.resolve(null); })
+          .then(function(wg){
+            store.webground=wg;
+            if(store.logic && !store.corrected && store.opinion.indexOf(store.logic.msg)<0) store.opinion=store.opinion+'\n\n— '+store.logic.msg;
+            store.confidence=computeConfidence(store);
+            renderFactSheet(store);
+            renderSummary(store);
+            renderStrength(store.strength);
+            renderScoreBreakdown(store);
+            renderAnalysis(store.laws,store.strength);
+            renderDoctrine(store);
+            renderText('op-out-opposition',store.opposition);
+            renderText('op-out-jurisprudence',store.jurisprudence);
+            renderWebGround(store);
+            renderForecast(store.forecast);
+            renderADR(store);
+            renderPlan(store.plan,store.type,store.limitation);
+            renderStrengthen(store);
+            renderText('op-out-opinion',store.opinion);
+            renderVerify(store);
+            renderReferences(store);
+            applyConfidenceBadges(store);
+            // link article/law citations across the structured sections (skip ones that already have links)
+            ['op-out-summary','op-out-factsheet','op-out-analysis','op-out-forecast','op-out-doctrine','op-out-adr','op-out-plan','op-out-strengthen','op-out-verify','op-out-breakdown'].forEach(function(id){ var e=$(id); if(e&&e.innerHTML&&e.innerHTML.indexOf('<a ')<0) e.innerHTML=linkifyHtml(e.innerHTML); });
+            $('opinion-progress').hidden=true;
+            $('opinion-output').hidden=false;
+            $('opinion-modal-inner').scrollTop=0;
+          });
+        })
+        .catch(function(err){
+          if(err&&err.name==='AbortError') return;
+          $('opinion-progress').hidden=true;
+          $('opinion-form').hidden=false;
+          showError('Gabim gjatë analizës: '+(err&&err.message?err.message:'provoni sërish.'));
+        })
+        .then(function(){ running=false; $('opinion-generate-btn').disabled=false; });
+      }
+
+      function openModal(){ $('opinion-modal').hidden=false; document.body.style.overflow='hidden'; $('opinion-close').focus(); }
+      function closeModal(){ if(abortCtrl) abortCtrl.abort(); $('opinion-modal').hidden=true; document.body.style.overflow=''; }
+      function restart(){
+        if(abortCtrl) abortCtrl.abort(); running=false; $('opinion-generate-btn').disabled=false;
+        $('opinion-output').hidden=true; $('opinion-progress').hidden=true; $('opinion-form').hidden=false;
+        $('opinion-form-error').hidden=true; resetRows(); $('op-strength-bar').style.width='0';
+        $('op-references-block').hidden=true; $('op-out-references').innerHTML='';
+        var _db=$('op-doctrine-block'); if(_db) _db.hidden=true;
+        var _do=$('op-out-doctrine'); if(_do) _do.innerHTML='';
+        var _sb=$('op-summary-block'); if(_sb) _sb.hidden=true;
+        var _stb=$('op-strengthen-block'); if(_stb) _stb.hidden=true;
+      }
+
+      $('opinion-open-btn').addEventListener('click',openModal);
+      $('opinion-close').addEventListener('click',closeModal);
+      $('opinion-generate-btn').addEventListener('click',generate);
+      (function(){ var tp=$('opinion-thin-proceed'); if(tp) tp.addEventListener('click',function(){ thinConfirmed=true; $('opinion-thin-gate').hidden=true; generate(); }); })();
+      function printScope(sel){ var ds=Array.prototype.slice.call(document.querySelectorAll(sel+' .op-breakdown')); var were=ds.map(function(d){ return d.open; }); ds.forEach(function(d){ d.open=true; }); function restore(){ ds.forEach(function(d,i){ d.open=were[i]; }); window.removeEventListener('afterprint',restore); } window.addEventListener('afterprint',restore); setTimeout(restore,3000); window.print(); }
+      $('opinion-print-btn').addEventListener('click',function(){ printScope('#opinion-modal'); });
+      $('opinion-copy-btn').addEventListener('click',function(){
+        var t=lastOpinion; if(!t) return;
+        var done=function(){ var b=$('opinion-copy-btn'),o=b.textContent; b.textContent='U kopjua ✓'; setTimeout(function(){ b.textContent=o; },1500); };
+        if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done).catch(function(){}); }
+        else { try{ var ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }catch(e){} }
+      });
+      $('opinion-restart-btn').addEventListener('click',restart);
+      $('opinion-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
+      document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('opinion-modal').hidden) closeModal(); });
+
+      // ── PDF upload → client-side text extraction via pdf.js ──
+      (function(){
+        var inp=$('opinion-pdf'), status=$('opinion-pdf-status'), clr=$('opinion-pdf-clear'), view=$('opinion-pdf-view'), preview=$('opinion-pdf-preview');
+        if(!inp) return;
+        if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        attachPdfPreview(view, preview, function(){ return attachedText; });
+        function reset(){ attachedText=''; inp.value=''; if(status){ status.textContent=''; status.classList.remove('warn'); } if(clr) clr.hidden=true; if(view){ view.hidden=true; view.textContent='Shiko tekstin'; } if(preview){ preview.hidden=true; preview.textContent=''; } }
+        resetPdf=reset;
+        if(clr) clr.addEventListener('click',reset);
+        inp.addEventListener('change',function(){
+          var f=inp.files&&inp.files[0]; if(!f) return;
+          if(!window.pdfjsLib){ status.textContent='Lexuesi i PDF nuk u ngarkua — provoni sërish.'; status.classList.add('warn'); return; }
+          status.classList.remove('warn'); status.textContent='Duke lexuar PDF…'; clr.hidden=false; attachedText=''; if(view){ view.hidden=true; view.textContent='Shiko tekstin'; } if(preview){ preview.hidden=true; preview.textContent=''; }
+          extractPdfText(f, 8000, function(m){ status.textContent=m; }).then(function(txt){
+            if(!txt){ status.textContent='PDF-ja duket e skanuar (pa tekst) — shkruani faktet manualisht.'; status.classList.add('warn'); attachedText=''; return; }
+            attachedText=txt;
+            status.textContent=f.name+' · '+txt.split(/\s+/).length+' fjalë'; if(view) view.hidden=false;
+          }).catch(function(){
+            status.textContent='Nuk u lexua dot PDF-ja.'; status.classList.add('warn'); attachedText='';
+          });
+        });
+      })();
+    })();
+
+    // ── AI category tabs ──
+    (function(){
+      var pills  = document.querySelectorAll('.aicat-pill');
+      var groups = document.querySelectorAll('.aicat-group[data-aicat]');
+      function show(cat){
+        groups.forEach(function(g){ g.hidden = !(cat==='all' || g.dataset.aicat===cat); });
+        pills.forEach(function(p){ p.classList.toggle('active', p.dataset.aicat===cat); });
+      }
+      pills.forEach(function(p){ p.addEventListener('click', function(){ show(p.dataset.aicat); if(history.replaceState) history.replaceState(null,'','#'+p.dataset.aicat); }); });
+      var slugs=['analiza','hartim','orientim','pergatitje','meso','all'];
+      var initial=(location.hash||'').replace('#','');
+      show(slugs.indexOf(initial)>-1?initial:'analiza');
+    })();
+
+    /* ── Inheritance Engine (deterministic shares + AI explanation) ── */
+    (function(){
+      'use strict';
+      function $(id){ return document.getElementById(id); }
+      function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+      function fmtN(n){ n=Math.round(Number(n)||0); return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
+      function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ var t=b; b=a%b; a=t; } return a||1; }
+      function fracStr(x){ if(!isFinite(x)||x<=0) return '0'; for(var den=1;den<=24;den++){ var num=x*den; if(Math.abs(num-Math.round(num))<1e-6){ var nu=Math.round(num); var g=gcd(nu,den); return (nu/g)+'/'+(den/g); } } return (x*100).toFixed(1)+'%'; }
+      function parseAmt(s){ if(s==null) return null; var str=String(s).toLowerCase().replace(/\s/g,''); var mult=1; if(/milion|mln/.test(str)) mult=1000000; else if(/mij[ëe]|mije/.test(str)) mult=1000; var m=str.match(/(\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,](\d{1,2}))?/); if(!m) return null; var num=parseFloat(m[1].replace(/[.,]/g,'')+(m[2]?('.'+m[2]):'')); return (isFinite(num)&&num>0)?Math.round(num*mult):null; }
+      function inl(t){ return t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>'); }
+      function iMd(raw){ if(!raw) return '<p class="op-degraded">Nuk u gjenerua kjo pjesë.</p>'; var lines=esc(raw).split('\n'), out='', list=false; function close(){ if(list){ out+='</ul>'; list=false; } } lines.forEach(function(ln){ ln=ln.trim(); if(!ln){ close(); return; } var b=ln.match(/^[-•*]\s+(.*)$/); if(b){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(b[1])+'</li>'; return; } var o=ln.match(/^\d+[.)]\s+(.*)$/); if(o){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(o[1])+'</li>'; return; } var h=ln.match(/^#{1,4}\s+(.*)$/); if(h){ close(); out+='<h3 class="opinion-section-head">'+inl(h[1])+'</h3>'; return; } close(); out+='<p>'+inl(ln)+'</p>'; }); close(); return linkNene(out, 'kodi-civil.html'); }
+
+      // ── soundproof calculator (verified in node) ──
+      function computeInheritance(inp){
+        inp=inp||{};
+        var spouse=!!inp.spouse, childrenAlive=Math.max(0,inp.childrenAlive|0), childrenMinor=Math.max(0,Math.min(childrenAlive,inp.childrenMinor|0)),
+            predeceasedWithKids=Math.max(0,inp.predeceasedWithKids|0), parentsAlive=Math.max(0,Math.min(2,inp.parentsAlive|0)),
+            siblings=Math.max(0,inp.siblings|0), grandparents=Math.max(0,inp.grandparents|0), dependents=Math.max(0,inp.dependents|0),
+            hasWill=!!inp.hasWill, debts=(inp.debts>0)?inp.debts:0,
+            regime=(inp.regime==='ndarje')?'ndarje':'bashkesi', community=(inp.community>0)?inp.community:0, personal=(inp.personal>0)?inp.personal:0;
+        var heirs=[], basis=[], order;
+        var spousePropertyShare=(spouse&&regime!=='ndarje'&&community>0)?community/2:0;
+        var grossEstate=community+personal;
+        var netEstate=Math.max(0, grossEstate-spousePropertyShare-debts);
+        if(spousePropertyShare>0) basis.push(358);
+        function push(who,frac,count,note){ heirs.push({who:who,fraction:frac,count:count||1,note:note||''}); }
+        var childSlots=childrenAlive+predeceasedWithKids;
+        if(childSlots>0){ order='I'; basis.push(360,361); var each=1/(childSlots+(spouse?1:0));
+          if(childrenAlive>0) push('Fëmijët', each, childrenAlive, 'secili në pjesë të barabarta (neni 361)');
+          if(predeceasedWithKids>0) push('Degë përfaqësimi (fëmijë i paravdekur)', each, predeceasedWithKids, 'pjesa ndahet mes paslindurve (zëvendësim, neni 361)');
+          if(spouse) push('Bashkëshorti pasjetues', each, 1, 'pjesë e barabartë me një fëmijë');
+        } else { var second=parentsAlive+dependents;
+          if(second>0){ order='II'; basis.push(363,361); if(spouse) push('Bashkëshorti pasjetues',0.5,1,'merr 1/2 (neni 361)'); var per2=(spouse?0.5:1)/second; if(parentsAlive>0) push('Prindërit',per2,parentsAlive,''); if(dependents>0) push('Persona të paaftë në ngarkim',per2,dependents,'neni 363');
+          } else { var third=grandparents+siblings+dependents;
+            if(third>0){ order='III'; basis.push(364,361); if(spouse) push('Bashkëshorti pasjetues',0.5,1,'merr 1/2 (neni 361)'); var per3=(spouse?0.5:1)/third; if(grandparents>0) push('Gjyshërit',per3,grandparents,''); if(siblings>0) push('Vëllezër/motra',per3,siblings,'neni 364'); if(dependents>0) push('Persona të paaftë në ngarkim',per3,dependents,'');
+            } else if(spouse){ order='spouse'; basis.push(361); push('Bashkëshorti pasjetues',1,1,'pa trashëgimtarë të rendeve të tjera (neni 361)');
+            } else { order='distant'; basis.push(365,366); }
+          }
+        }
+        var out={order:order,heirs:heirs,basis:basis,netEstate:netEstate,grossEstate:grossEstate,debts:debts,spousePropertyShare:spousePropertyShare,community:community,personal:personal,regime:regime};
+        if(hasWill){ var nHeirs=0; heirs.forEach(function(h){ nHeirs+=h.count; }); var perHeir=nHeirs>0?1/nHeirs:0; var protectedCount=(childrenMinor||0)+(dependents||0); var reservedFrac=Math.min(1,perHeir*protectedCount);
+          out.reserve={ perHeir:perHeir, protectedCount:protectedCount, reservedFrac:reservedFrac, disposableFrac:Math.max(0,1-reservedFrac), warning:(inp.willExcludesReserved&&protectedCount>0)?'Testamenti që përjashton ose cenon trashëgimtarët e mbrojtur (të mitur ose të paaftë për punë) është i pavlefshëm për atë pjesë (neni 407); ata mund të kërkojnë plotësimin (neni 412).':'' };
+          basis.push(379,413); if(out.reserve.warning) basis.push(407,412);
+        }
+        return out;
+      }
+
+      // ── conditional grounding: inject only the articles relevant to THIS case ──
+      function groundingArticles(inp){
+        var s={}; function add(){ for(var i=0;i<arguments.length;i++) s[arguments[i]]=1; }
+        add(316,317,320,330,360,361,413);
+        if(inp.childrenAlive>0) add(362);
+        if(inp.predeceasedWithKids>0) add(326,327,329,370);
+        if(inp.dependents>0) add(363,371);
+        if(inp.parentsAlive>0) add(363);
+        if(inp.siblings>0||inp.grandparents>0) add(364,369);
+        if(inp.community>0 && inp.regime!=='ndarje') add(358);
+        if(inp.hasWill) add(372,378,379,380,392,393,397,402,403,404,405,406,407,408,409,410,411,412);
+        add(322,323,324,369,370); // padenjësi / heqje dorë / shtim (rreziqet)
+        return Object.keys(s).map(Number).sort(function(a,b){ return a-b; });
+      }
+      var _civil=null, abortCtrl=null;
+      function loadCivil(){ if(_civil) return Promise.resolve(_civil); return fetch('data/kodi-civil.json',{signal:abortCtrl?abortCtrl.signal:undefined}).then(function(r){ return r.ok?r.json():{}; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; return {}; }).then(function(d){ _civil=d||{}; return _civil; }); }
+      function buildGrounding(arts){ return loadCivil().then(function(data){ var blocks=[],refs=[],have={};
+        (arts||[]).forEach(function(n){ var t=data[String(n)]; if(t){ have[String(n)]=true; var clean=String(t).replace(/\s+/g,' ').trim(); blocks.push('Neni '+n+': «'+clean.slice(0,650)+'»'); refs.push({num:n,text:clean}); } });
+        // cross-reference expansion (one hop, capped): pull nene cited inside the grounded texts
+        var extra=0; refs.slice().forEach(function(r){ if(extra>=6) return; var rr=/nen(?:i|it|in|et|eve)?\s+(\d+)/gi, mm; while(extra<6 && (mm=rr.exec(r.text))!==null){ var rn=mm[1]; if(have[rn]) continue; var t=data[rn]; if(!t) continue; have[rn]=true; var clean=String(t).replace(/\s+/g,' ').trim(); blocks.push('Neni '+rn+' (referuar): «'+clean.slice(0,600)+'»'); refs.push({num:parseInt(rn,10),text:clean,xref:true}); extra++; } });
+        return {text:blocks.length?('TEKSTI ZYRTAR I NENEVE (Kodi Civil — mbështetu VETËM te këto, mos cito nene jashtë tyre):\n\n'+blocks.join('\n\n')):'', refs:refs}; }); }
+      var INH_FEWSHOT='SHEMBUJ TË SAKTË (mëso prej logjikës, mos kopjo verbatim):\n'+
+        '• Bashkëshort + 2 fëmijë → secili (2 fëmijët dhe bashkëshorti) merr 1/3 (neni 361, pjesë të barabarta).\n'+
+        '• Pa fëmijë + bashkëshort + 2 prindër → bashkëshorti 1/2 (neni 361), secili prind 1/4 (gjysma tjetër barazisht, neni 363).\n'+
+        '• Pa fëmijë + bashkëshort + 2 vëllezër + 1 gjyshe (rendi III) → bashkëshorti 1/2, secili nga 3 të tjerët 1/6 (nenet 361, 364).\n'+
+        '• Vetëm bashkëshort, pa trashëgimtarë të tjerë → bashkëshorti merr gjithçka (neni 361).\n'+
+        '• Fëmijë i paravdekur me fëmijë → dega merr pjesën e një fëmije, ndarë mes paslindurve (zëvendësim, nenet 361, 326–327).\n'+
+        '• Testament që përjashton një fëmijë të mitur → i pavlefshëm për rezervën; i mituri merr pjesën ligjore (nenet 379, 407, 412–413).';
+      function validFracs(c){ var s={'1/1':1,'1':1,'1/2':1}; c.heirs.forEach(function(h){ s[fracStr(h.fraction)]=1; }); if(c.reserve){ s[fracStr(c.reserve.reservedFrac)]=1; s[fracStr(c.reserve.disposableFrac)]=1; } return s; }
+      function enforceShares(text, c){
+        if(!text) return text; var ok=validFracs(c), bad=false, seen={};
+        String(text).replace(/\b(\d{1,2})\/(\d{1,2})\b/g, function(m,a,b){ var f=fracStr(parseInt(a,10)/parseInt(b,10)); if(!ok[m]&&!ok[f]&&!seen[m]){ seen[m]=1; bad=true; } return m; });
+        return bad ? (text+'\n\n⚠ Çdo fraksion në tekst që ndryshon nga tabela e llogaritur më sipër është i pasaktë — vlejnë shifrat e llogaritura.') : text;
+      }
+
+      function iCall(sys,usr,maxTok,temp){
+        if(typeof aiFetch!=='function') return Promise.reject(new Error('AI mungon'));
+        return aiFetch({ signal:abortCtrl?abortCtrl.signal:undefined, body:JSON.stringify({ max_tokens:maxTok, temperature:(typeof temp==='number')?temp:0.4, messages:[{role:'system',content:sys},{role:'user',content:usr}] }) })
+          .then(function(r){ return r.json(); }).then(function(d){ var c=(d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||''; if(!c) throw new Error('bosh'); return c; });
+      }
+
+      // ── renderers ──
+      var ORDER_NAME={ 'I':'Rendi i parë (fëmijët + bashkëshorti)','II':'Rendi i dytë (prindërit + persona në ngarkim)','III':'Rendi i tretë (gjyshër, vëllezër/motra)','spouse':'Vetëm bashkëshorti pasjetues','distant':'Të afërm deri në shkallën e gjashtë / shteti' };
+      var COLORS=['#3d706a','#b8923a','#b15c44','#6a8caf','#8a6a1e','#5a7d6a'];
+      function expandHeirs(c, names){
+        names=names||[]; var out=[], ni=0;
+        c.heirs.forEach(function(h){ for(var k=0;k<h.count;k++){ var nm=names[ni]||'', label;
+          if(h.who==='Fëmijët') label=nm?('Fëmija — '+nm):'Fëmija '+(k+1);
+          else if(h.who==='Bashkëshorti pasjetues') label=nm?('Bashkëshorti — '+nm):'Bashkëshorti pasjetues';
+          else if(h.who==='Prindërit') label=nm?('Prindi — '+nm):'Prindi '+(k+1);
+          else if(h.who.indexOf('Vëllezër')===0) label=nm?('Vëlla/motër — '+nm):'Vëlla/motër '+(k+1);
+          else if(h.who.indexOf('Gjyshërit')===0) label=nm?('Gjyshi/ja — '+nm):'Gjyshi/ja '+(k+1);
+          else if(h.who.indexOf('Degë')===0) label=nm?('Degë përfaqësimi — '+nm):'Degë përfaqësimi '+(k+1);
+          else label=nm?(h.who+' — '+nm):(h.who+(h.count>1?(' '+(k+1)):''));
+          out.push({label:label, fraction:h.fraction, note:h.note, who:h.who}); ni++;
+        } });
+        return out;
+      }
+      var NENI_OF={ 'I':'361','II':'361 & 363','III':'361 & 364','spouse':'361' };
+      function renderPropertyDivision(c){
+        var el=$('inh-out-property'), block=$('inh-property-block'); if(!el||!block) return;
+        if(!(c.spousePropertyShare>0)){ block.hidden=true; return; }
+        var half=Math.round(c.spousePropertyShare), fromComm=Math.round((c.community||0)-c.spousePropertyShare), pers=Math.round(c.personal||0), debts=Math.round(c.debts||0), net=Math.round(c.netEstate);
+        var html='<p class="op-fc-basis">Bashkëshorti mban gjysmën e vet të pasurisë së përbashkët si <strong>e drejtë pasurore</strong> (neni 358) — kjo NUK është trashëgimi. Trashëgimia zbatohet vetëm mbi pjesën e mbetur.</p><div class="op-stat-grid">';
+        html+='<div class="op-stat"><div class="op-stat-label">Bashkëshorti mban — ½ e së përbashkëtit</div><div class="op-stat-value">'+fmtN(half)+' <small>L · neni 358</small></div></div>';
+        html+='<div class="op-stat"><div class="op-stat-label">Nga e përbashkëta → trashëgim</div><div class="op-stat-value">'+fmtN(fromComm)+' <small>L</small></div></div>';
+        if(pers>0) html+='<div class="op-stat"><div class="op-stat-label">Pasuria vetjake → trashëgim</div><div class="op-stat-value">'+fmtN(pers)+' <small>L</small></div></div>';
+        if(debts>0) html+='<div class="op-stat"><div class="op-stat-label">Minus borxhe</div><div class="op-stat-value">−'+fmtN(debts)+' <small>L</small></div></div>';
+        html+='<div class="op-stat"><div class="op-stat-label">Pasuria neto për trashëgim</div><div class="op-stat-value">'+fmtN(net)+' <small>L</small></div></div></div>';
+        el.innerHTML=html; block.hidden=false;
+      }
+      function renderShares(c){
+        var el=$('inh-out-shares'), html='';
+        if(c.order==='distant'){ el.innerHTML='<p>Nuk u dha trashëgimtar i rendeve I–III. Pasuria u kalon të afërmve deri në shkallën e gjashtë, ose, në mungesë, shtetit (nenet 365–366).</p>'; return; }
+        var segs=''; c.heirs.forEach(function(h,i){ segs+='<div class="inh-bar-seg" title="'+esc(h.who)+'" style="width:'+Math.round(h.fraction*h.count*100)+'%;background:'+COLORS[i%COLORS.length]+'"></div>'; });
+        html+='<div class="inh-bar">'+segs+'</div>';
+        var nmEl=$('inh-names'), names=(nmEl?nmEl.value:'').split(/[\n,;]+/).map(function(s){ return s.trim(); }).filter(Boolean);
+        expandHeirs(c,names).forEach(function(p){ var amt=(c.netEstate>0)?(fmtN(Math.round(p.fraction*c.netEstate))+' L'):''; var neni=(p.who.indexOf('Degë')===0?'361, 326–327':(NENI_OF[c.order]||'361'));
+          html+='<div class="inh-share-row"><div class="inh-share-who">'+esc(p.label)+'<small>Baza: neni '+neni+(p.note?(' · '+esc(p.note)):'')+'</small></div><div style="text-align:right"><div class="inh-share-frac">'+fracStr(p.fraction)+'</div>'+(amt?'<div class="inh-share-amt">'+amt+'</div>':'')+'</div></div>'; });
+        var sp=c.heirs.filter(function(h){ return h.who==='Bashkëshorti pasjetues'; })[0];
+        if(c.spousePropertyShare>0 && sp){ var prop=Math.round(c.spousePropertyShare), inh=Math.round(sp.fraction*c.netEstate);
+          html+='<div class="inh-share-row" style="border-top:2px solid var(--border);margin-top:8px;padding-top:10px"><div class="inh-share-who">Bashkëshorti — gjithsej<small>pjesa pasurore (½ e përbashkëtit) + pjesa trashëgimore</small></div><div style="text-align:right"><div class="inh-share-amt"><strong>'+fmtN(prop+inh)+' L</strong></div><div style="font-size:.7rem;color:var(--muted)">'+fmtN(prop)+' + '+fmtN(inh)+'</div></div></div>'; }
+        html+='<p class="inh-order-note">'+esc(ORDER_NAME[c.order]||'')+(c.grossEstate>0?(' · Pasuria neto për trashëgim: '+fmtN(Math.round(c.netEstate))+' L'+(c.debts>0?(' (pas '+fmtN(c.debts)+' L borxhe)'):'')):'')+'</p>';
+        el.innerHTML=html;
+      }
+      function renderAssumptions(inp,c){
+        var el=$('inh-out-assume'), block=$('inh-assume-block'); if(!el) return; var items=[];
+        if(inp.spouse && inp.community>0 && inp.regime!=='ndarje') items.push('Regjimi: bashkësi ligjore. U zbatua neni 358 — bashkëshorti mban ½ e pasurisë së përbashkët si e drejtë pasurore (jo trashëgimi); vetëm pjesa e mbetur trashëgohet.');
+        else if(inp.spouse && inp.regime==='ndarje') items.push('Regjimi: ndarje pasurore — nuk zbatohet ndarja ½ e nenit 358; e gjithë pasuria e të ndjerit hyn në trashëgim.');
+        else if(inp.spouse) items.push('Nuk u fut pasuri e përbashkët martesore; nëse ka (regjim bashkësie), bashkëshorti mban ½ e saj para trashëgimit (neni 358).');
+        items.push('Supozohet se asnjë trashëgimtar nuk është i padenjë (nenet 322–324) dhe askush nuk ka hequr dorë, përveç sa treguar.');
+        if(inp.hasWill) items.push('Testamenti mund të ndryshojë ndarjen vetëm brenda pjesës së disponueshme; rezerva ligjore e të miturve/të paaftëve mbetet e pacenueshme (neni 379).');
+        else items.push('Llogaritja është për trashëgimi ligjore (pa testament); një testament i vlefshëm mund ta ndryshojë brenda pjesës së disponueshme.');
+        if(c.netEstate>0) items.push('Vlerat monetare janë mbi pasurinë neto ('+fmtN(Math.round(c.netEstate))+' L) dhe janë orientuese.');
+        el.innerHTML='<ul class="op-checklist">'+items.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>'; block.hidden=false;
+      }
+      function renderScenarios(inp,c){
+        var el=$('inh-out-scenarios'), block=$('inh-scenarios-block'); if(!el) return; var rows=[];
+        if(inp.hasWill&&c.reserve){ rows.push(['Pa testament (vetëm ligji)','Ndarja e plotë sipas rendeve.']); rows.push(['Me testament','I lirë vetëm '+fracStr(c.reserve.disposableFrac)+' (pjesa e disponueshme); pjesa tjetër mbetet rezervë.']); }
+        else { var c2=computeInheritance(Object.assign({},inp,{hasWill:true,willExcludesReserved:false})); if(c2.reserve&&c2.reserve.protectedCount>0) rows.push(['Nëse bën testament','Do të mund të disponoje '+fracStr(c2.reserve.disposableFrac)+'; '+fracStr(c2.reserve.reservedFrac)+' do mbetej rezervë për të miturit/të paaftët (nenet 379, 413).']); else rows.push(['Nëse bën testament','Pa trashëgimtarë të mbrojtur, mund të disponosh të gjithë pasurinë me testament (neni 378).']); }
+        if(inp.childrenAlive>1){ var cr=computeInheritance(Object.assign({},inp,{childrenAlive:inp.childrenAlive-1})); var ch=cr.heirs.filter(function(h){ return h.who==='Fëmijët'; })[0]; if(ch) rows.push(['Nëse një fëmijë heq dorë','Pjesa e tij u shtohet të tjerëve (neni 370); secili trashëgimtar do të merrte '+fracStr(ch.fraction)+'.']); }
+        else if(inp.spouse&&(inp.childrenAlive>0||inp.parentsAlive>0||inp.siblings>0)){ rows.push(['Nëse bashkëshorti heq dorë','Pjesa e tij u shtohet trashëgimtarëve të tjerë të rendit (neni 370).']); }
+        if(!rows.length){ block.hidden=true; return; }
+        el.innerHTML='<div class="op-qual">'+rows.map(function(r){ return '<div class="op-qual-row"><span class="op-qual-k">'+esc(r[0])+'</span><span class="op-qual-v">'+esc(r[1])+'</span></div>'; }).join('')+'</div>'; block.hidden=false;
+      }
+      function renderPreview(){
+        var el=$('inh-preview'); if(!el) return; var inp=readForm();
+        if(!inp.spouse&&!inp.childrenAlive&&!inp.predeceasedWithKids&&!inp.parentsAlive&&!inp.siblings&&!inp.grandparents&&!inp.dependents){ el.innerHTML=''; return; }
+        var c=computeInheritance(inp);
+        if(c.order==='distant'){ el.innerHTML='<div class="inh-prev-label">Parashikim i shpejtë</div><p style="font-size:.8rem;color:var(--muted);margin:0">Pa trashëgimtarë të rendeve I–III.</p>'; return; }
+        var segs=''; c.heirs.forEach(function(h,i){ segs+='<div class="inh-bar-seg" style="width:'+Math.round(h.fraction*h.count*100)+'%;background:'+COLORS[i%COLORS.length]+'"></div>'; });
+        var rows=c.heirs.map(function(h){ return '<span style="font-size:.78rem">'+(h.count>1?(h.count+'× '):'')+esc(h.who.replace(' pasjetues',''))+': <strong>'+fracStr(h.fraction)+'</strong></span>'; }).join(' · ');
+        el.innerHTML='<div class="inh-prev-label">Parashikim i shpejtë (llogaritje e saktë)</div><div class="inh-bar">'+segs+'</div><div style="display:flex;flex-wrap:wrap;gap:10px">'+rows+'</div>';
+      }
+      function renderReserve(c){ var block=$('inh-reserve-block'), el=$('inh-out-reserve'); if(!c.reserve){ block.hidden=true; return; } var r=c.reserve, html='<p>Fëmijët e mitur dhe personat e paaftë për punë nuk mund të përjashtohen me testament (neni 379); pjesa e tyre llogaritet sipas nenit 413.</p>'; html+='<div class="op-stat-grid"><div class="op-stat"><div class="op-stat-label">Pjesa e rezervuar (e pacenueshme)</div><div class="op-stat-value">'+fracStr(r.reservedFrac)+(c.netEstate>0?' <small>≈ '+fmtN(Math.round(r.reservedFrac*c.netEstate))+' L</small>':'')+'</div></div><div class="op-stat"><div class="op-stat-label">Pjesa e disponueshme me testament</div><div class="op-stat-value">'+fracStr(r.disposableFrac)+(c.netEstate>0?' <small>≈ '+fmtN(Math.round(r.disposableFrac*c.netEstate))+' L</small>':'')+'</div></div></div>'; if(r.warning) html+='<div class="op-deadline-note"><div>⚠ '+esc(r.warning)+'</div></div>'; el.innerHTML=html; block.hidden=false; }
+      function renderRefs(refs){ var block=$('inh-refs-block'), el=$('inh-out-refs'); if(!refs||!refs.length){ block.hidden=true; return; } var html='<p style="margin:0 0 12px"><a class="opinion-law-link" target="_blank" rel="noopener noreferrer" href="'+LAW_BASE+'kodi-civil.html">Shiko Kodin Civil të plotë →</a></p><ul class="op-ref-list">'; refs.forEach(function(a){ html+='<li class="op-ref op-ref-ok"><details class="op-ref-details"><summary><span class="op-ref-icon">✓</span><span class="op-ref-label">Neni '+a.num+(a.xref?' <span style="color:var(--muted);font-weight:400">· referuar</span>':'')+'</span><a href="'+LAW_BASE+'kodi-civil.html#neni-'+a.num+'" target="_blank" rel="noopener noreferrer" class="op-ref-hint" style="text-decoration:none">hap →</a></summary><p class="op-ref-text">'+esc(a.text)+'</p></details></li>'; }); el.innerHTML=html+'</ul>'; block.hidden=false; }
+      function inhVerifier(ctx, sharesText, draft){
+        if(typeof iCall!=='function') return Promise.resolve(null);
+        var usr='ARSYETIMI PËR T\'U KONTROLLUAR:\n'+String(draft||'').slice(0,4000)+'\n\nNDARJA E SAKTË E LLOGARITUR (autoritative): '+sharesText+'\n\n'+ctx+'\n\nKontrollo nëse arsyetimi pajtohet me ndarjen e llogaritur dhe me tekstin zyrtar të neneve. Jep JSON:\n{"confidence":"high|medium|low","issues":["..."]}';
+        return iCall('Jeni auditues i pavarur i së drejtës së trashëgimisë. Kontrolloni kundrejt ndarjes së llogaritur dhe tekstit zyrtar të neneve. Përgjigjuni VETËM me JSON të vlefshëm.', usr, 500, 0.2)
+          .then(function(r){ try{ var j=JSON.parse(String(r).replace(/```json?|```/g,'').trim()); return {confidence:String(j.confidence||'').toLowerCase(), issues:j.issues||[]}; }catch(e){ return null; } })
+          .catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; });
+      }
+      function renderADRInh(c, inp, raw){
+        var block=$('inh-adr-block'), el=$('inh-out-adr'); if(!block||!el) return;
+        var ai=null; try{ ai=JSON.parse(String(raw||'').replace(/```json?|```/g,'').trim()); }catch(e){ ai=null; }
+        if(!ai || !adrApplicableInh(c,inp)){ block.hidden=true; return; }
+        var det={ cls:'op-conf-hi', label:'E përshtatshme', note:'Mosmarrëveshjet e trashëgimisë mes familjarëve i përshtaten zakonisht ndërmjetësimit.' };
+        el.innerHTML=adrHtml(det, ai); block.hidden=false;
+      }
+      function renderInhVerify(v){
+        var re=$('inh-out-refs'), rb=$('inh-refs-block'); if(!re||!v) return;
+        var lab={high:['op-conf-hi','E lartë'],medium:['op-conf-mid','Mesatare'],low:['op-conf-lo','E ulët']}[v.confidence]||['op-conf-mid','Mesatare'];
+        var note='<p style="margin:0 0 10px"><strong>Kontroll cilësie:</strong> besueshmëria <span class="op-conf '+lab[0]+'">'+lab[1]+'</span></p>';
+        if(v.issues&&v.issues.length) note+='<ul class="op-checklist" style="margin:0 0 12px">'+v.issues.filter(Boolean).slice(0,5).map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul>';
+        re.innerHTML=note+re.innerHTML; if(rb) rb.hidden=false;
+      }
+
+      var running=false, attachedWill='', resetWillPdf=function(){};
+      function step(i,cls){ var e=$('inh-step-'+i); if(e){ e.classList.remove('active','done','failed'); if(cls) e.classList.add(cls); } }
+      function readForm(){ return { spouse:$('inh-spouse').value==='po', childrenAlive:parseInt($('inh-children').value,10)||0, childrenMinor:parseInt($('inh-minor').value,10)||0, predeceasedWithKids:parseInt($('inh-predeceased').value,10)||0, parentsAlive:parseInt($('inh-parents').value,10)||0, siblings:parseInt($('inh-siblings').value,10)||0, grandparents:parseInt($('inh-grandparents').value,10)||0, dependents:parseInt($('inh-dependents').value,10)||0, hasWill:$('inh-will').value==='po', willExcludesReserved:$('inh-willexcl').value==='po', regime:$('inh-regime')?$('inh-regime').value:'bashkesi', community:parseAmt($('inh-community').value), personal:parseAmt($('inh-personal').value), debts:parseAmt($('inh-debts').value) }; }
+
+      function generate(){
+        if(running) return; $('inherit-form-error').hidden=true;
+        var inp=readForm();
+        if(!inp.spouse&&!inp.childrenAlive&&!inp.predeceasedWithKids&&!inp.parentsAlive&&!inp.siblings&&!inp.grandparents&&!inp.dependents){ var bx=$('inherit-form-error'); bx.textContent='Plotësoni të paktën një trashëgimtar (bashkëshort, fëmijë, prind, etj.).'; bx.hidden=false; return; }
+        running=true; abortCtrl=new AbortController();
+        $('inherit-generate-btn').disabled=true; $('inherit-form').hidden=true; $('inherit-progress').hidden=false; [0,1,2,3,4].forEach(function(i){ step(i,''); });
+        var c=computeInheritance(inp), details=$('inh-details').value.trim();
+        var fam='Bashkëshorti: '+(inp.spouse?'po':'jo')+'; fëmijë të gjallë: '+inp.childrenAlive+' (të mitur: '+inp.childrenMinor+'); degë përfaqësimi: '+inp.predeceasedWithKids+'; prindër: '+inp.parentsAlive+'; vëllezër/motra: '+inp.siblings+'; gjyshër: '+inp.grandparents+'; persona të paaftë në ngarkim: '+inp.dependents+'; testament: '+(inp.hasWill?'po':'jo')+(details?('. Detaje: '+details):'');
+        var sharesText=c.heirs.map(function(h){ return (h.count>1?h.count+'× ':'')+h.who+' = '+fracStr(h.fraction)+' secili'; }).join('; ')||'(pa trashëgimtarë të afërt)';
+        step(0,'active');
+        buildGrounding(groundingArticles(inp)).then(function(g){
+          step(0,'done'); [1,2,3,4].forEach(function(i){ step(i,'active'); });
+          var propNote=(c.spousePropertyShare>0)?('\nNDARJA PASURORE (neni 358): bashkëshorti mban '+fmtN(Math.round(c.spousePropertyShare))+' L (½ e pasurisë së përbashkët) si E DREJTË PASURORE, jo trashëgimi. Pasuria neto për trashëgim: '+fmtN(Math.round(c.netEstate))+' L.'):((inp.spouse&&inp.regime==='ndarje')?'\nRegjimi: ndarje pasurore — pa ndarje 1/2 të nenit 358.':'');
+          var ctx='SITUATA FAMILJARE:\n'+fam+'\n\nNDARJA E LLOGARITUR (e saktë sipas Kodit Civil — MOS e ndrysho):\n'+sharesText+propNote+(g.text?('\n\n'+g.text):'');
+          var tasks=[
+            iCall('Jeni profesor i së drejtës së trashëgimisë shqiptare. Shkruani arsyetim ligjor të strukturuar, duke cituar VETËM nenet e dhëna. MOS i ndryshoni fraksionet e llogaritura — ato janë të sakta.', INH_FEWSHOT+'\n\n'+ctx+'\n\nShkruaj arsyetimin me KËTA tituj (secili në krye rreshti):\nRENDI I ZBATUESHËM\nPJESA E BASHKËSHORTIT\nPËRFAQËSIMI\nREZERVA LIGJORE\nKONKLUZION\nNën secilin, 1–3 fjali të qarta me referenca te nenet. Nëse një titull nuk zbatohet, shkruaj «Nuk zbatohet».', 1000,0.25).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }),
+            (attachedWill ? iCall('Jeni jurist shqiptar, ekspert testamentesh sipas Kodit Civil.', ctx+'\n\nTEKSTI I TESTAMENTIT TË NGARKUAR:\n'+attachedWill.slice(0,6000)+'\n\nVlerëso: (1) formën (ollograf/noterial, nenet 392–400), (2) a cenon rezervën ligjore të të miturve/të paaftëve (nenet 379, 407), (3) afatin e kontestimit (neni 411). Cito nenet.', 800,0.35).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }) : Promise.resolve(null)),
+            iCall('Jeni avokat shqiptar i trashëgimisë.', ctx+'\n\nListo rreziqet dhe shkaqet e mundshme të kontestimit: padenjësia, heqja dorë, përfaqësimi, atësia/birësimi, pasuria e përbashkët martesore (neni 358). 4–6 pika.', 600,0.45).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }),
+            iCall('Jeni noter/jurist shqiptar.', ctx+'\n\nJep hapat praktikë: dëshmia e trashëgimisë te noteri, inventari (neni 415), regjistrimi i pronës, afatet, heqja dorë nëse duhet. Listë e numëruar.', 600,0.4).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; })
+          ];
+          tasks.push(adrApplicableInh(c,inp) ? iCall(ADR_SYS, ctx+'\n\nVlerëso nëse mosmarrëveshja e mundshme mes trashëgimtarëve (ndarja ose kontestimi i testamentit) mund të zgjidhet me ndërmjetësim familjar ose arbitrazh, sa gjasa ka, dhe skenarët më të mirë e më të keq.'+ADR_JSON, 700,0.4).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }) : Promise.resolve(null));
+          return Promise.all(tasks).then(function(res){
+            step(1,res[0]?'done':'failed'); step(2,attachedWill?(res[1]?'done':'failed'):'done'); step(3,res[2]?'done':'failed'); step(4,res[3]?'done':'failed');
+            try{ $('inherit-doc-meta').textContent=new Date().toLocaleDateString('sq-AL')+' · Trashëgimi ligjore'; }catch(e){ $('inherit-doc-meta').textContent='Trashëgimi ligjore'; }
+            renderPropertyDivision(c);
+            renderShares(c);
+            $('inh-out-explain').innerHTML=iMd(enforceShares(res[0], c));
+            renderReserve(c);
+            renderAssumptions(inp,c);
+            renderScenarios(inp,c);
+            if(attachedWill&&res[1]){ $('inh-out-will').innerHTML=iMd(res[1]); $('inh-will-block').hidden=false; } else { $('inh-will-block').hidden=true; }
+            $('inh-out-risks').innerHTML=iMd(res[2]);
+            renderADRInh(c, inp, res[4]);
+            $('inh-out-plan').innerHTML=iMd(res[3]);
+            renderRefs(g.refs);
+            ['inh-out-shares','inh-out-property','inh-out-reserve','inh-out-assume','inh-out-scenarios','inh-out-adr'].forEach(function(id){ var e=$(id); if(e&&e.innerHTML&&e.innerHTML.indexOf('<a ')<0) e.innerHTML=linkNene(e.innerHTML,'kodi-civil.html'); });
+            var draft=[res[0],res[1],res[2]].filter(Boolean).join('\n\n');
+            return inhVerifier(ctx,sharesText,draft).then(function(v){ if(v) renderInhVerify(v); $('inherit-progress').hidden=true; $('inherit-output').hidden=false; $('inherit-modal-inner').scrollTop=0; });
+          });
+        }).catch(function(err){ if(err&&err.name==='AbortError') return; $('inherit-progress').hidden=true; $('inherit-form').hidden=false; var bx=$('inherit-form-error'); bx.textContent='Gabim gjatë analizës: '+(err&&err.message?err.message:'provoni sërish.'); bx.hidden=false; })
+        .then(function(){ running=false; $('inherit-generate-btn').disabled=false; });
+      }
+
+      // PDF (reuses shared extractPdfText with OCR)
+      (function(){ var inp=$('inh-pdf'), st=$('inh-pdf-status'), clr=$('inh-pdf-clear'), view=$('inh-pdf-view'), preview=$('inh-pdf-preview'); if(!inp) return;
+        attachPdfPreview(view, preview, function(){ return attachedWill; });
+        function reset(){ attachedWill=''; inp.value=''; if(st){ st.textContent=''; st.classList.remove('warn'); } if(clr) clr.hidden=true; if(view){ view.hidden=true; view.textContent='Shiko tekstin'; } if(preview){ preview.hidden=true; preview.textContent=''; } } resetWillPdf=reset; if(clr) clr.addEventListener('click',reset);
+        inp.addEventListener('change',function(){ var f=inp.files&&inp.files[0]; if(!f) return; if(typeof extractPdfText!=='function'){ st.textContent='Lexuesi i PDF mungon.'; st.classList.add('warn'); return; } st.classList.remove('warn'); st.textContent='Duke lexuar…'; clr.hidden=false; attachedWill=''; if(view){ view.hidden=true; view.textContent='Shiko tekstin'; } if(preview){ preview.hidden=true; preview.textContent=''; } extractPdfText(f,8000,function(m){ st.textContent=m; }).then(function(t){ if(!t){ st.textContent='PDF pa tekst (i skanuar?).'; st.classList.add('warn'); return; } attachedWill=t; st.textContent=f.name+' · '+t.split(/\s+/).length+' fjalë'; if(view) view.hidden=false; }).catch(function(){ st.textContent='Nuk u lexua dot.'; st.classList.add('warn'); }); });
+      })();
+
+      function openModal(){ $('inherit-modal').hidden=false; document.body.style.overflow='hidden'; $('inherit-close').focus(); }
+      function closeModal(){ if(abortCtrl) abortCtrl.abort(); $('inherit-modal').hidden=true; document.body.style.overflow=''; }
+      function restart(){ if(abortCtrl) abortCtrl.abort(); running=false; $('inherit-generate-btn').disabled=false; $('inherit-output').hidden=true; $('inherit-progress').hidden=true; $('inherit-form').hidden=false; $('inherit-form-error').hidden=true; }
+      $('inherit-open-btn').addEventListener('click',openModal);
+      $('inherit-close').addEventListener('click',closeModal);
+      $('inherit-generate-btn').addEventListener('click',generate);
+      $('inherit-restart-btn').addEventListener('click',restart);
+      $('inherit-print-btn').addEventListener('click',function(){ var ds=Array.prototype.slice.call(document.querySelectorAll('#inherit-modal .op-breakdown')); var were=ds.map(function(d){ return d.open; }); ds.forEach(function(d){ d.open=true; }); function restore(){ ds.forEach(function(d,i){ d.open=were[i]; }); window.removeEventListener('afterprint',restore); } window.addEventListener('afterprint',restore); setTimeout(restore,3000); window.print(); });
+      $('inherit-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
+      document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('inherit-modal').hidden) closeModal(); });
+      ['inh-spouse','inh-children','inh-minor','inh-predeceased','inh-parents','inh-siblings','inh-grandparents','inh-dependents','inh-will','inh-willexcl','inh-regime','inh-community','inh-personal','inh-debts','inh-names'].forEach(function(id){ var e=$(id); if(e){ e.addEventListener('input',renderPreview); e.addEventListener('change',renderPreview); } });
+    })();
+
+    /* ── Rich-report engine for the upgraded tools (Contract / Penal / Negotiator) ── */
+    (function(){
+      'use strict';
+      if(typeof aiFetch!=='function' || !document.getElementById('tool-report-modal')) return;
+      function $(id){ return document.getElementById(id); }
+      function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+      function inl(t){ return t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>'); }
+      function md(raw, lawFile){
+        var lines=esc(raw||'').split('\n'), out='', list=false;
+        function close(){ if(list){ out+='</ul>'; list=false; } }
+        lines.forEach(function(ln){ ln=ln.trim();
+          if(!ln){ close(); return; }
+          var h=ln.match(/^#{1,4}\s+(.*)$/); if(h){ close(); out+='<h3 class="opinion-section-head">'+inl(h[1])+'</h3>'; return; }
+          var b=ln.match(/^[-•*]\s+(.*)$/); if(b){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(b[1])+'</li>'; return; }
+          var o=ln.match(/^\d+[.)]\s+(.*)$/); if(o){ if(!list){ out+='<ul class="opinion-md-list">'; list=true; } out+='<li>'+inl(o[1])+'</li>'; return; }
+          close(); out+='<p>'+inl(ln)+'</p>';
+        });
+        close();
+        return (typeof linkNene==='function') ? linkNene(out, lawFile||'kodi-civil.html') : out;
+      }
+      var abort=null, running=false;
+      function ai(sys, usr, maxTok, temp){
+        return aiFetch({ signal:abort?abort.signal:undefined, body:JSON.stringify({ max_tokens:maxTok||900, temperature:(typeof temp==='number')?temp:0.4, messages:[{role:'system',content:sys},{role:'user',content:usr}] }) }, true)
+          .then(function(r){ if(!r.ok){ var e=new Error('http '+r.status); e.status=r.status; throw e; } return r.json(); })
+          .then(function(d){ var c=(d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||''; if(!c) throw new Error('bosh'); return c; });
+      }
+      var STOP={}; 'dhe ose nje per nga me te ta se si ku kur qe ne eshte jane qene ka kane mbi nen sipas cdo kjo ato kete keto'.split(' ').forEach(function(w){ STOP[w]=1; });
+      function terms(s){ var seen={},out=[]; String(s||'').toLowerCase().split(/[^a-zçë0-9]+/).forEach(function(w){ if(w.length>=4&&!STOP[w]&&!seen[w]){ seen[w]=1; out.push(w); } }); return out; }
+      function ground(lawFiles, text){
+        var tms=terms(text); if(!tms.length||!(lawFiles&&lawFiles.length)) return Promise.resolve({textBlock:'',refs:[]});
+        return Promise.all(lawFiles.map(function(f){
+          return fetch('data/'+f.replace(/\.html$/,'.json'),{signal:abort?abort.signal:undefined}).then(function(r){ return r.ok?r.json():{}; }).catch(function(e){ if(e&&e.name==='AbortError') throw e; return {}; }).then(function(data){ return {file:f,data:data||{}}; });
+        })).then(function(rows){
+          var cands=[];
+          rows.forEach(function(row){ Object.keys(row.data).forEach(function(num){ var t=String(row.data[num]||''); if(!t) return; var tl=t.toLowerCase(),sc=0; tms.forEach(function(w){ if(tl.indexOf(w)!==-1) sc++; }); if(sc>0) cands.push({file:row.file,num:num,text:t.replace(/\s+/g,' ').trim(),kw:sc}); }); });
+          if(!cands.length) return {textBlock:'',refs:[]};
+          cands.sort(function(a,b){ return b.kw-a.kw; }); cands=cands.slice(0,30);
+          function finish(top){ var refs=top.map(function(c){ return {file:c.file,num:c.num,text:c.text}; });
+            var block=top.length?('TEKSTI ZYRTAR I NENEVE (mbështetu VETËM te këto; mos cito nene jashtë tyre):\n\n'+top.map(function(c){ return 'Neni '+c.num+': «'+c.text.slice(0,650)+'»'; }).join('\n\n')):'';
+            return {textBlock:block, refs:refs}; }
+          if(typeof aiEmbed!=='function') return finish(cands.slice(0,8));
+          var inputs=[String(text).slice(0,1500)].concat(cands.map(function(c){ return c.text.slice(0,500); }));
+          return aiEmbed(inputs).then(function(vecs){ if(!vecs||vecs.length!==inputs.length) return finish(cands.slice(0,8));
+            function cos(a,b){ var s=0,na=0,nb=0,n=Math.min(a.length,b.length); for(var i=0;i<n;i++){ s+=a[i]*b[i]; na+=a[i]*a[i]; nb+=b[i]*b[i]; } return (na&&nb)?s/(Math.sqrt(na)*Math.sqrt(nb)):0; }
+            var q=vecs[0]; cands.forEach(function(c,i){ c.sim=cos(q,vecs[i+1]); }); cands.sort(function(a,b){ return b.sim-a.sim; }); return finish(cands.slice(0,8));
+          }).catch(function(){ return finish(cands.slice(0,8)); });
+        }).catch(function(e){ if(e&&e.name==='AbortError') throw e; return {textBlock:'',refs:[]}; });
+      }
+      function refsHtml(refs){ if(!refs||!refs.length) return ''; var base=(typeof LAW_BASE!=='undefined')?LAW_BASE:'';
+        var html='<ul class="op-ref-list">';
+        refs.forEach(function(a){ var href=base+a.file+'#neni-'+String(a.num).split('/')[0];
+          html+='<li class="op-ref op-ref-ok"><details class="op-ref-details"><summary><span class="op-ref-icon">✓</span><span class="op-ref-label">Neni '+esc(a.num)+'</span><a href="'+href+'" target="_blank" rel="noopener noreferrer" class="op-ref-hint" style="text-decoration:none">hap →</a></summary><p class="op-ref-text">'+esc(a.text)+'</p></details></li>'; });
+        return html+'</ul>'; }
+      var BLK=['opinion-block-a','opinion-block-b','opinion-block-c','opinion-block-d','opinion-block-e','opinion-block-f'];
+      function section(label, body, i){ return '<div class="opinion-section-block '+BLK[i%BLK.length]+'"><div class="opinion-block-label">'+esc(label)+'</div><div class="opinion-section-body">'+body+'</div></div>'; }
+      function openModal(){ $('tool-report-modal').hidden=false; document.body.style.overflow='hidden'; }
+      function closeModal(){ if(abort) abort.abort(); running=false; $('tool-report-modal').hidden=true; document.body.style.overflow=''; }
+
+      function showToolError(msg, cfg){
+        $('tool-progress').hidden=true; $('tool-output').hidden=true;
+        var e=$('tool-error'); e.innerHTML='';
+        var p=document.createElement('p'); p.className='tool-error-msg'; p.textContent=msg||'Ndodhi një gabim — provoni sërish.'; e.appendChild(p);
+        var b=document.createElement('button'); b.type='button'; b.className='tool-retry-btn'; b.textContent='Provo sërish';
+        b.addEventListener('click', function(){ e.hidden=true; running=false; runToolReport(cfg); }); e.appendChild(b);
+        e.hidden=false;
+      }
+      function runToolReport(cfg){
+        if(running) return;
+        var primary=(cfg.lawFiles&&cfg.lawFiles[0])||'kodi-civil.html';
+        openModal();
+        $('tool-modal-title').textContent=cfg.title||'Raport';
+        $('tool-doc-eyebrow').textContent=cfg.eyebrow||cfg.title||'Raport Ligjor';
+        try{ $('tool-doc-meta').textContent=new Date().toLocaleDateString('sq-AL'); }catch(e){ $('tool-doc-meta').textContent=''; }
+        $('tool-error').hidden=true; $('tool-output').hidden=true; $('tool-sections').innerHTML='';
+        if(!aiConfigured()){ showToolError('Shërbimi AI nuk është i konfiguruar (mungon çelësi). Analiza me AI nuk mund të kryhet.', cfg); return; }
+        running=true; abort=new AbortController();
+        $('tool-progress').hidden=false; $('tool-progress-label').textContent='Duke lexuar bazën ligjore…';
+        var hardErr=null;
+        ground(cfg.lawFiles, cfg.input).then(function(g){
+          $('tool-progress-label').textContent='Duke analizuar…';
+          var GT=g.textBlock?('\n\n'+g.textBlock):'';
+          var tasks=(cfg.aiSections||[]).map(function(sec){
+            return ai(sec.sys, sec.usr(cfg.input, GT), sec.maxTok, sec.temp)
+              .then(function(t){ return {label:sec.label, body:md(t, primary), ok:true}; })
+              .catch(function(e){ if(e&&e.name==='AbortError') throw e; if(e&&e.status&&!hardErr) hardErr=e; return {label:sec.label, body:'<p class="op-degraded">Kjo pjesë nuk u gjenerua.</p>', ok:false}; });
+          });
+          return Promise.all(tasks).then(function(aiRes){
+            var okCount=aiRes.filter(function(r){ return r&&r.ok; }).length;
+            var hasDet=(typeof cfg.compute==='function');
+            if(aiRes.length && okCount===0 && !hasDet){ showToolError(aiErrMsg(hardErr&&hardErr.status, hardErr), cfg); return; }
+            var html='', i=0;
+            if(hasDet){ var det=cfg.compute(cfg.input); if(det&&det.body) html+=section(det.label, det.body, i++); }
+            aiRes.forEach(function(r){ if(r) html+=section(r.label, r.body, i++); });
+            if(g.refs&&g.refs.length) html+=section('Referencat (nene të lidhura)', refsHtml(g.refs), i++);
+            $('tool-sections').innerHTML=html;
+            $('tool-progress').hidden=true; $('tool-output').hidden=false; $('tool-report-inner').scrollTop=0;
+          });
+        }).catch(function(err){ if(err&&err.name==='AbortError') return; showToolError(aiErrMsg(err&&err.status, err), cfg); })
+        .then(function(){ running=false; });
+      }
+
+      // ── tool configs ──
+      function need(text, ws){ var t=String(text||'').toLowerCase(); return !ws.some(function(w){ return t.indexOf(w)!==-1; }); }
+      var CONTRACT={ title:'Analizë e Kontratës', eyebrow:'Analizë Kontrate', lawFiles:['kodi-civil.html','shoqerite-tregtare.html'], input:'',
+        compute:function(text){
+          var checks=[['Afati / kohëzgjatja',['afat','kohëzgjatj','periudh','vlefshmër']],['Zgjidhja/anulimi i kontratës',['zgjidh','anulim','ndërpres','prish']],['Përgjegjësia & dëmshpërblimi',['përgjegjës','dëmshpërblim','penalitet','gjob']],['Garancia',['garanci','garanton']],['Forcë madhore',['forcë madhore','force majeure']],['Gjykata kompetente / juridiksioni',['gjykat','juridiksion','arbitrazh','mosmarrëveshj']],['Konfidencialiteti',['konfidencial','fshehtës']],['Pagesa (mënyra & afatet)',['pages','paguh','faturë','këst']]];
+          var body='<p>Kontroll automatik i klauzolave thelbësore — mungesat shpesh rrisin rrezikun:</p><ul class="tool-checklist">';
+          checks.forEach(function(c){ var miss=need(text,c[1]); body+='<li class="'+(miss?'tc-miss':'tc-ok')+'"><span class="tc-mark">'+(miss?'⚠':'✓')+'</span> '+esc(c[0])+(miss?' — mungon ose e paqartë':'')+'</li>'; });
+          return { label:'Lista e Klauzolave (kontroll automatik)', body:body+'</ul>' };
+        },
+        aiSections:[
+          { label:'Klauzola problematike & rreziqe', maxTok:1050, temp:0.4, sys:'Jeni avokat shqiptar ekspert në kontrata, kritik dhe specifik. Mbështetu te teksti zyrtar i neneve të dhëna; mos shpik numra nenesh.', usr:function(input,gt){ return 'Analizo klauzolë për klauzolë kontratën që vijon. Identifiko klauzolat problematike, të njëanshme ose abuzive, dhe nenet konkrete të cenuara.'+gt+'\n\nKONTRATA:\n'+String(input).slice(0,7000); } },
+          { label:'Mbrojtje që mungojnë & ndryshime të rekomanduara', maxTok:850, temp:0.4, sys:'Jeni avokat shqiptar. Rekomandime praktike e konkrete, me referenca te nenet e dhëna.', usr:function(input,gt){ return 'Për të njëjtën kontratë: (1) të drejtat/mbrojtjet që mungojnë për klientin; (2) ndryshime konkrete të rekomanduara në tekst.'+gt+'\n\nKONTRATA:\n'+String(input).slice(0,5000); } }
+        ]
+      };
+      var PEN_LAW={'Shkelje penale':'kodi-penal.html','Shkelje rrugore':'kodi-rrugor.html','Shkelje doganore':'kodi-doganor.html','Shkelje kontraktuale':'kodi-civil.html','Shkelje e marrëdhënies së punës':'kodi-civil.html'};
+      function penConfig(){ var typ=$('pen-type').value, sit=$('pen-sit').value.trim(); if(!sit){ $('pen-sit').focus(); return null; } var lf=PEN_LAW[typ]||'kodi-penal.html';
+        return { title:'Analizë e Shkeljes & Sanksioni', eyebrow:'Analizë Sanksioni', lawFiles:[lf], input:(typ?('Lloji: '+typ+'. '):'')+sit,
+          aiSections:[
+            { label:'Kualifikimi i shkeljes & përbërja', maxTok:1100, temp:0.3, sys:'Jeni jurist penalist shqiptar. Mbështetu te teksti zyrtar i neneve të dhëna; mos shpik numra nenesh apo emra veprash. Nëse është vepër penale, analizo përbërjen me 4 elementet (OBJEKTI, ANA OBJEKTIVE, SUBJEKTI, ANA SUBJEKTIVE); përndryshe kualifiko shkeljen.', usr:function(input,gt){ return 'Kualifiko shkeljen që vijon dhe analizo përbërjen e saj.'+gt+'\n\nSITUATA:\n'+input; } },
+            { label:'Sanksioni / dënimi i mundshëm', maxTok:700, temp:0.35, sys:'Jeni jurist shqiptar. Jep diapazonin orientues të dënimit/gjobës sipas tekstit zyrtar; mos shpik shifra jashtë tij.', usr:function(input,gt){ return 'Jep diapazonin orientues të sanksionit (dënim/gjobë), formën bazë vs të kualifikuar, dhe stadin (tentativë/e konsumuar) nëse zbatohet.'+gt+'\n\nSITUATA:\n'+input; } },
+            { label:'Rrethana lehtësuese/rënduese & mbrojtja', maxTok:700, temp:0.4, sys:'Jeni avokat mbrojtës shqiptar.', usr:function(input,gt){ return 'Listo rrethanat lehtësuese dhe rënduese, dhe linjat kryesore të mbrojtjes/kundërshtimit.'+gt+'\n\nSITUATA:\n'+input; } }
+          ] }; }
+      var NEGO_LAW={'Kontratë / detyrim civil':'kodi-civil.html','Qira / marrëdhënie pronësore':'kodi-civil.html','Punë / marrëdhënie pune':'kodi-civil.html','Familje / trashëgimi':'kodi-familjes.html','Biznes / ortakëri':'shoqerite-tregtare.html','Konsumator / garanci':'kodi-civil.html'};
+      function negoConfig(){ var p1=$('nego-pos1').value.trim(), p2=$('nego-pos2').value.trim(), typ=$('nego-type').value; if(!p1&&!p2){ $('nego-pos1').focus(); return null; } var lf=NEGO_LAW[typ]||'kodi-civil.html';
+        var input='Lloji: '+(typ||'mosmarrëveshje')+'.\nPozicioni i klientit: '+p1+'\nPozicioni i palës tjetër: '+p2;
+        return { title:'Strategji Negocimi', eyebrow:'Strategji Negocimi & Ndërmjetësim', lawFiles:[lf], input:input,
+          aiSections:[
+            { label:'BATNA, ZOPA & pikat e levës', maxTok:900, temp:0.45, sys:'Jeni strateg negocimi dhe ndërmjetës shqiptar. Mbështetu te nenet e dhëna ku është e rëndësishme; mos shpik numra nenesh.', usr:function(input,gt){ return 'Analizo: BATNA e secilës palë, zona e marrëveshjes së mundshme (ZOPA), dhe pikat kryesore të levës për klientin.'+gt+'\n\n'+input; } },
+            { label:'Plani i lëshimeve & skenarët', maxTok:800, temp:0.45, sys:'Jeni strateg negocimi shqiptar.', usr:function(input,gt){ return 'Jep një plan lëshimesh (çfarë të ofrosh dhe çfarë të mbash), plus skenarin më të mirë dhe më të keq të një marrëveshjeje.'+gt+'\n\n'+input; } },
+            { label:'Draft kushtesh marrëveshjeje', maxTok:800, temp:0.4, sys:'Jeni jurist shqiptar që harton marrëveshje.', usr:function(input,gt){ return 'Harto një draft të shkurtër me 4–7 kushte kryesore për një marrëveshje/akord pajtimi mes palëve.'+gt+'\n\n'+input; } }
+          ] }; }
+
+      // ── Parashkrim (statute-of-limitations): deterministic date math + grounded explanation ──
+      var SOL_RULES={
+        'Kërkesë civile (kontratë)':{ years:10, law:'kodi-civil.html', basis:'detyrimet kontraktore (Kodi Civil)' },
+        'Dëmshpërblim civil':{ years:3, law:'kodi-civil.html', basis:'dëmi jashtëkontraktor (Kodi Civil)' },
+        'Mosmarrëveshje pune':{ years:3, law:'kodi-civil.html', basis:'kërkesa nga marrëdhënia e punës' },
+        'Ankesë administrative':{ days:45, law:'kodi-procedure-civile.html', basis:'afati i ankimit ndaj aktit administrativ (KPA)' },
+        'Kërkesë pronësore':{ none:true, law:'kodi-civil.html', basis:'padia rivendikuese si rregull nuk parashkruhet' },
+        'Akuzë penale':{ tiered:true, law:'kodi-penal.html', basis:'parashkrimi i ndjekjes penale sipas peshës së veprës (neni 67 KP)' }
+      };
+      function fmtD(dt){ try{ return dt.toLocaleDateString('sq-AL'); }catch(e){ return dt.toISOString().slice(0,10); } }
+      function solCompute(type, dateStr, rule){
+        var d=new Date(dateStr), now=new Date();
+        if(isNaN(d.getTime())) return { label:'Verdikti i afatit (llogaritje)', body:'<p class="op-degraded">Data e dhënë nuk është e vlefshme.</p>' };
+        var elapsedMs=now-d, elapsedDays=Math.floor(elapsedMs/86400000), elapsedYears=elapsedMs/(365.25*86400000);
+        var rows='<ul class="sol-facts"><li><span>Lloji</span><b>'+esc(type)+'</b></li>'
+               + '<li><span>Data e ngjarjes</span><b>'+fmtD(d)+'</b></li>'
+               + '<li><span>Koha e kaluar</span><b>'+(elapsedYears>=1?elapsedYears.toFixed(1)+' vjet':elapsedDays+' ditë')+'</b></li>';
+        var verdict;
+        if(rule.none){
+          verdict='<div class="sol-badge sol-info">Nuk parashkruhet</div><p>'+esc(rule.basis)+'. Afati varet nga kërkesa konkrete — verifikoni rastin specifik.</p>';
+        } else if(rule.tiered){
+          verdict='<div class="sol-badge sol-info">Varion sipas veprës</div><p>Parashkrimi i ndjekjes penale ndryshon sipas dënimit maksimal të veprës (neni 67 i Kodit Penal) — p.sh. ~2, 5, 10 ose 20+ vjet. Përcaktoni veprën konkrete për afatin e saktë. Koha e kaluar: ~'+elapsedYears.toFixed(1)+' vjet.</p>';
+        } else {
+          var deadline, label2;
+          if(rule.days){ deadline=new Date(d.getTime()+rule.days*86400000); label2=rule.days+' ditë'; }
+          else { deadline=new Date(d.getTime()); deadline.setFullYear(deadline.getFullYear()+rule.years); label2='~'+rule.years+' vjet'; }
+          var remMs=deadline-now;
+          rows+='<li><span>Afati ligjor</span><b>'+label2+'</b></li><li><span>Data e skadimit</span><b>'+fmtD(deadline)+'</b></li>';
+          if(remMs<0){
+            verdict='<div class="sol-badge sol-barred">Mund të jetë parashkruar</div><p>Afati ('+label2+') ka skaduar më '+fmtD(deadline)+' (~'+Math.abs(Math.round(remMs/86400000))+' ditë më parë). Verifikoni shkaqet e ndërprerjes/pezullimit që mund ta zgjasin.</p>';
+          } else {
+            var remDays=Math.ceil(remMs/86400000), span=rule.days?rule.days*86400000:rule.years*365.25*86400000, near=remMs<span*0.2;
+            verdict='<div class="sol-badge '+(near?'sol-near':'sol-ok')+'">'+(near?'Afati po afrohet':'Brenda afatit')+'</div><p>Kanë mbetur ~'+remDays+' ditë (skadon më '+fmtD(deadline)+').'+(near?' Veproni shpejt.':'')+'</p>';
+          }
+        }
+        return { label:'Verdikti i afatit (llogaritje)', body:verdict+rows+'</ul><p class="sol-note">Llogaritje orientuese mbi datën dhe llojin e dhënë — afati i saktë dhe ndërprerjet/pezullimet duhen verifikuar me tekstin e ligjit.</p>' };
+      }
+      function solConfig(){
+        var type=$('sol-type').value, dateStr=$('sol-date').value;
+        if(!type){ $('sol-type').focus(); return null; }
+        if(!dateStr){ $('sol-date').focus(); return null; }
+        var rule=SOL_RULES[type]||{ years:10, law:'kodi-civil.html', basis:'afat i përgjithshëm' };
+        var input='Lloji i kërkesës: '+type+'. Data e ngjarjes/shkeljes: '+dateStr+'. '+rule.basis+'.';
+        return { title:'Kalkulator i Parashkrimit', eyebrow:'Afati i Parashkrimit', lawFiles:[rule.law], input:input,
+          compute:function(){ return solCompute(type, dateStr, rule); },
+          aiSections:[
+            { label:'Baza ligjore e afatit', maxTok:700, temp:0.3, sys:'Jeni jurist shqiptar ekspert në afatet ligjore dhe parashkrimin. Mbështetu te teksti zyrtar i neneve të dhëna; mos shpik numra nenesh.', usr:function(inp,gt){ return 'Shpjego bazën ligjore të afatit të parashkrimit për këtë rast dhe nenin/nenet konkrete që e përcaktojnë.'+gt+'\n\n'+inp; } },
+            { label:'Ndërprerja/pezullimi & si të veproni', maxTok:700, temp:0.35, sys:'Jeni avokat shqiptar.', usr:function(inp,gt){ return 'Shpjego si mund të ndërpritet ose pezullohet afati i parashkrimit (p.sh. ngritja e padisë, njohja e borxhit) dhe çfarë hapash duhen ndërmarrë urgjentisht.'+gt+'\n\n'+inp; } }
+          ] };
+      }
+
+      // ── Case Study: generate a teaching case grounded on the selected law ──
+      var CS_LAW={'Kushtetuta e Republikës së Shqipërisë':'kushtetuta.html','Kodi Civil':'kodi-civil.html','Kodi Penal':'kodi-penal.html','Kodi i Procedurës Civile':'kodi-procedure-civile.html','Kodi i Procedurës Penale':'kodi-procedure-penale.html','Kodi i Familjes':'kodi-familjes.html','Kodi Rrugor':'kodi-rrugor.html','Kodi Ajror':'kodi-ajror.html','Kodi Doganor':'kodi-doganor.html','Kodi i Drejtësisë Penale për të Mitur':'drejtesia-penale-mitur.html','Dispozita Zbatuese të Kodit Doganor':'dispozita-zbatuese-kodi-doganor.html','Ligj për Tregtarët dhe Shoqëritë Tregtare':'shoqerite-tregtare.html','Ligj për Falimentimin':'falimentimi.html','Statusi i Gjyqtarëve dhe Prokurorëve':'statusi-gjyqtareve-prokuroreve.html','Organizimi i Pushtetit Gjyqësor':'organizimi-pushtetit-gjyqesor.html','Organizimi i Pushtetit Gjyqësor (i përditësuar)':'organizimi-pushtetit-gjyqesor-v2.html','Ligj për Noterinë':'noteria.html','Shërbimi Përmbarimor Gjyqësor Privat':'sherbimi-permbarimor.html'};
+      function csConfig(){ var law=$('cs-law').value; if(!law){ $('cs-law').focus(); return null; } var lf=CS_LAW[law]||'kodi-civil.html';
+        return { title:'Rast Ligjor Mësimor', eyebrow:'Rast Studimor — '+law, lawFiles:[lf], input:'Ligji: '+law,
+          aiSections:[
+            { label:'Rasti mësimor (skenar, pyetje, analizë)', maxTok:1300, temp:0.55, sys:'Jeni pedagog i së drejtës shqiptare. Krijoni një rast hipotetik realist të bazuar te teksti zyrtar i neneve të dhëna, me: (1) skenarin/faktet, (2) pyetjet juridike, (3) analizën e zgjidhjes me referenca te nenet. Mos shpik numra nenesh jashtë tyre.', usr:function(inp,gt){ return 'Krijo një rast të plotë mësimor që ilustron zbatimin e '+law+'.'+gt; } },
+            { label:'Nenet kyçe & parimet', maxTok:700, temp:0.4, sys:'Jeni pedagog i së drejtës shqiptare. Mbështetu te nenet e dhëna.', usr:function(inp,gt){ return 'Shpjego shkurt nenet dhe parimet kyçe të '+law+' që lidhen me rastin.'+gt; } }
+          ] }; }
+
+      // ── Document drafter ──
+      var DD_LAW={'Kontratë qiraje banesë':'kodi-civil.html','Kontratë shitjeje':'kodi-civil.html','Kontratë pune':'kodi-civil.html','Prokurë e posaçme':'kodi-civil.html','Ankesë administrative':'kodi-procedure-civile.html','Njoftim ligjor':'kodi-civil.html','Marrëveshje ndërmjetësimi':'kodi-civil.html','Testament':'kodi-civil.html'};
+      function ddConfig(){ var typ=$('dd-type').value, det=$('dd-details').value.trim(); if(!typ){ $('dd-type').focus(); return null; } var lf=DD_LAW[typ]||'kodi-civil.html';
+        return { title:'Dokument i Hartuar', eyebrow:'Hartim: '+typ, lawFiles:[lf], input:'Lloji i dokumentit: '+typ+(det?('. Detaje: '+det):'.'),
+          aiSections:[
+            { label:typ, maxTok:1300, temp:0.5, sys:'Jeni jurist shqiptar që harton dokumente ligjore të sakta e të plota sipas praktikës shqiptare, me klauzolat thelbësore. Mos shpik numra nenesh jashtë atyre të dhëna.', usr:function(inp,gt){ return 'Harto një '+typ+' të plotë e profesional në shqip, gati për përdorim (me vendet për plotësim si [...]).'+gt+'\n\n'+inp; } },
+            { label:'Baza ligjore & klauzola kritike', maxTok:600, temp:0.4, sys:'Jeni jurist shqiptar.', usr:function(inp,gt){ return 'Listo bazën ligjore dhe klauzolat kritike që s\'duhen harruar për këtë '+typ+'.'+gt+'\n\n'+inp; } }
+          ] }; }
+
+      // ── Email/letter drafter ──
+      var ED_LAW={'Ankesë ndaj punëdhënësit':'kodi-civil.html','Kërkesë ndaj qiradhënësit':'kodi-civil.html','Njoftim kontraktual':'kodi-civil.html','Kundërshtim ndaj vendimit':'kodi-procedure-civile.html','Kërkesë kompensimi':'kodi-civil.html','Kërkesë informacioni (LIGJI)':'kodi-procedure-civile.html','Letër paralajmëruese ligjore':'kodi-civil.html'};
+      function edConfig(){ var typ=$('ed-type').value, det=$('ed-details').value.trim(); if(!typ){ $('ed-type').focus(); return null; } var lf=ED_LAW[typ]||'kodi-civil.html';
+        return { title:'Letër / Email i Hartuar', eyebrow:'Hartim: '+typ, lawFiles:[lf], input:'Lloji: '+typ+(det?('. Situata: '+det):'.'),
+          aiSections:[
+            { label:typ, maxTok:900, temp:0.5, sys:'Jeni jurist shqiptar që harton letra/email-e ligjore bindëse e korrekte në ton profesional. Mos shpik numra nenesh jashtë atyre të dhëna.', usr:function(inp,gt){ return 'Harto një '+typ+' të gatshëm për dërgim në shqip, të qartë e profesional.'+gt+'\n\n'+inp; } },
+            { label:'Baza ligjore', maxTok:500, temp:0.4, sys:'Jeni jurist shqiptar.', usr:function(inp,gt){ return 'Shpjego shkurt bazën ligjore që e mbështet këtë kërkesë/letër.'+gt+'\n\n'+inp; } }
+          ] }; }
+
+      // ── Rights finder (free-text situation) ──
+      function rightsConfig(){ var sit=$('rights-sit').value.trim(); if(!sit){ $('rights-sit').focus(); return null; }
+        return { title:'Të Drejtat Tuaja', eyebrow:'Analizë e të Drejtave', lawFiles:['kodi-civil.html','kodi-penal.html'], input:'Situata: '+sit,
+          aiSections:[
+            { label:'Të drejtat që keni', maxTok:900, temp:0.4, sys:'Jeni avokat shqiptar. Identifiko të drejtat konkrete të personit sipas tekstit zyrtar të neneve të dhëna; mos shpik numra nenesh.', usr:function(inp,gt){ return 'Për situatën, listo të drejtat konkrete që keni dhe bazën ligjore.'+gt+'\n\n'+inp; } },
+            { label:'Si t\'i ushtroni (hapat)', maxTok:700, temp:0.4, sys:'Jeni avokat shqiptar praktik.', usr:function(inp,gt){ return 'Jep hapat konkretë për t\'i ushtruar këto të drejta (kërkesa, afate, ku drejtohemi).'+gt+'\n\n'+inp; } }
+          ] }; }
+
+      // ── Court / competent-authority finder (free-text situation) ──
+      function courtConfig(){ var sit=$('court-sit').value.trim(); if(!sit){ $('court-sit').focus(); return null; }
+        return { title:'Autoriteti Kompetent', eyebrow:'Ku të Drejtoheni', lawFiles:['kodi-procedure-civile.html','kodi-procedure-penale.html','organizimi-pushtetit-gjyqesor.html'], input:'Problemi: '+sit,
+          aiSections:[
+            { label:'Autoriteti / gjykata kompetente', maxTok:800, temp:0.35, sys:'Jeni jurist shqiptar ekspert në kompetencën dhe juridiksionin. Mbështetu te nenet e dhëna; mos shpik numra.', usr:function(inp,gt){ return 'Përcakto autoritetin ose gjykatën kompetente për këtë problem dhe pse.'+gt+'\n\n'+inp; } },
+            { label:'Procedura & hapat', maxTok:700, temp:0.4, sys:'Jeni jurist shqiptar praktik.', usr:function(inp,gt){ return 'Jep hapat procedurialë për t\'iu drejtuar këtij autoriteti (ku, si, çfarë dokumentesh).'+gt+'\n\n'+inp; } }
+          ] }; }
+
+      // ── Evidence checklist ──
+      var EV_LAW={'Çështje civile (kontratë / detyrim)':'kodi-procedure-civile.html','Çështje penale':'kodi-procedure-penale.html','Çështje administrative':'kodi-procedure-civile.html','Çështje familjare (divorc / kujdestari)':'kodi-familjes.html','Çështje pune (pushim / diskriminim)':'kodi-procedure-civile.html','Çështje pronësore':'kodi-civil.html','Dëm trupor / aksidenti':'kodi-civil.html'};
+      function evidenceConfig(){ var typ=$('evidence-type').value, sit=$('evidence-sit').value.trim(); if(!typ){ $('evidence-type').focus(); return null; } var lf=EV_LAW[typ]||'kodi-procedure-civile.html';
+        return { title:'Lista e Provave', eyebrow:'Provat — '+typ, lawFiles:[lf], input:'Lloji: '+typ+(sit?('. Situata: '+sit):'.'),
+          aiSections:[
+            { label:'Provat që duhen mbledhur', maxTok:900, temp:0.4, sys:'Jeni jurist shqiptar ekspert në të drejtën procedurale dhe provat. Mbështetu te nenet e dhëna.', usr:function(inp,gt){ return 'Listo provat konkrete që duhen mbledhur për këtë çështje dhe rëndësinë e secilës.'+gt+'\n\n'+inp; } },
+            { label:'Si t\'i siguroni & administroni', maxTok:700, temp:0.4, sys:'Jeni jurist shqiptar praktik.', usr:function(inp,gt){ return 'Shpjego si të sigurohen e administrohen ligjërisht këto prova (afate, forma, rreziku i papranueshmërisë).'+gt+'\n\n'+inp; } }
+          ] }; }
+
+      // ── Procedural timeline ──
+      var TL_LAW={'Padi civile (gjykatë e shkallës I)':'kodi-procedure-civile.html','Apel civil':'kodi-procedure-civile.html','Procedim penal':'kodi-procedure-penale.html','Ankesë administrative':'kodi-procedure-civile.html','Divorc me marrëveshje':'kodi-familjes.html','Divorc i kontestuar':'kodi-familjes.html','Regjistrim biznesi (NIPT)':'shoqerite-tregtare.html','Ekzekutim vendimi gjyqësor':'sherbimi-permbarimor.html','Çregjistrimi i pronës':'kodi-civil.html'};
+      function timelineConfig(){ var typ=$('timeline-type').value, det=$('timeline-details').value.trim(); if(!typ){ $('timeline-type').focus(); return null; } var lf=TL_LAW[typ]||'kodi-procedure-civile.html';
+        return { title:'Vija Kohore Procedurale', eyebrow:'Procedura — '+typ, lawFiles:[lf], input:'Procedura: '+typ+(det?('. Detaje: '+det):'.'),
+          aiSections:[
+            { label:'Fazat & afatet', maxTok:1000, temp:0.35, sys:'Jeni jurist shqiptar ekspert në procedurë. Jep një vijë kohore me faza dhe afate. Mbështetu te nenet e dhëna; mos shpik numra.', usr:function(inp,gt){ return 'Jep vijën kohore hap-pas-hapi (faza + afate + veprime) për këtë procedurë.'+gt+'\n\n'+inp; } },
+            { label:'Këshilla & rreziqe', maxTok:600, temp:0.4, sys:'Jeni jurist shqiptar praktik.', usr:function(inp,gt){ return 'Jep këshilla praktike dhe afatet/rreziqet kritike që s\'duhen humbur.'+gt+'\n\n'+inp; } }
+          ] }; }
+
+      // ── Consumer rights ──
+      function consumerConfig(){ var typ=$('consumer-type').value, sit=$('consumer-sit').value.trim(); if(!typ){ $('consumer-type').focus(); return null; }
+        return { title:'Të Drejtat e Konsumatorit', eyebrow:'Konsumatori — '+typ, lawFiles:['kodi-civil.html'], input:'Problemi: '+typ+(sit?('. Situata: '+sit):'.'),
+          aiSections:[
+            { label:'Të drejtat tuaja si konsumator', maxTok:800, temp:0.4, sys:'Jeni jurist shqiptar ekspert në mbrojtjen e konsumatorit. Mbështetu te nenet e dhëna; mos shpik numra.', usr:function(inp,gt){ return 'Listo të drejtat konkrete të konsumatorit për këtë problem dhe bazën ligjore.'+gt+'\n\n'+inp; } },
+            { label:'Si të ankoheni (hapat)', maxTok:600, temp:0.4, sys:'Jeni jurist shqiptar praktik.', usr:function(inp,gt){ return 'Jep hapat për ankim dhe zgjidhje (te shitësi, institucionet, afatet).'+gt+'\n\n'+inp; } }
+          ] }; }
+
+      // ── Business compliance ──
+      function bizConfig(){ var typ=$('biz-type').value, act=$('biz-activity').value.trim(); if(!typ){ $('biz-type').focus(); return null; }
+        return { title:'Përputhshmëria e Biznesit', eyebrow:'Biznes — '+typ, lawFiles:['shoqerite-tregtare.html'], input:'Forma: '+typ+(act?('. Aktiviteti: '+act):'.'),
+          aiSections:[
+            { label:'Detyrimet ligjore & regjistrimi', maxTok:900, temp:0.4, sys:'Jeni jurist shqiptar ekspert në të drejtën tregtare. Mbështetu te nenet e dhëna; mos shpik numra.', usr:function(inp,gt){ return 'Listo detyrimet ligjore, regjistrimin dhe kërkesat kryesore për këtë formë biznesi dhe aktivitet.'+gt+'\n\n'+inp; } },
+            { label:'Rreziqet & përputhshmëria', maxTok:600, temp:0.4, sys:'Jeni këshilltar ligjor biznesi shqiptar.', usr:function(inp,gt){ return 'Jep rreziqet kryesore të përputhshmërisë dhe si t\'i shmangni.'+gt+'\n\n'+inp; } }
+          ] }; }
+
+      // rewire the upgraded tool buttons (clone to drop the old single-call handlers)
+      function rewire(id, build){ var b=$(id); if(!b) return; var nb=b.cloneNode(true); b.parentNode.replaceChild(nb,b);
+        nb.addEventListener('click', function(){ var cfg=build(); if(cfg) runToolReport(cfg); }); }
+      rewire('ca-btn', function(){ var t=$('ca-text').value.trim(); if(!t){ $('ca-text').focus(); return null; } return Object.assign({},CONTRACT,{input:t}); });
+      rewire('pen-btn', penConfig);
+      rewire('nego-btn', negoConfig);
+      rewire('sol-btn', solConfig);
+      rewire('cs-btn', csConfig);
+      rewire('dd-btn', ddConfig);
+      rewire('ed-btn', edConfig);
+      rewire('rights-btn', rightsConfig);
+      rewire('court-btn', courtConfig);
+      rewire('evidence-btn', evidenceConfig);
+      rewire('timeline-btn', timelineConfig);
+      rewire('consumer-btn', consumerConfig);
+      rewire('biz-btn', bizConfig);
+
+      $('tool-close').addEventListener('click', closeModal);
+      $('tool-restart-btn').addEventListener('click', closeModal);
+      $('tool-report-modal').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
+      document.addEventListener('keydown', function(e){ if(e.key==='Escape'&&!$('tool-report-modal').hidden) closeModal(); });
+      $('tool-print-btn').addEventListener('click', function(){ window.print(); });
+    })();
+  
