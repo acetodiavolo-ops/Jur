@@ -9,6 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="site.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#b8923a">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
   <style>
     #opinion-pdf,#ca-pdf{font-family:var(--font);font-size:.82rem;color:var(--text);max-width:100%;}
     .opinion-pdf-row{display:flex;align-items:center;gap:14px;margin-top:7px;min-height:16px;flex-wrap:wrap;}
@@ -85,6 +88,17 @@
     .tool-checklist li.tc-miss .tc-mark{color:#b4532a;}
     .tool-checklist li.tc-ok{opacity:.72;}
     .tool-checklist li.tc-ok .tc-mark{color:#3d706a;}
+    /* Deterministic parashkrim verdict (SOL report) */
+    .sol-facts{list-style:none;padding:0;margin:14px 0 0;}
+    .sol-facts li{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid var(--border);font-size:.9rem;}
+    .sol-facts li span{color:var(--muted);}
+    .sol-facts li b{font-weight:700;text-align:right;}
+    .sol-badge{display:inline-block;font-size:.74rem;font-weight:700;letter-spacing:.04em;padding:5px 12px;border-radius:20px;margin-bottom:10px;}
+    .sol-ok{background:rgba(61,112,106,.14);color:#2c5a55;}
+    .sol-near{background:rgba(184,146,58,.18);color:#8a6d1f;}
+    .sol-barred{background:rgba(180,83,42,.14);color:#b4532a;}
+    .sol-info{background:rgba(115,112,104,.14);color:#5a5750;}
+    .sol-note{font-size:.8rem;color:var(--muted);font-style:italic;margin-top:12px;}
   </style>
 </head>
 <body>
@@ -196,7 +210,6 @@
         <input id="sol-date" type="date" title="Data e ngjarjes">
         <button id="sol-btn">Kontrollo &#8594;</button>
       </div>
-      <div id="sol-result"></div>
     </section>
     <section class="nego-section">
       <span class="nego-label">Strategji negocimi</span>
@@ -1215,38 +1228,7 @@
 
     // ── Penalty Estimator → now handled by the RichReport engine (penConfig) at end of script ──
 
-    // ── Statute of Limitations ─────────────────────
-    document.getElementById('sol-btn').addEventListener('click', function () {
-      var type   = document.getElementById('sol-type').value;
-      var date   = document.getElementById('sol-date').value;
-      if (!type || !date) return;
-      var btn    = document.getElementById('sol-btn');
-      var result = document.getElementById('sol-result');
-      var d      = new Date(date);
-      var fmt    = d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear();
-      btn.disabled = true; btn.textContent = 'Duke kontrolluar…';
-      result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
-      result.textContent = 'Duke llogaritur afatin e parashkrimit…';
-
-      aiFetch({
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 300,
-          messages: [
-            { role: 'system', content: 'Jeni jurist shqiptar i specializuar në afatet ligjore dhe parashkrimin.' },
-            { role: 'user',   content: 'Data e ngjarjes: ' + fmt + '\nLloji: ' + type + '\nSipas legjislacionit shqiptar, a ka skaduar parashkrimi për këtë rast? Jep:\n1) Afati ligjor i parashkrimit (vitet) dhe neni konkret\n2) Data e skadimit bazuar në datën e dhënë\n3) Nëse ka skaduar - si mund të riaktivizohet (nëse është e mundur)\n4) Nëse nuk ka skaduar - sa kohë ka mbetur' }
-          ]
-        })
-      })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
-      })
-      .catch(function () { result.textContent = 'Gabim rrjeti.'; })
-      .finally(function () { btn.disabled = false; btn.textContent = 'Kontrollo →'; });
-    });
+    // ── Statute of Limitations → now handled by the RichReport engine (solConfig) at end of script ──
 
     // ── Contract Analyzer ──────────────────────────
     // Reusable client-side PDF text extraction (pdf.js). Returns Promise<string>.
@@ -3014,12 +2996,64 @@
             { label:'Draft kushtesh marrëveshjeje', maxTok:800, temp:0.4, sys:'Jeni jurist shqiptar që harton marrëveshje.', usr:function(input,gt){ return 'Harto një draft të shkurtër me 4–7 kushte kryesore për një marrëveshje/akord pajtimi mes palëve.'+gt+'\n\n'+input; } }
           ] }; }
 
-      // rewire the three tool buttons (clone to drop the old single-call handlers)
+      // ── Parashkrim (statute-of-limitations): deterministic date math + grounded explanation ──
+      var SOL_RULES={
+        'Kërkesë civile (kontratë)':{ years:10, law:'kodi-civil.html', basis:'detyrimet kontraktore (Kodi Civil)' },
+        'Dëmshpërblim civil':{ years:3, law:'kodi-civil.html', basis:'dëmi jashtëkontraktor (Kodi Civil)' },
+        'Mosmarrëveshje pune':{ years:3, law:'kodi-civil.html', basis:'kërkesa nga marrëdhënia e punës' },
+        'Ankesë administrative':{ days:45, law:'kodi-procedure-civile.html', basis:'afati i ankimit ndaj aktit administrativ (KPA)' },
+        'Kërkesë pronësore':{ none:true, law:'kodi-civil.html', basis:'padia rivendikuese si rregull nuk parashkruhet' },
+        'Akuzë penale':{ tiered:true, law:'kodi-penal.html', basis:'parashkrimi i ndjekjes penale sipas peshës së veprës (neni 67 KP)' }
+      };
+      function fmtD(dt){ try{ return dt.toLocaleDateString('sq-AL'); }catch(e){ return dt.toISOString().slice(0,10); } }
+      function solCompute(type, dateStr, rule){
+        var d=new Date(dateStr), now=new Date();
+        if(isNaN(d.getTime())) return { label:'Verdikti i afatit (llogaritje)', body:'<p class="op-degraded">Data e dhënë nuk është e vlefshme.</p>' };
+        var elapsedMs=now-d, elapsedDays=Math.floor(elapsedMs/86400000), elapsedYears=elapsedMs/(365.25*86400000);
+        var rows='<ul class="sol-facts"><li><span>Lloji</span><b>'+esc(type)+'</b></li>'
+               + '<li><span>Data e ngjarjes</span><b>'+fmtD(d)+'</b></li>'
+               + '<li><span>Koha e kaluar</span><b>'+(elapsedYears>=1?elapsedYears.toFixed(1)+' vjet':elapsedDays+' ditë')+'</b></li>';
+        var verdict;
+        if(rule.none){
+          verdict='<div class="sol-badge sol-info">Nuk parashkruhet</div><p>'+esc(rule.basis)+'. Afati varet nga kërkesa konkrete — verifikoni rastin specifik.</p>';
+        } else if(rule.tiered){
+          verdict='<div class="sol-badge sol-info">Varion sipas veprës</div><p>Parashkrimi i ndjekjes penale ndryshon sipas dënimit maksimal të veprës (neni 67 i Kodit Penal) — p.sh. ~2, 5, 10 ose 20+ vjet. Përcaktoni veprën konkrete për afatin e saktë. Koha e kaluar: ~'+elapsedYears.toFixed(1)+' vjet.</p>';
+        } else {
+          var deadline, label2;
+          if(rule.days){ deadline=new Date(d.getTime()+rule.days*86400000); label2=rule.days+' ditë'; }
+          else { deadline=new Date(d.getTime()); deadline.setFullYear(deadline.getFullYear()+rule.years); label2='~'+rule.years+' vjet'; }
+          var remMs=deadline-now;
+          rows+='<li><span>Afati ligjor</span><b>'+label2+'</b></li><li><span>Data e skadimit</span><b>'+fmtD(deadline)+'</b></li>';
+          if(remMs<0){
+            verdict='<div class="sol-badge sol-barred">Mund të jetë parashkruar</div><p>Afati ('+label2+') ka skaduar më '+fmtD(deadline)+' (~'+Math.abs(Math.round(remMs/86400000))+' ditë më parë). Verifikoni shkaqet e ndërprerjes/pezullimit që mund ta zgjasin.</p>';
+          } else {
+            var remDays=Math.ceil(remMs/86400000), span=rule.days?rule.days*86400000:rule.years*365.25*86400000, near=remMs<span*0.2;
+            verdict='<div class="sol-badge '+(near?'sol-near':'sol-ok')+'">'+(near?'Afati po afrohet':'Brenda afatit')+'</div><p>Kanë mbetur ~'+remDays+' ditë (skadon më '+fmtD(deadline)+').'+(near?' Veproni shpejt.':'')+'</p>';
+          }
+        }
+        return { label:'Verdikti i afatit (llogaritje)', body:verdict+rows+'</ul><p class="sol-note">Llogaritje orientuese mbi datën dhe llojin e dhënë — afati i saktë dhe ndërprerjet/pezullimet duhen verifikuar me tekstin e ligjit.</p>' };
+      }
+      function solConfig(){
+        var type=$('sol-type').value, dateStr=$('sol-date').value;
+        if(!type){ $('sol-type').focus(); return null; }
+        if(!dateStr){ $('sol-date').focus(); return null; }
+        var rule=SOL_RULES[type]||{ years:10, law:'kodi-civil.html', basis:'afat i përgjithshëm' };
+        var input='Lloji i kërkesës: '+type+'. Data e ngjarjes/shkeljes: '+dateStr+'. '+rule.basis+'.';
+        return { title:'Kalkulator i Parashkrimit', eyebrow:'Afati i Parashkrimit', lawFiles:[rule.law], input:input,
+          compute:function(){ return solCompute(type, dateStr, rule); },
+          aiSections:[
+            { label:'Baza ligjore e afatit', maxTok:700, temp:0.3, sys:'Jeni jurist shqiptar ekspert në afatet ligjore dhe parashkrimin. Mbështetu te teksti zyrtar i neneve të dhëna; mos shpik numra nenesh.', usr:function(inp,gt){ return 'Shpjego bazën ligjore të afatit të parashkrimit për këtë rast dhe nenin/nenet konkrete që e përcaktojnë.'+gt+'\n\n'+inp; } },
+            { label:'Ndërprerja/pezullimi & si të veproni', maxTok:700, temp:0.35, sys:'Jeni avokat shqiptar.', usr:function(inp,gt){ return 'Shpjego si mund të ndërpritet ose pezullohet afati i parashkrimit (p.sh. ngritja e padisë, njohja e borxhit) dhe çfarë hapash duhen ndërmarrë urgjentisht.'+gt+'\n\n'+inp; } }
+          ] };
+      }
+
+      // rewire the upgraded tool buttons (clone to drop the old single-call handlers)
       function rewire(id, build){ var b=$(id); if(!b) return; var nb=b.cloneNode(true); b.parentNode.replaceChild(nb,b);
         nb.addEventListener('click', function(){ var cfg=build(); if(cfg) runToolReport(cfg); }); }
       rewire('ca-btn', function(){ var t=$('ca-text').value.trim(); if(!t){ $('ca-text').focus(); return null; } return Object.assign({},CONTRACT,{input:t}); });
       rewire('pen-btn', penConfig);
       rewire('nego-btn', negoConfig);
+      rewire('sol-btn', solConfig);
 
       $('tool-close').addEventListener('click', closeModal);
       $('tool-restart-btn').addEventListener('click', closeModal);
@@ -3029,6 +3063,7 @@
     })();
   </script>
   <script src="site.js"></script>
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 
 </body>
 </html>

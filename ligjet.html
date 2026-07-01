@@ -9,6 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="site.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#b8923a">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
 </head>
 <body>
 
@@ -343,6 +346,12 @@
 
     </div>
 
+    <section id="ft-results" class="ft-results" hidden aria-live="polite">
+      <h2 class="ft-heading">Gjetur në tekstin e ligjeve <span id="ft-count" class="ft-count"></span></h2>
+      <div id="ft-status" class="ft-status"></div>
+      <ul id="ft-list" class="ft-list"></ul>
+    </section>
+
     <footer>
       Republika e Shqipërisë &middot; Legjislacioni në fuqi
     </footer>
@@ -353,7 +362,7 @@
   <script>
     'use strict';
 
-    // ── Filter + search ───────────────────────────
+    // ── Filter + name search (cards) + full-text search (across article texts) ──
     (function () {
       var pills  = document.querySelectorAll('.pill');
       var rows   = document.querySelectorAll('.law-row');
@@ -383,14 +392,87 @@
         });
       });
 
+      // ── Full-text search across all article texts (data/*.json, lazy-loaded once) ──
+      var box = document.getElementById('ft-results'),
+          list = document.getElementById('ft-list'),
+          countEl = document.getElementById('ft-count'),
+          statusEl = document.getElementById('ft-status');
+      var corpus = null, loadingP = null;
+
+      function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+      function rx(w){ return w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+      function loadCorpus() {
+        if (corpus) return Promise.resolve(corpus);
+        if (loadingP) return loadingP;
+        statusEl.textContent = 'Duke ngarkuar tekstin e ligjeve…';
+        loadingP = fetch('data/laws.json').then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (laws) {
+            return Promise.all((laws || []).map(function (l) {
+              return fetch('data/' + l.file.replace(/\.html$/, '.json'))
+                .then(function (r) { return r.ok ? r.json() : {}; })
+                .catch(function () { return {}; })
+                .then(function (data) { return { file: l.file, title: l.title, data: data || {} }; });
+            }));
+          }).then(function (rowsArr) {
+            var idx = [];
+            rowsArr.forEach(function (row) {
+              Object.keys(row.data).forEach(function (num) {
+                var txt = String(row.data[num] || ''); if (txt) idx.push({ file: row.file, title: row.title, num: num, text: txt });
+              });
+            });
+            corpus = idx; return idx;
+          }).catch(function () { corpus = []; return []; });
+        return loadingP;
+      }
+
+      function snippet(text, terms) {
+        var tl = text.toLowerCase(), pos = -1;
+        terms.forEach(function (w) { var p = tl.indexOf(w); if (p !== -1 && (pos < 0 || p < pos)) pos = p; });
+        if (pos < 0) pos = 0;
+        var start = Math.max(0, pos - 55), end = Math.min(text.length, pos + 150);
+        var frag = esc((start > 0 ? '…' : '') + text.slice(start, end).replace(/\s+/g, ' ') + (end < text.length ? '…' : ''));
+        terms.forEach(function (w) { frag = frag.replace(new RegExp('(' + rx(w) + ')', 'gi'), '<mark>$1</mark>'); });
+        return frag;
+      }
+
+      function fullText(raw) {
+        var q = (raw || '').trim();
+        if (q.length < 3) { box.hidden = true; list.innerHTML = ''; countEl.textContent = ''; statusEl.textContent = ''; return; }
+        var terms = q.toLowerCase().split(/\s+/).filter(function (w) { return w.length >= 2; });
+        if (!terms.length) { box.hidden = true; return; }
+        box.hidden = false;
+        loadCorpus().then(function (idx) {
+          if (input.value.trim() !== q) return;            // a newer query superseded this one
+          var hits = [];
+          for (var i = 0; i < idx.length; i++) {
+            var a = idx[i], tl = a.text.toLowerCase(), sc = 0;
+            for (var j = 0; j < terms.length; j++) { if (tl.indexOf(terms[j]) !== -1) sc++; }
+            if (sc > 0) hits.push({ a: a, sc: sc });
+          }
+          hits.sort(function (x, y) { return y.sc - x.sc || x.a.text.length - y.a.text.length; });
+          var total = hits.length;
+          hits = hits.slice(0, 60);
+          statusEl.textContent = total ? '' : 'Asnjë nen nuk përmban këto fjalë.';
+          countEl.textContent = total ? ('(' + total + (total > 60 ? '+' : '') + ')') : '';
+          list.innerHTML = hits.map(function (h) {
+            return '<li class="ft-item"><a href="' + h.a.file + '#neni-' + String(h.a.num).replace(/\//g, '-') + '">' +
+              '<span class="ft-law">' + esc(h.a.title) + '</span>' +
+              '<span class="ft-neni">Neni ' + esc(h.a.num) + '</span>' +
+              '<span class="ft-snip">' + snippet(h.a.text, terms) + '</span></a></li>';
+          }).join('');
+        });
+      }
+
       var t;
       input.addEventListener('input', function () {
         clearTimeout(t);
-        t = setTimeout(function () { query = input.value.trim().toLowerCase(); apply(); }, 150);
+        t = setTimeout(function () { var v = input.value.trim(); query = v.toLowerCase(); apply(); fullText(v); }, 200);
       });
     }());
   </script>
   <script src="site.js"></script>
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 
 </body>
 </html>

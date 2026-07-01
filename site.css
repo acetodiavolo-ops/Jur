@@ -1330,3 +1330,17 @@ main.page{position:relative;z-index:1;}
 /* ── AI category tabs ── */
 .aicat-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px;}
 .aicat-group{margin-bottom:8px;}
+
+/* ── Full-text search results (ligjet.html) ── */
+.ft-results{margin:6px 0 30px;}
+.ft-heading{font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 14px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.ft-count{color:var(--gold);letter-spacing:0;}
+.ft-status{font-size:.85rem;color:var(--muted);margin-bottom:12px;}
+.ft-status:empty{display:none;}
+.ft-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;}
+.ft-item a{display:block;text-decoration:none;color:inherit;border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:var(--radius);padding:13px 16px;background:var(--bg);transition:border-color .15s,box-shadow .15s,transform .1s;}
+.ft-item a:hover{border-color:var(--gold);box-shadow:0 6px 20px rgba(20,16,10,.06);transform:translateY(-1px);}
+.ft-law{font-weight:700;font-size:.9rem;color:var(--text);}
+.ft-neni{display:inline-block;margin-left:10px;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);}
+.ft-snip{display:block;margin-top:7px;font-size:.86rem;line-height:1.6;color:var(--muted);}
+.ft-snip mark{background:rgba(184,146,58,.24);color:inherit;border-radius:3px;padding:0 2px;font-weight:600;}

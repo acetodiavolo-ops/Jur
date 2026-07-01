@@ -176,6 +176,9 @@ HTML_TEMPLATE = Template("""\
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#b8923a">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
 </head>
 <body>
 
@@ -216,6 +219,7 @@ HTML_TEMPLATE = Template("""\
 
   <script src="config.js"></script>
   <script src="app.js"></script>
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>
 """)
@@ -283,6 +287,15 @@ def main():
     os.makedirs(cache_dir, exist_ok=True)
     for law in laws:
         build_law(law, cache_dir)
+
+    # Emit the law manifest — single source of truth for client-side full-text search + the SW.
+    # Always lists the full corpus (not just a single rebuilt target) so search stays complete.
+    data_dir = os.path.join(OUT_DIR, 'data')
+    os.makedirs(data_dir, exist_ok=True)
+    manifest = [{"file": l["file"], "title": l["title"], "ref": l["ref"]} for l in LAWS]
+    with open(os.path.join(data_dir, 'laws.json'), 'w', encoding='utf-8') as f:
+        json.dump(manifest, f, ensure_ascii=False, separators=(',', ':'))
+    print(f"   → data/laws.json ({len(manifest)} ligje)")
 
     print(f"\n✅  Done — {len(laws)} file(s) generated in {OUT_DIR}")
 
