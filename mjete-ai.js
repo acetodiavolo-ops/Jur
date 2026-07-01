@@ -442,6 +442,7 @@
     function toolFail(el, msg, retryFn){
       if (!el) return;
       el.innerHTML = '';
+      el.hidden = false;
       el.style.display = 'block';
       var p = document.createElement('p'); p.className = 'tool-error-msg'; p.textContent = msg; el.appendChild(p);
       if (typeof retryFn === 'function') {
