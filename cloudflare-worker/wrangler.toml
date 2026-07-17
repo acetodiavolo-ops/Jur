@@ -1,0 +1,11 @@
+name = "jur-ai-proxy"
+main = "worker.js"
+compatibility_date = "2026-07-01"
+
+# Comma-separated list of origins allowed to call this Worker.
+# Add your custom domain here too, once you buy one (e.g. "https://jur.example.com").
+[vars]
+ALLOWED_ORIGIN = "https://acetodiavolo-ops.github.io"
+
+# Secrets (GROQ_KEY, CEREBRAS_KEY, GEMINI_KEY) are NOT set here — see the deploy steps.
+# They're pushed with `wrangler secret put <NAME>` and live only in Cloudflare, never in git.
