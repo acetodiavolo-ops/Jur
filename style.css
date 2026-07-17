@@ -658,6 +658,15 @@ h4:hover .art-ai-trigger,
 }
 #_toast-no:hover { color: #111; }
 
+/* ── Shared AI error/retry (app.js's _showAiError) ── */
+.ai-error-msg { color: #a3361f; font-size: 0.85rem; line-height: 1.5; margin: 0 0 8px; }
+.ai-retry-btn {
+  font-family: var(--font); font-size: 0.76rem; background: none;
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+  padding: 5px 12px; color: var(--text); transition: all 0.1s;
+}
+.ai-retry-btn:hover { background: #111; color: #fff; border-color: #111; }
+
 /* ── All-Law Deadline Panel ─────────────────────── */
 #_afate-panel {
   max-width: var(--content); margin: 16px 0 32px;

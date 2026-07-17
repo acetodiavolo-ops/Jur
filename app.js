@@ -1,5 +1,29 @@
 'use strict';
 
+// AI calls go through the multi-provider fallback chain (ai.js) when it's loaded,
+// so a Groq rate-limit no longer kills every AI feature on the law pages.
+function _aiCall(opts) {
+  return (typeof aiFetch === 'function')
+    ? aiFetch(opts)
+    : fetch('https://api.groq.com/openai/v1/chat/completions', opts);
+}
+
+// Renders a failure into a result element with a specific message (aiErrMsg, from ai.js)
+// and an optional "Provo sërish" retry — mirrors mjete-ai.js's toolFail() so every AI
+// feature on every page gives the same kind of feedback instead of a generic "Gabim rrjeti.".
+// `keepText`, when given, replaces the element's contents with that text instead of
+// clearing it (used by the Afate panel so a deterministic deadline list found by
+// extractDeadlines() survives an AI failure instead of being wiped by the error).
+function _showAiError(el, msg, retryFn, keepText) {
+  if (!el || !msg) return;
+  el.textContent = keepText || '';
+  var p = document.createElement('p'); p.className = 'ai-error-msg'; p.textContent = msg; el.appendChild(p);
+  if (typeof retryFn === 'function') {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'ai-retry-btn'; b.textContent = 'Provo sërish';
+    b.addEventListener('click', retryFn); el.appendChild(b);
+  }
+}
+
 // ── Reading progress bar ─────────────────────────
 const progressBar = document.getElementById('progress-bar');
 
@@ -306,19 +330,25 @@ function _addMsg(text, cls) {
 
 const _SYS = 'Jeni asistent ligjor i specializuar. Ligji aktual: "' + _lawTitle + '" (' + _lawRef + ').\n\nEkstrakt:\n' + _lawText + '\n\nPërgjigjuni me saktësi. Nëse pyetja është shqip, përgjigjuni shqip. Nëse është anglisht, përgjigjuni anglisht.';
 
+// A new question supersedes whatever's in flight (asking again is more useful than
+// queueing); _send doubles as the cancel button while a request is running.
+let _askCtrl = null;
+
 function _ask(overridePrompt) {
   const q = (overridePrompt !== undefined) ? overridePrompt : _input.value.trim();
   if (!q) return;
   if (overridePrompt === undefined) _input.value = '';
 
+  if (_askCtrl) _askCtrl.abort();
+  const ctrl = _askCtrl = new AbortController();
+
   _addMsg(q, 'u');
   const loader = _addMsg('Duke menduar…', 'b load');
+  _send.textContent = '✕';
 
-  fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+  _aiCall({
+    signal: ctrl.signal,
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
       max_tokens: 600,
       messages: [
         { role: 'system', content: _SYS },
@@ -326,12 +356,18 @@ function _ask(overridePrompt) {
       ]
     })
   })
-  .then(r => r.json())
+  .then(r => { if (!r.ok) { const e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
   .then(data => {
     loader.remove();
-    _addMsg((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.', 'b');
+    const txt = data.choices && data.choices[0] && data.choices[0].message.content;
+    _addMsg(txt || 'Përgjigje boshe nga modeli.', 'b');
   })
-  .catch(() => { loader.remove(); _addMsg('Gabim rrjeti.', 'b'); });
+  .catch(err => {
+    loader.remove();
+    if (err && err.name === 'AbortError') return; // superseded by a newer question, or cancelled
+    _addMsg(aiErrMsg(err.status, err), 'b');
+  })
+  .finally(() => { if (_askCtrl === ctrl) { _askCtrl = null; _send.textContent = '→'; } });
 }
 
 function _openWithPrompt(prompt) {
@@ -339,7 +375,7 @@ function _openWithPrompt(prompt) {
   _ask(prompt);
 }
 
-_send.addEventListener('click', () => _ask());
+_send.addEventListener('click', () => { if (_askCtrl) _askCtrl.abort(); else _ask(); });
 _input.addEventListener('keydown', e => { if (e.key === 'Enter') _ask(); });
 
 // ── Quick-action chips ────────────────────────────
@@ -514,7 +550,7 @@ if (content) {
 
   let _plOverlay = null;
   let _plMode    = false;
-  let _plLoading = false;
+  let _plCtrl    = null;
   let _plCache   = null;
 
   function _showPlain(text) {
@@ -542,21 +578,14 @@ if (content) {
     _plBtn.textContent = 'Thjesht ↕';
   }
 
-  _plBtn.addEventListener('click', () => {
-    if (_plLoading) return;
-    if (_plMode) { _showOriginal(); return; }
-    if (_plCache) { _showPlain(_plCache); return; }
-
+  function _plStart() {
     const lawText = content.innerText.slice(0, 2800);
-    _plLoading = true;
-    _plBtn.textContent = 'Duke rishkruar…';
-    _plBtn.disabled = true;
+    const ctrl = _plCtrl = new AbortController();
+    _plBtn.textContent = 'Anulo';
 
-    fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+    _aiCall({
+      signal: ctrl.signal,
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
         max_tokens: 1500,
         messages: [
           { role: 'system', content: 'Rishkruaj tekstin ligjor me gjuhë të thjeshtë shqipe. Ruaj numrat e neneve (Neni 1, Neni 2, etj.). Kthe vetëm tekstin e rishkruar, pa komente shtesë.' },
@@ -564,17 +593,31 @@ if (content) {
         ]
       })
     })
-    .then(r => r.json())
+    .then(r => { if (!r.ok) { const e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
     .then(data => {
-      const text = (data.choices && data.choices[0] && data.choices[0].message.content) || '';
-      if (text) { _plCache = text; _showPlain(text); }
+      const text = data.choices && data.choices[0] && data.choices[0].message.content;
+      if (text) { _plCache = text; _showPlain(text); return; }
+      if (!_plOverlay) { _plOverlay = document.createElement('div'); _plOverlay.id = '_pl-overlay'; content.parentNode.insertBefore(_plOverlay, content); }
+      _plOverlay.hidden = false; content.hidden = true;
+      _showAiError(_plOverlay, 'Përgjigje boshe nga modeli — provoni sërish.', _plStart);
     })
-    .catch(() => {})
+    .catch(err => {
+      if (err && err.name === 'AbortError') return;
+      if (!_plOverlay) { _plOverlay = document.createElement('div'); _plOverlay.id = '_pl-overlay'; content.parentNode.insertBefore(_plOverlay, content); }
+      _plOverlay.hidden = false; content.hidden = true;
+      _showAiError(_plOverlay, aiErrMsg(err.status, err), _plStart);
+    })
     .finally(() => {
-      _plLoading = false;
-      _plBtn.disabled = false;
+      _plCtrl = null;
       if (!_plMode) _plBtn.textContent = 'Thjesht ↕';
     });
+  }
+
+  _plBtn.addEventListener('click', () => {
+    if (_plCtrl) { _plCtrl.abort(); return; }
+    if (_plMode) { _showOriginal(); return; }
+    if (_plCache) { _showPlain(_plCache); return; }
+    _plStart();
   });
 }
 
@@ -597,19 +640,19 @@ if (_sitLawHeader && content) {
   const _sitBtn    = _sitForm.querySelector('.situation-btn');
   const _sitResult = _sitForm.querySelector('.situation-result');
 
+  let _sitCtrl = null;
   function _runSituation() {
+    if (_sitCtrl) { _sitCtrl.abort(); return; }
     const q = _sitInput.value.trim();
     if (!q) return;
-    _sitBtn.disabled = true;
-    _sitBtn.textContent = 'Duke kërkuar…';
+    const ctrl = _sitCtrl = new AbortController();
+    _sitBtn.textContent = 'Anulo';
     _sitResult.hidden = false;
     _sitResult.textContent = 'Duke analizuar situatën…';
 
-    fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+    _aiCall({
+      signal: ctrl.signal,
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
         max_tokens: 500,
         messages: [
           { role: 'system', content: 'Jeni asistent ligjor. Ligji: "' + _lawTitle + '". Tekst: ' + content.innerText.slice(0, 4000) },
@@ -617,12 +660,17 @@ if (_sitLawHeader && content) {
         ]
       })
     })
-    .then(r => r.json())
+    .then(r => { if (!r.ok) { const e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
     .then(data => {
-      _sitResult.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Nuk u gjet asgjë.';
+      const txt = data.choices && data.choices[0] && data.choices[0].message.content;
+      if (txt) { _sitResult.textContent = txt; return; }
+      _showAiError(_sitResult, 'Përgjigje boshe nga modeli — provoni sërish.', _runSituation);
     })
-    .catch(() => { _sitResult.textContent = 'Gabim rrjeti.'; })
-    .finally(() => { _sitBtn.disabled = false; _sitBtn.textContent = 'Gjej nenet →'; });
+    .catch(err => {
+      if (err && err.name === 'AbortError') return;
+      _showAiError(_sitResult, aiErrMsg(err.status, err), _runSituation);
+    })
+    .finally(() => { _sitCtrl = null; _sitBtn.textContent = 'Gjej nenet →'; });
   }
 
   _sitBtn.addEventListener('click', _runSituation);
@@ -656,18 +704,17 @@ if (_memoLawHeader) {
   document.body.appendChild(_memoModal);
 
   document.getElementById('_memo-print').addEventListener('click', () => window.print());
-  document.getElementById('_memo-close').addEventListener('click', () => { _memoModal.hidden = true; });
+  document.getElementById('_memo-close').addEventListener('click', () => { if (_memoCtrl) _memoCtrl.abort(); _memoModal.hidden = true; });
 
-  _memoBtn.addEventListener('click', () => {
-    _memoModal.hidden = false;
+  let _memoCtrl = null;
+  function _genMemo() {
     const body = document.getElementById('_memo-body');
+    const ctrl = _memoCtrl = new AbortController();
     body.textContent = 'Duke gjeneruar memorandumin…';
 
-    fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+    _aiCall({
+      signal: ctrl.signal,
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
         max_tokens: 900,
         messages: [
           { role: 'system', content: 'Shkruaj memorandume ligjore profesionale në gjuhën shqipe.' },
@@ -675,9 +722,22 @@ if (_memoLawHeader) {
         ]
       })
     })
-    .then(r => r.json())
-    .then(data => { body.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.'; })
-    .catch(() => { body.textContent = 'Gabim rrjeti.'; });
+    .then(r => { if (!r.ok) { const e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
+    .then(data => {
+      const txt = data.choices && data.choices[0] && data.choices[0].message.content;
+      if (txt) { body.textContent = txt; return; }
+      _showAiError(body, 'Përgjigje boshe nga modeli — provoni sërish.', _genMemo);
+    })
+    .catch(err => {
+      if (err && err.name === 'AbortError') return;
+      _showAiError(body, aiErrMsg(err.status, err), _genMemo);
+    })
+    .finally(() => { _memoCtrl = null; });
+  }
+
+  _memoBtn.addEventListener('click', () => {
+    _memoModal.hidden = false;
+    _genMemo();
   });
 }
 
@@ -732,20 +792,29 @@ if (_afateLh && content) {
     '<pre id="_afate-body">Duke analizuar…</pre>';
   _afateLh.insertAdjacentElement('afterend', _afatePanel);
 
-  document.getElementById('_afate-close').addEventListener('click', () => { _afatePanel.hidden = true; });
+  document.getElementById('_afate-close').addEventListener('click', () => { if (_afateCtrl) _afateCtrl.abort(); _afatePanel.hidden = true; });
+
+  // Deterministic supplement (extractDeadlines, ai.js) — shown ONLY when the law text
+  // literally states a confidently-matched deadline; never replaces the AI discussion,
+  // which still covers everything the regex can't reliably parse.
+  function _afateDeterministicText() {
+    const found = (typeof extractDeadlines === 'function') ? extractDeadlines(content.innerText) : [];
+    if (!found.length) return '';
+    const lines = found.map(d => '• «' + d.quote + '» → ' + d.amount + ' ' + d.unit);
+    return 'Afatet e identifikuara automatikisht (nga teksti zyrtar):\n' + lines.join('\n') + '\n\nAnalizë e plotë (AI):\n';
+  }
 
   let _afateCached = null;
-  _afateBtn.addEventListener('click', () => {
-    _afatePanel.hidden = false;
-    if (_afateCached) { document.getElementById('_afate-body').textContent = _afateCached; return; }
+  let _afateCtrl = null;
+  function _genAfate() {
     const body = document.getElementById('_afate-body');
-    body.textContent = 'Duke analizuar ligjin për afate…';
+    const prefix = _afateDeterministicText();
+    const ctrl = _afateCtrl = new AbortController();
+    body.textContent = prefix + 'Duke analizuar ligjin për afate…';
 
-    fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+    _aiCall({
+      signal: ctrl.signal,
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
         max_tokens: 700,
         messages: [
           { role: 'system', content: 'Jepni lista të strukturuara afatesh ligjore në shqip.' },
@@ -753,12 +822,25 @@ if (_afateLh && content) {
         ]
       })
     })
-    .then(r => r.json())
+    .then(r => { if (!r.ok) { const e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
     .then(data => {
-      _afateCached = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
+      const txt = data.choices && data.choices[0] && data.choices[0].message.content;
+      if (!txt) { _showAiError(body, 'Përgjigje boshe nga modeli — provoni sërish.', _genAfate, prefix); return; }
+      _afateCached = prefix + txt;
       body.textContent = _afateCached;
     })
-    .catch(() => { body.textContent = 'Gabim rrjeti.'; });
+    .catch(err => {
+      if (err && err.name === 'AbortError') return;
+      // An AI failure must never hide the deadlines extractDeadlines() already found.
+      _showAiError(body, aiErrMsg(err.status, err), _genAfate, prefix);
+    })
+    .finally(() => { _afateCtrl = null; });
+  }
+
+  _afateBtn.addEventListener('click', () => {
+    _afatePanel.hidden = false;
+    if (_afateCached) { document.getElementById('_afate-body').textContent = _afateCached; return; }
+    _genAfate();
   });
 }
 
@@ -771,20 +853,21 @@ if (_tocLabelEl && _tocListEl) {
   _tocAnnBtn.textContent = 'Shëno';
   _tocLabelEl.appendChild(_tocAnnBtn);
 
+  let _tocCtrl = null;
   _tocAnnBtn.addEventListener('click', () => {
-    _tocAnnBtn.textContent = '…';
-    _tocAnnBtn.disabled = true;
+    if (_tocCtrl) { _tocCtrl.abort(); return; }
+    _tocAnnBtn.textContent = 'Anulo';
+    _tocAnnBtn.title = '';
 
     const items  = Array.from(_tocListEl.querySelectorAll('.toc-item.level-2, .toc-item.level-3'));
     const labels = items.map(li => { const a = li.querySelector('a'); return a ? a.textContent.trim() : ''; }).filter(Boolean);
 
     if (!labels.length) { _tocAnnBtn.remove(); return; }
 
-    fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+    const ctrl = _tocCtrl = new AbortController();
+    _aiCall({
+      signal: ctrl.signal,
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
         max_tokens: 600,
         messages: [
           { role: 'system', content: 'Jepni përshkrime të shkurtra seksionesh ligjore.' },
@@ -792,9 +875,10 @@ if (_tocLabelEl && _tocListEl) {
         ]
       })
     })
-    .then(r => r.json())
+    .then(r => { if (!r.ok) { const e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
     .then(data => {
-      const raw = (data.choices && data.choices[0] && data.choices[0].message.content) || '';
+      const raw = data.choices && data.choices[0] && data.choices[0].message.content;
+      if (!raw) { throw Object.assign(new Error('empty'), { status: 200 }); }
       const map = Object.create(null);
       raw.split('\n').forEach(line => {
         const idx = line.indexOf('|');
@@ -808,7 +892,12 @@ if (_tocLabelEl && _tocListEl) {
       });
       _tocAnnBtn.disabled = true; _tocAnnBtn.textContent = '✓ Shënuar';
     })
-    .catch(() => { _tocAnnBtn.textContent = 'Shëno'; _tocAnnBtn.disabled = false; });
+    .catch(err => {
+      if (err && err.name === 'AbortError') { _tocAnnBtn.textContent = 'Shëno'; return; }
+      _tocAnnBtn.textContent = 'Shëno';
+      _tocAnnBtn.title = err && err.status === 200 ? 'Përgjigje boshe nga modeli — provoni sërish.' : aiErrMsg(err.status, err);
+    })
+    .finally(() => { _tocCtrl = null; });
   });
 }
 
@@ -901,11 +990,12 @@ if (content) {
         arr.push({ lawTitle: _lawTitle, file: _bmFile, articleId, articleText, annotation: '' });
         _saveBM(arr);
         bmBtn.classList.add('bm-active');
-        fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        // Best-effort background annotation — the bookmark itself is already saved,
+        // so a failure here just means no 1-line note; no cancel UI fits this surface
+        // (nothing is "loading" from the user's perspective), but a bad response must
+        // not silently look like a deliberate empty note.
+        _aiCall({
           body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
             max_tokens: 50,
             messages: [
               { role: 'system', content: 'Jep shpjegime shumë të shkurtra ligjore.' },
@@ -913,20 +1003,19 @@ if (content) {
             ]
           })
         })
-        .then(r => r.json())
+        .then(r => { if (!r.ok) { const e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
         .then(data => {
-          const ann = (data.choices && data.choices[0] && data.choices[0].message.content) || '';
+          const ann = data.choices && data.choices[0] && data.choices[0].message.content;
+          if (!ann) return;
           const arr2 = _getBM();
           const idx2 = arr2.findIndex(b => b.articleId === articleId && b.file === _bmFile);
           if (idx2 > -1) { arr2[idx2].annotation = ann; _saveBM(arr2); }
-          if (ann) {
-            const note = document.createElement('small');
-            note.className = 'bm-note';
-            note.textContent = ann;
-            h.insertAdjacentElement('afterend', note);
-          }
+          const note = document.createElement('small');
+          note.className = 'bm-note';
+          note.textContent = ann;
+          h.insertAdjacentElement('afterend', note);
         })
-        .catch(() => {});
+        .catch(() => {}); // best-effort — the bookmark stays saved either way
       }
     });
   });
@@ -989,24 +1078,25 @@ if (_xlLh && content) {
   document.getElementById('_xl-close').addEventListener('click', () => { _xlPanel.hidden = true; });
   _xlBtn.addEventListener('click', () => { _xlPanel.hidden = false; });
 
+  let _xlCtrl = null;
   document.getElementById('_xl-go').addEventListener('click', () => {
+    const goBtn = document.getElementById('_xl-go');
+    if (_xlCtrl) { _xlCtrl.abort(); return; }
     const law2  = document.getElementById('_xl-law').value;
     if (!law2) return;
     const q     = document.getElementById('_xl-q').value.trim();
     const body  = document.getElementById('_xl-body');
-    const goBtn = document.getElementById('_xl-go');
     body.textContent = 'Duke analizuar…';
-    goBtn.disabled = true;
+    const ctrl = _xlCtrl = new AbortController();
+    goBtn.textContent = 'Anulo';
 
     const prompt = q
       ? 'Ligji i parë: "' + _lawTitle + '". Ligji i dytë: "' + law2 + '".\nPyetja: ' + q + '\nShpjego si ndërveprojnë këto dy ligje. Cito nene konkrete nga të dyja. Trego mbivendosjet, dallimet dhe rendin e zbatimit.'
       : 'Krahaso ligjin "' + _lawTitle + '" me ligjin "' + law2 + '". Trego: fushat e rregullimit, mbivendosjet, kur zbatohet secili dhe çfarë dallon ndërmjet tyre. Cito nene konkrete.';
 
-    fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+    _aiCall({
+      signal: ctrl.signal,
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
         max_tokens: 600,
         messages: [
           { role: 'system', content: 'Jeni ekspert i legjislacionit shqiptar. Krahasoni ligje me saktësi dhe citoni nene konkrete.' },
@@ -1014,10 +1104,17 @@ if (_xlLh && content) {
         ]
       })
     })
-    .then(r => r.json())
-    .then(data => { body.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.'; })
-    .catch(() => { body.textContent = 'Gabim rrjeti.'; })
-    .finally(() => { goBtn.disabled = false; });
+    .then(r => { if (!r.ok) { const e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
+    .then(data => {
+      const txt = data.choices && data.choices[0] && data.choices[0].message.content;
+      if (txt) { body.textContent = txt; return; }
+      _showAiError(body, 'Përgjigje boshe nga modeli — provoni sërish.', () => document.getElementById('_xl-go').click());
+    })
+    .catch(err => {
+      if (err && err.name === 'AbortError') return;
+      _showAiError(body, aiErrMsg(err.status, err), () => document.getElementById('_xl-go').click());
+    })
+    .finally(() => { _xlCtrl = null; goBtn.textContent = 'Pyet →'; });
   });
 }
 
@@ -1236,20 +1333,21 @@ if (_compLh) {
   document.getElementById('_comp-close').addEventListener('click', () => { _compModal.hidden = true; });
   _compBtn.addEventListener('click', () => { _compModal.hidden = false; });
 
+  let _compCtrl = null;
   document.getElementById('_comp-gen').addEventListener('click', () => {
+    const genBtn = document.getElementById('_comp-gen');
+    if (_compCtrl) { _compCtrl.abort(); return; }
     const type   = document.getElementById('_comp-type').value;
     const sit    = document.getElementById('_comp-sit').value.trim();
     if (!sit) return;
     const body   = document.getElementById('_comp-body');
-    const genBtn = document.getElementById('_comp-gen');
     body.textContent = 'Duke hartuar ' + type.toLowerCase() + '…';
-    genBtn.disabled = true;
+    const ctrl = _compCtrl = new AbortController();
+    genBtn.textContent = 'Anulo';
 
-    fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+    _aiCall({
+      signal: ctrl.signal,
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
         max_tokens: 900,
         messages: [
           { role: 'system', content: 'Hartoni dokumente ligjore formale shqipe me strukturë të saktë juridike.' },
@@ -1257,9 +1355,16 @@ if (_compLh) {
         ]
       })
     })
-    .then(r => r.json())
-    .then(data => { body.textContent = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.'; })
-    .catch(() => { body.textContent = 'Gabim rrjeti.'; })
-    .finally(() => { genBtn.disabled = false; });
+    .then(r => { if (!r.ok) { const e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
+    .then(data => {
+      const txt = data.choices && data.choices[0] && data.choices[0].message.content;
+      if (txt) { body.textContent = txt; return; }
+      _showAiError(body, 'Përgjigje boshe nga modeli — provoni sërish.', () => document.getElementById('_comp-gen').click());
+    })
+    .catch(err => {
+      if (err && err.name === 'AbortError') return;
+      _showAiError(body, aiErrMsg(err.status, err), () => document.getElementById('_comp-gen').click());
+    })
+    .finally(() => { _compCtrl = null; genBtn.textContent = 'Gjenero →'; });
   });
 }

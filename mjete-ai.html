@@ -7,11 +7,15 @@
   <meta name="description" content="18 mjete inteligjente ligjore për të drejtën shqiptare, të grupuara në 5 kategori: analizë, hartim dokumentesh, orientim, përgatitje dhe mësim.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="site.css">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#b8923a">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mjetet AI">
   <style>
     #opinion-pdf,#ca-pdf{font-family:var(--font);font-size:.82rem;color:var(--text);max-width:100%;}
     .opinion-pdf-row{display:flex;align-items:center;gap:14px;margin-top:7px;min-height:16px;flex-wrap:wrap;}
@@ -631,6 +635,7 @@
           <span class="op-step-icon">✔</span>
           <div><div class="op-step-label">Kontroll cilësie &amp; verifikim</div><div class="op-step-sub">Citimet kontrollohen kundrejt tekstit zyrtar</div></div>
         </div>
+        <button id="opinion-cancel-btn" type="button" class="tool-retry-btn" style="margin-top:14px">Anulo</button>
       </div>
 
       <!-- OUTPUT PHASE -->
@@ -786,6 +791,7 @@
           <div class="opinion-step" id="inh-step-3"><span class="op-step-icon">⚔</span><div><div class="op-step-label">Rreziqet & kontestimet</div></div></div>
           <div class="opinion-step" id="inh-step-4"><span class="op-step-icon">🧭</span><div><div class="op-step-label">Hapat praktikë</div></div></div>
         </div>
+        <button id="inherit-cancel-btn" type="button" class="tool-retry-btn" style="margin-top:14px">Anulo</button>
       </div>
 
       <div id="inherit-output" class="opinion-output" hidden>
@@ -820,11 +826,12 @@
   </div>
 
   <!-- Shared rich-report modal for the upgraded tools (sibling of <main> for print; .opinion-modal class) -->
-  <div id="tool-report-modal" class="opinion-modal" role="dialog" aria-modal="true" hidden>
+  <div id="tool-report-modal" class="opinion-modal" role="dialog" aria-modal="true" aria-labelledby="tool-modal-title" hidden>
     <div class="opinion-modal-inner" id="tool-report-inner">
       <div class="opinion-modal-header"><span id="tool-modal-title">Raport</span><button id="tool-close" type="button" aria-label="Mbyll">&#215;</button></div>
       <div id="tool-progress" class="opinion-progress" role="status" aria-live="polite" hidden>
         <div class="opinion-step active"><span class="op-step-icon">&#167;</span><div><div class="op-step-label" id="tool-progress-label">Duke përgatitur raportin…</div><div class="op-step-sub">Bazë ligjore + analizë e strukturuar</div></div></div>
+        <button id="tool-cancel-btn" type="button" class="tool-retry-btn" style="margin-top:14px">Anulo</button>
       </div>
       <div id="tool-output" class="opinion-output" hidden>
         <div class="print-cover" aria-hidden="true">
@@ -847,12 +854,11 @@
     </div>
   </div>
 
-  <script src="config.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="ai.js"></script>
-  <script src="mjete-ai.js"></script>
-  <script src="site.js"></script>
+  <!-- pdf.js and tesseract.js (~1.3MB) are lazy-loaded by mjete-ai.js only when a file is attached -->
+  <script src="config.js" defer></script>
+  <script src="ai.js" defer></script>
+  <script src="mjete-ai.js" defer></script>
+  <script src="site.js" defer></script>
   <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 
 </body>

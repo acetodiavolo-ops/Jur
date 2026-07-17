@@ -179,6 +179,10 @@ HTML_TEMPLATE = Template("""\
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#b8923a">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="{{ title }}">
 </head>
 <body>
 
@@ -217,8 +221,9 @@ HTML_TEMPLATE = Template("""\
 
   </div>
 
-  <script src="config.js"></script>
-  <script src="app.js"></script>
+  <script src="config.js" defer></script>
+  <script src="ai.js" defer></script>
+  <script src="app.js" defer></script>
   <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>

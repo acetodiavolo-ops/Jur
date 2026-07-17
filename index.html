@@ -7,11 +7,15 @@
   <meta name="description" content="Fondi i teksteve zyrtare ligjore të Shqipërisë dhe mjete inteligjente për të drejtën shqiptare.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="site.css">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#b8923a">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Ligjet">
 </head>
 <body>
 
@@ -99,116 +103,10 @@
 
   </main>
 
-  <script src="config.js"></script>
-  <script src="ai.js"></script>
-  <script>
-    'use strict';
-
-    // ── Law of the Day ────────────────────────────
-    var _lotdLaws = [
-      { title: 'Kushtetuta e Republikës së Shqipërisë', file: 'kushtetuta.html' },
-      { title: 'Kodi Civil',                            file: 'kodi-civil.html' },
-      { title: 'Kodi Penal',                            file: 'kodi-penal.html' },
-      { title: 'Kodi i Procedurës Civile',              file: 'kodi-procedure-civile.html' },
-      { title: 'Kodi i Procedurës Penale',              file: 'kodi-procedure-penale.html' },
-      { title: 'Kodi i Familjes',                       file: 'kodi-familjes.html' },
-      { title: 'Kodi Rrugor',                           file: 'kodi-rrugor.html' },
-      { title: 'Kodi Ajror',                            file: 'kodi-ajror.html' },
-      { title: 'Kodi Doganor',                          file: 'kodi-doganor.html' },
-      { title: 'Kodi i Drejtësisë Penale për të Mitur', file: 'drejtesia-penale-mitur.html' },
-      { title: 'Dispozita Zbatuese të Kodit Doganor',   file: 'dispozita-zbatuese-kodi-doganor.html' },
-      { title: 'Ligj për Tregtarët dhe Shoqëritë Tregtare', file: 'shoqerite-tregtare.html' },
-      { title: 'Ligj për Falimentimin',                 file: 'falimentimi.html' },
-      { title: 'Statusi i Gjyqtarëve dhe Prokurorëve', file: 'statusi-gjyqtareve-prokuroreve.html' },
-      { title: 'Organizimi i Pushtetit Gjyqësor',                file: 'organizimi-pushtetit-gjyqesor.html' },
-      { title: 'Organizimi i Pushtetit Gjyqësor (i përditësuar)', file: 'organizimi-pushtetit-gjyqesor-v2.html' },
-      { title: 'Ligj për Noterinë',                              file: 'noteria.html' },
-      { title: 'Shërbimi Përmbarimor Gjyqësor Privat',  file: 'sherbimi-permbarimor.html' }
-    ];
-
-    (function () {
-      var law = _lotdLaws[Math.floor(Math.random() * _lotdLaws.length)];
-      var lotdText = document.querySelector('.lotd-text');
-      var lotdLink = document.querySelector('.lotd-link');
-
-      var _key = (typeof GROQ_KEY !== 'undefined') ? GROQ_KEY : '';
-      var _ready = (typeof aiReady === 'function') ? aiReady() : (!!_key && _key !== 'YOUR_GROQ_KEY_HERE');
-      if (!lotdText || !_ready) {
-        if (lotdText) lotdText.textContent = law.title;
-        return;
-      }
-
-      lotdLink.href = law.file;
-
-      aiFetch({
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + GROQ_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 120,
-          messages: [
-            { role: 'system', content: 'Jeni asistent ligjor shqiptar. Jepni informacion të shkurtër dhe interesant.' },
-            { role: 'user',   content: 'Jep 2 fjali interesante ose praktike rreth: "' + law.title + '". Fillo drejtpërdrejt me informacionin, jo me "Ky ligj".' }
-          ]
-        })
-      })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var txt = data.choices && data.choices[0] && data.choices[0].message.content;
-        if (txt) {
-          lotdText.textContent = txt;
-          lotdLink.hidden = false;
-        } else {
-          lotdText.textContent = law.title;
-        }
-      })
-      .catch(function () {
-        lotdText.textContent = law.title;
-      });
-
-      // ── Daily Legal Tip ──────────────────────────
-      var _tipTopics = [
-        'kontratat gojore', 'lejet e ndërtimit', 'garancitë e produktit', 'pushimet vjetore',
-        'qiraja e banesës', 'trashëgimia ligjore', 'martesa civile', 'divorci dhe kujdestaria',
-        'aksidentet rrugore', 'të drejtat e konsumatorit', 'hapja e biznesit', 'faturimi dhe TVSH',
-        'pronësia e tokës', 'kontratat e punës', 'pushimi nga puna', 'sigurimet shoqërore',
-        'birësimi i fëmijëve', 'testamenti', 'borxhet dhe kreditë', 'denoncimet penale',
-        'privatësia e të dhënave', 'pronësia intelektuale', 'falimentimi personal', 'noterizimi',
-        'ankandi publik', 'lejet e drejtimit', 'regjistrat publik', 'kontratat elektronike',
-        'arbitrazhi', 'ndërmjetësimi ligjor'
-      ];
-      var tipTopic = _tipTopics[new Date().getDate() % _tipTopics.length];
-      var tipEl    = document.createElement('p');
-      tipEl.id     = '_daily-tip';
-      tipEl.style.cssText = 'font-size:0.78rem;color:#999;line-height:1.6;margin-top:10px;font-style:italic;';
-      tipEl.textContent = '…';
-      lotdLink.insertAdjacentElement('beforebegin', tipEl);
-
-      aiFetch({
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + _key, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 90,
-          messages: [
-            { role: 'system', content: 'Jeni këshilltar ligjor praktik për qytetarët shqiptarë.' },
-            { role: 'user',   content: 'Jep një këshillë praktike juridike rreth "' + tipTopic + '" për qytetarët shqiptarë. Fillo me "Dini që:". Max 2 fjali.' }
-          ]
-        })
-      })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var t = data.choices && data.choices[0] && data.choices[0].message.content;
-        tipEl.textContent = t || '';
-        if (!t) tipEl.remove();
-      })
-      .catch(function () { tipEl.remove(); });
-    }());
-  </script>
-  <script src="site.js"></script>
+  <script src="config.js" defer></script>
+  <script src="ai.js" defer></script>
+  <script src="home.js" defer></script>
+  <script src="site.js" defer></script>
   <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 
 </body>

@@ -42,6 +42,13 @@ jobs:
           pip install pdfplumber gdown jinja2
           python build.py
 
+      # Sources stay readable in the repo; only the deployed artifact is minified (~60% smaller).
+      - name: Minify JS/CSS
+        run: |
+          npx --yes esbuild --minify --allow-overwrite --outdir=. \
+            mjete-ai.js app.js site.js ai.js home.js ligjet-search.js ligjet-search-worker.js sw.js \
+            site.css style.css
+
       - name: Inject secrets
         run: |
           echo "const GROQ_KEY = '${{ secrets.GROQ_KEY }}';" > config.js

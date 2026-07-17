@@ -1,5 +1,93 @@
     'use strict';
 
+    // ── Shared date utilities ── the ONLY date parsing/arithmetic/formatting in this file.
+    // Native <input type="date"> yields ISO 'yyyy-mm-dd'; new Date('yyyy-mm-dd') would parse it
+    // as UTC midnight and shift a day in negative-offset timezones, so parse components locally.
+    var JurDate = {
+      parseISO: function (s) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || '').trim());
+        if (!m) return null;
+        var y = +m[1], mo = +m[2], d = +m[3];
+        var dt = new Date(y, mo - 1, d);
+        return (dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d) ? dt : null;
+      },
+      addDays: function (dt, n) { return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + n); },
+      addYears: function (dt, n) {
+        var r = new Date(dt.getFullYear() + n, dt.getMonth(), dt.getDate());
+        // 29 shkurt + N vjet në vit jo të brishtë → 28 shkurt, jo 1 mars
+        if (r.getMonth() !== dt.getMonth()) r = new Date(r.getFullYear(), r.getMonth(), 0);
+        return r;
+      },
+      diffDays: function (a, b) {
+        var A = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+        var B = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+        return Math.round((B - A) / 86400000);
+      },
+      fmt: function (dt) {
+        function p(n) { return (n < 10 ? '0' : '') + n; }
+        return p(dt.getDate()) + '.' + p(dt.getMonth() + 1) + '.' + dt.getFullYear();
+      },
+      today: function () { var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); },
+      todayISO: function () {
+        var n = new Date();
+        function p(x) { return (x < 10 ? '0' : '') + x; }
+        return n.getFullYear() + '-' + p(n.getMonth() + 1) + '-' + p(n.getDate());
+      },
+      // Calendar-accurate span between two dates: whole years + leftover days.
+      span: function (a, b) {
+        var years = b.getFullYear() - a.getFullYear();
+        var anniv = JurDate.addYears(a, years);
+        if (anniv > b) { years--; anniv = JurDate.addYears(a, years); }
+        if (years < 0) return { years: 0, days: 0 };
+        return { years: years, days: Math.max(0, JurDate.diffDays(anniv, b)) };
+      },
+      spanText: function (a, b) {
+        var s = JurDate.span(a, b);
+        if (s.years <= 0) return JurDate.diffDays(a, b) + ' ditë';
+        return s.years + ' vjet' + (s.days ? ' e ' + s.days + ' ditë' : '');
+      }
+    };
+
+    // Single HTML-escaper for the whole file (was duplicated 3× with drifting behavior).
+    function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+    // ── Canonical limitation (parashkrim) rules ── ONE table for every tool.
+    // Both the Opinion engine (checkLimitation) and the Parashkrim calculator (solCompute)
+    // read from here, so the same case can never get two different verdicts.
+    var JUR_LIMITS = {
+      rules: {
+        'Kërkesë civile (kontratë)': { years: 10, law: 'kodi-civil.html', basis: 'detyrimet kontraktore (Kodi Civil)' },
+        'Dëmshpërblim civil':        { years: 3,  law: 'kodi-civil.html', basis: 'dëmi jashtëkontraktor (Kodi Civil)' },
+        'Mosmarrëveshje pune':       { years: 3,  law: 'kodi-civil.html', basis: 'kërkesa nga marrëdhënia e punës' },
+        'Ankesë administrative':     { days: 45,  law: 'kodi-procedure-civile.html', basis: 'afati i ankimit ndaj aktit administrativ (KPA)' },
+        'Kërkesë pronësore':         { none: true, law: 'kodi-civil.html', basis: 'padia rivendikuese si rregull nuk parashkruhet' },
+        'Akuzë penale':              { tiered: true, law: 'kodi-penal.html', basis: 'parashkrimi i ndjekjes penale sipas peshës së veprës (neni 67 KP)' },
+        'Garanci konsumatori':       { years: 2,  law: 'kodi-civil.html', basis: 'garancia ligjore e konsumatorit' }
+      },
+      // Opinion-tool case types → claim kinds that can apply to them.
+      byCaseType: {
+        civile:         ['Kërkesë civile (kontratë)', 'Dëmshpërblim civil'],
+        tregtare:       ['Kërkesë civile (kontratë)'],
+        prone:          ['Kërkesë pronësore'],
+        konsumator:     ['Garanci konsumatori'],
+        pune:           ['Mosmarrëveshje pune'],
+        familjare:      [],
+        penale:         ['Akuzë penale'],
+        administrative: ['Ankesë administrative']
+      },
+      // Short human note per case type, derived from the same rules (no duplicated prose).
+      describe: function (type) {
+        var kinds = JUR_LIMITS.byCaseType[type];
+        if (!kinds) return '';
+        if (!kinds.length) return 'Shumica e padive të kësaj natyre nuk kanë parashkrim klasik; kërkesat pasurore sipas rastit.';
+        return kinds.map(function (k) {
+          var r = JUR_LIMITS.rules[k];
+          var t = r.none ? 'nuk parashkruhet' : r.tiered ? 'afat sipas veprës' : r.days ? (r.days + ' ditë') : (r.years + ' vjet');
+          return k + ': ' + t;
+        }).join('; ') + '.';
+      }
+    };
+
     // ── GROQ API ── key loaded from config.js ─────
 
     var aiQuestion = document.getElementById('ai-question');
@@ -32,26 +120,23 @@
       'Nëse pyetja është shqip, përgjigjuni shqip. Nëse është anglisht, përgjigjuni anglisht. ' +
       'Jini të saktë dhe konciz (3-5 fjali).';
 
+    var _askCtrl = null;
     function askGroq() {
+      if (_askCtrl) { _askCtrl.abort(); return; } // running → the button acts as "Anulo"
       var q = aiQuestion.value.trim();
       if (!q) return;
       if (!aiConfigured()) { aiAnswer.hidden = false; toolFail(aiText, 'Shërbimi AI nuk është i konfiguruar (mungon çelësi).'); return; }
 
-      aiAsk.disabled = true;
-      aiAsk.textContent = 'Duke menduar…';
+      _askCtrl = new AbortController();
+      aiAsk.textContent = 'Anulo';
       aiAnswer.style.opacity = '0';
       aiAnswer.hidden = false;
       aiText.textContent = '';
       requestAnimationFrame(function () { aiAnswer.style.opacity = '1'; });
 
       aiFetch({
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + GROQ_KEY,
-          'Content-Type': 'application/json'
-        },
+        signal: _askCtrl.signal,
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
           max_tokens: 450,
           messages: [
             { role: 'system', content: _SYS_HOME },
@@ -64,10 +149,11 @@
         aiText.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim në përgjigje.');
       })
       .catch(function (err) {
+        if (err && err.name === 'AbortError') { aiAnswer.hidden = true; return; }
         toolFail(aiText, aiErrMsg(err && err.status, err), askGroq);
       })
       .finally(function () {
-        aiAsk.disabled = false;
+        _askCtrl = null;
         aiAsk.textContent = 'Pyet →';
       });
     }
@@ -185,24 +271,26 @@
     _wizFreeQ.addEventListener('keydown', function (e) { if (e.key === 'Enter') _wFreeAsk(); });
 
     // ── Two-law comparison ────────────────────────
+    var _cmpCtrl = null;
     document.getElementById('cmp-btn').addEventListener('click', function () {
+      var btn = document.getElementById('cmp-btn');
+      if (_cmpCtrl) { _cmpCtrl.abort(); return; } // running → the button acts as "Anulo"
       var law1 = document.getElementById('cmp-law1').value;
       var law2 = document.getElementById('cmp-law2').value;
       if (!law1 || !law2) { return; }
       if (law1 === law2) { return; }
 
-      var btn    = document.getElementById('cmp-btn');
       var result = document.getElementById('cmp-result');
       if (!aiConfigured()) { toolFail(result, 'Shërbimi AI nuk është i konfiguruar (mungon çelësi).'); return; }
-      btn.disabled = true;
+      var origLabel = btn.textContent;
+      _cmpCtrl = new AbortController();
+      btn.textContent = 'Anulo';
       result.style.opacity = '0'; result.style.display = 'block'; requestAnimationFrame(function () { result.style.opacity = '1'; });
       result.textContent = 'Duke krahasuar…';
 
       aiFetch({
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json' },
+        signal: _cmpCtrl.signal,
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
           max_tokens: 450,
           messages: [
             { role: 'system', content: 'Jeni ekspert i legjislacionit shqiptar.' },
@@ -214,8 +302,11 @@
       .then(function (data) {
         result.innerHTML = toolMd((data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.');
       })
-      .catch(function (err) { toolFail(result, aiErrMsg(err && err.status, err), function () { document.getElementById('cmp-btn').click(); }); })
-      .finally(function () { btn.disabled = false; });
+      .catch(function (err) {
+        if (err && err.name === 'AbortError') { result.style.display = 'none'; return; }
+        toolFail(result, aiErrMsg(err && err.status, err), function () { document.getElementById('cmp-btn').click(); });
+      })
+      .finally(function () { _cmpCtrl = null; btn.textContent = origLabel; });
     });
 
     // ── Case Study / Document / Email drafters → RichReport engine (csConfig/ddConfig/edConfig at end of script) ──
@@ -229,7 +320,28 @@
         'neni', 'kreu', 'klauzolë', 'kontratë', 'pronësi',
         'garanci', 'kaution', 'arbitrazh', 'ndërmjetës'
       ];
-      var _glCache  = {};
+      // Definitions cache persists across sessions (LRU-capped) — repeat lookups cost nothing.
+      var GL_LS = 'gl-cache-v1', GL_MAX = 50;
+      var _glCache = {};
+      try { _glCache = JSON.parse(localStorage.getItem(GL_LS) || '{}') || {}; } catch (e) { _glCache = {}; }
+      // One-time cleanup: an earlier bug could have cached the literal failure string forever.
+      Object.keys(_glCache).forEach(function (k) { if (_glCache[k] && _glCache[k].v === 'Gabim.') delete _glCache[k]; });
+      function glPersist() { try { localStorage.setItem(GL_LS, JSON.stringify(_glCache)); } catch (e) {} }
+      function glGet(term) {
+        var e = _glCache[term];
+        if (!e || typeof e.v !== 'string') return null;
+        e.t = Date.now(); glPersist();
+        return e.v;
+      }
+      function glPut(term, txt) {
+        _glCache[term] = { v: txt, t: Date.now() };
+        var keys = Object.keys(_glCache);
+        if (keys.length > GL_MAX) {
+          keys.sort(function (a, b) { return (_glCache[a].t || 0) - (_glCache[b].t || 0); });
+          keys.slice(0, keys.length - GL_MAX).forEach(function (k) { delete _glCache[k]; });
+        }
+        glPersist();
+      }
       var _glActive = null;
 
       var termsEl  = document.getElementById('glossary-terms');
@@ -247,7 +359,8 @@
           resultEl.hidden = false;
           if (!aiConfigured()) { toolFail(resultEl, 'Shërbimi AI nuk është i konfiguruar (mungon çelësi).'); return; }
 
-          if (_glCache[term]) { resultEl.textContent = _glCache[term]; return; }
+          var cached = glGet(term);
+          if (cached) { resultEl.textContent = cached; return; }
 
           resultEl.textContent = 'Duke kërkuar…';
           aiFetch({
@@ -264,8 +377,11 @@
           })
           .then(function (r) { if (!r.ok) { var e = new Error('http'); e.status = r.status; throw e; } return r.json(); })
           .then(function (data) {
-            var txt = (data.choices && data.choices[0] && data.choices[0].message.content) || 'Gabim.';
-            _glCache[term] = txt;
+            var txt = data.choices && data.choices[0] && data.choices[0].message.content;
+            // Only cache a real answer — an empty/malformed response must stay retryable,
+            // never get baked into localStorage as a permanent "definition".
+            if (!txt) { toolFail(resultEl, 'Përgjigje boshe nga modeli — provoni sërish.', function () { btn.click(); }); return; }
+            glPut(term, txt);
             resultEl.textContent = txt;
           })
           .catch(function (err) { toolFail(resultEl, aiErrMsg(err && err.status, err), function () { btn.click(); }); });
@@ -286,12 +402,40 @@
     // ── Statute of Limitations → now handled by the RichReport engine (solConfig) at end of script ──
 
     // ── Contract Analyzer ──────────────────────────
+    // Lazy loader for the heavy PDF/OCR libraries (~1.3MB) — fetched only when a file is attached,
+    // never on page load. Promise-cached so repeat attachments don't re-inject the script tag.
+    var _scriptCache = {};
+    function loadScript(src) {
+      if (_scriptCache[src]) return _scriptCache[src];
+      _scriptCache[src] = new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = src; s.async = true;
+        s.onload = function () { resolve(); };
+        s.onerror = function () { delete _scriptCache[src]; reject(new Error('script-load-failed')); };
+        document.head.appendChild(s);
+      });
+      return _scriptCache[src];
+    }
+    var PDFJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    var PDFJS_WORKER_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    var TESS_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    function ensurePdfJs(onStatus) {
+      if (window.pdfjsLib) return Promise.resolve();
+      if (onStatus) onStatus('Duke shkarkuar lexuesin e PDF…');
+      return loadScript(PDFJS_URL);
+    }
+    function ensureTesseract(onStatus) {
+      if (window.Tesseract) return Promise.resolve();
+      if (onStatus) onStatus('Duke shkarkuar modulin OCR…');
+      return loadScript(TESS_URL).catch(function () {}); // OCR opsional — teksti i PDF-së lexohet gjithsesi
+    }
     // Reusable client-side PDF text extraction (pdf.js). Returns Promise<string>.
     function extractPdfText(file, cap, onStatus) {
       cap = cap || 12000;
-      if (!window.pdfjsLib) return Promise.reject(new Error('pdf-not-loaded'));
-      try { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch (e) {}
-      return file.arrayBuffer().then(function (buf) {
+      return ensurePdfJs(onStatus).then(function () {
+        try { pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL; } catch (e) {}
+        return file.arrayBuffer();
+      }).then(function (buf) {
         return pdfjsLib.getDocument({ data: buf }).promise;
       }).then(function (pdf) {
         var pages = [], chain = Promise.resolve();
@@ -304,8 +448,11 @@
         }
         return chain.then(function () {
           var txt = pages.join('\n').replace(/\s+/g, ' ').trim();
-          if (txt.length >= 60 || !window.Tesseract) return txt;   // text-layer present (or OCR unavailable)
-          return ocrPdf(pdf, onStatus).then(function (o) { return (o && o.length > txt.length) ? o : txt; });
+          if (txt.length >= 60) return txt;   // text-layer present — no OCR needed
+          return ensureTesseract(onStatus).then(function () {
+            if (!window.Tesseract) return txt;
+            return ocrPdf(pdf, onStatus).then(function (o) { return (o && o.length > txt.length) ? o : txt; });
+          });
         });
       }).then(function (txt) {
         return String(txt || '').replace(/\s+/g, ' ').trim().slice(0, cap);
@@ -430,14 +577,7 @@
 
     // ── Shared AI failure handling (used by the RichReport engine + the remaining light tools) ──
     function aiConfigured(){ return (typeof aiReady === 'function') ? aiReady() : (typeof GROQ_KEY !== 'undefined' && GROQ_KEY && String(GROQ_KEY).indexOf('YOUR_') !== 0); }
-    function aiErrMsg(status, err){
-      if (err && err.name === 'AbortError') return '';
-      if (status === 429) return 'Limiti i kërkesave u arrit — provoni sërish pas pak.';
-      if (status === 401 || status === 403) return 'Qasja te shërbimi AI u refuzua (çelës i pavlefshëm ose i skaduar).';
-      if (status && status >= 500) return 'Shërbimi AI ka një problem të përkohshëm — provoni sërish.';
-      if (status && status >= 400) return 'Shërbimi AI s\'u përgjigj siç duhet — provoni sërish.';
-      return 'Gabim rrjeti — kontrolloni lidhjen dhe provoni sërish.';
-    }
+    // aiErrMsg() now lives in ai.js — shared with app.js, which is loaded on every law page.
     // Render a failure into a result element with an optional "Provo sërish" button.
     function toolFail(el, msg, retryFn){
       if (!el) return;
@@ -461,7 +601,6 @@
       clr.addEventListener('click', function () { inp.value = ''; status.textContent = ''; status.classList.remove('warn'); clr.hidden = true; });
       inp.addEventListener('change', function () {
         var f = inp.files && inp.files[0]; if (!f) return;
-        if (!window.pdfjsLib) { status.textContent = 'Lexuesi i PDF nuk u ngarkua — provoni sërish.'; status.classList.add('warn'); return; }
         status.classList.remove('warn'); status.textContent = 'Duke lexuar PDF…'; clr.hidden = false;
         extractPdfText(f, 12000, function (m) { status.textContent = m; }).then(function (txt) {
           if (!txt) { status.textContent = 'PDF-ja duket e skanuar (pa tekst) — ngjit tekstin manualisht.'; status.classList.add('warn'); return; }
@@ -491,7 +630,6 @@
       var MAX_RETRIES    = 3;
 
       function $(id){ return document.getElementById(id); }
-      function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
       function delay(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
       function backoff(n){ return 600 * Math.pow(2, n) + Math.random() * 250; }
       function clampPct(v){ var n = Number(v); return isFinite(n) ? Math.max(0, Math.min(100, n)) : 0; }
@@ -792,8 +930,12 @@
           var p = providers[pi];
           var body = JSON.stringify(Object.assign({model:p.model}, payload));
           function attempt(n){
-            return fetch(p.url, { method:'POST', signal:abortCtrl?abortCtrl.signal:undefined, headers:{'Authorization':'Bearer '+p.key,'Content-Type':'application/json'}, body:body })
+            // Per-attempt timeout (same AI_TIMEOUT_MS/withTimeout as ai.js's aiFetch) so a
+            // hung provider advances the retry/fallback chain instead of stalling forever.
+            var t=withTimeout(abortCtrl?abortCtrl.signal:undefined, AI_TIMEOUT_MS);
+            return fetch(p.url, { method:'POST', signal:t.signal, headers:{'Authorization':'Bearer '+p.key,'Content-Type':'application/json'}, body:body })
             .then(function(res){
+              t.done();
               if((res.status===429||res.status>=500)&&n<MAX_RETRIES) return delay(backoff(n)).then(function(){ return attempt(n+1); });
               return res.json().catch(function(){ return {}; }).then(function(data){
                 if(!res.ok){ var msg=(data&&data.error&&data.error.message)||('HTTP '+res.status); var e=new Error(msg); e.status=res.status; throw e; }
@@ -802,7 +944,10 @@
                 return content;
               });
             }).catch(function(err){
-              if(err&&err.name==='AbortError') throw err;
+              t.done();
+              var callerAborted=abortCtrl&&abortCtrl.signal&&abortCtrl.signal.aborted;
+              if(err&&err.name==='AbortError'&&callerAborted) throw err;   // real user cancel -> propagate
+              if(err&&err.name==='AbortError'&&n<MAX_RETRIES) return delay(backoff(n)).then(function(){ return attempt(n+1); }); // our own timeout -> retry/fallback
               var st=err&&err.status;
               if(st&&st>=400&&st<500&&st!==429) throw err;   // bad key/model -> don't retry, fall to next provider
               if(n<MAX_RETRIES) return delay(backoff(n)).then(function(){ return attempt(n+1); });
@@ -810,8 +955,11 @@
             });
           }
           // per-provider retries exhausted -> fall back to the next configured provider
+          // (an AbortError here is only a real cancel if the caller's own signal fired —
+          // one that came from our per-attempt timeout must still advance the chain)
           return attempt(0).catch(function(err){
-            if(err&&err.name==='AbortError') throw err;
+            var callerAborted=abortCtrl&&abortCtrl.signal&&abortCtrl.signal.aborted;
+            if(err&&err.name==='AbortError'&&callerAborted) throw err;
             if(pi+1 < providers.length) return tryProvider(pi+1);
             throw err;
           });
@@ -835,7 +983,7 @@
 
       function pad2(n){ return String(n).padStart(2,'0'); }
 
-      function renderMeta(type){ var d=new Date(); $('opinion-doc-meta').textContent=pad2(d.getDate())+'.'+pad2(d.getMonth()+1)+'.'+d.getFullYear()+' · '+(TYPE_LABELS[type]||''); }
+      function renderMeta(type){ $('opinion-doc-meta').textContent=JurDate.fmt(new Date())+' · '+(TYPE_LABELS[type]||''); }
 
       function renderStrength(s){
         var score=parseFloat(s.score); if(!isFinite(score)) score=5;
@@ -873,16 +1021,6 @@
         return best;
       }
       var DURATION={ civile:[8,18], tregtare:[8,18], prone:[8,20], konsumator:[6,14], pune:[4,12], familjare:[3,10], penale:[6,18], administrative:[4,12] };
-      var PARASHKRIM={
-        civile:'~10 vjet për detyrime kontraktore (Kodi Civil); ~3 vjet për dëmin jashtëkontraktor',
-        tregtare:'~10 vjet përgjithësisht; disa kërkesa tregtare kanë afate më të shkurtra',
-        prone:'Padia rivendikuese si rregull NUK parashkruhet; kërkesat e tjera sipas rastit',
-        konsumator:'Garancia ligjore ~2 vjet; ankesa brenda afatit të garancisë',
-        pune:'Afate të shkurtra (shpesh brenda 180 ditësh deri 3 vjet, sipas kërkesës)',
-        familjare:'Shumica e padive familjare pa parashkrim klasik; kërkesat pasurore sipas rastit',
-        penale:'Parashkrimi i ndjekjes penale varion sipas peshës së veprës (Kodi Penal)',
-        administrative:'Afati i ankimit ndaj aktit administrativ është i shkurtër (sipas KPA)'
-      };
       function scoreWinLose(score){
         var sc=parseFloat(score); if(!isFinite(sc)) sc=5; sc=Math.max(0,Math.min(10,sc));
         var win=Math.round(Math.max(5,Math.min(88, sc*8.5)));
@@ -896,26 +1034,52 @@
         f.basis.push('Kohëzgjatja: vlerësim orientues për shkallën e parë sipas llojit të çështjes.');
         if(claim&&claim>0){
           var tax=Math.round(claim*0.01), lawMin=Math.max(15000,Math.round(claim*0.04)), lawMax=Math.max(40000,Math.round(claim*0.10));
-          f.cost_min=tax+lawMin; f.cost_max=tax+lawMax;
-          var ev=claim*(wl.win/100); f.settle_min=Math.round(ev*0.6); f.settle_max=Math.round(ev*0.9); f.claim=claim;
+          f.cost_min=tax+lawMin; f.cost_max=tax+lawMax; f.claim=claim;
           f.basis.push('Kosto = taksa gjyqësore ~1% ('+fmtNum(tax)+' L) + tarifa avokati/ekspertize (vlerësim).');
-          f.basis.push('Marrëveshja ≈ vlera e kontestit ('+fmtNum(claim)+' L) × gjasat e fitimit, me zbritje për kohë/risk.');
         }
         return f;
       }
 
-      // ── deterministic limitation (parashkrim) check ──
-      var PARASHKRIM_YEARS={ civile:10, tregtare:10, prone:0, konsumator:2, pune:3, familjare:0, penale:10, administrative:0.12 };
+      // ── deterministic limitation (parashkrim) check — reads the canonical JUR_LIMITS table ──
+      // A case type can map to several claim kinds (e.g. civile → kontratë 10 vjet / dëm 3 vjet):
+      // 'likely-barred' only when ALL applicable periods have run out; 'partial' when only some have.
       function checkLimitation(type, dateStr){
         if(!dateStr) return {status:'na'};
-        var d=new Date(dateStr); if(isNaN(d.getTime())) return {status:'na'};
-        var ms=Date.now()-d.getTime(); if(ms<0) return {status:'na'};
-        var elapsed=ms/(365.25*24*3600*1000), yrs=PARASHKRIM_YEARS[type]; if(yrs==null) yrs=10;
-        var out={ elapsedYears:elapsed, typicalYears:yrs, status:'within', note:'' };
-        if(yrs===0){ out.note='Për këtë lloj çështjeje shumë kërkesa nuk parashkruhen (p.sh. padia rivendikuese); afati varet nga kërkesa konkrete. Kanë kaluar ~'+elapsed.toFixed(1)+' vjet.'; return out; }
-        if(elapsed>yrs){ out.status='likely-barred'; out.note='Kanë kaluar ~'+elapsed.toFixed(1)+' vjet, mbi afatin tipik ~'+yrs+' vjet — kërkesa MUND të jetë parashkruar. Verifikoni afatin e saktë dhe shkaqet e ndërprerjes/pezullimit.'; }
-        else if(elapsed>yrs*0.8){ out.status='near'; out.note='Kanë kaluar ~'+elapsed.toFixed(1)+' nga ~'+yrs+' vjet — afati po afrohet; veproni shpejt.'; }
-        else { out.note='Brenda afatit tipik (~'+elapsed.toFixed(1)+' nga ~'+yrs+' vjet).'; }
+        var d=JurDate.parseISO(dateStr);
+        if(!d) return {status:'na', note:'Data e dhënë nuk është e vlefshme.'};
+        var today=JurDate.today();
+        if(d>today) return {status:'future', note:'Data e ngjarjes është në të ardhmen — kontrolloni datën.'};
+        var elapsedText=JurDate.spanText(d,today);
+        var kinds=JUR_LIMITS.byCaseType[type]||[];
+        var out={ status:'within', note:'', elapsedText:elapsedText, elapsedDays:JurDate.diffDays(d,today), rules:[] };
+        if(!kinds.length){ out.note='Për këtë lloj çështjeje shumë kërkesa nuk kanë parashkrim klasik; afati varet nga kërkesa konkrete. Kanë kaluar '+elapsedText+'.'; return out; }
+        var judged=[];
+        kinds.forEach(function(k){
+          var r=JUR_LIMITS.rules[k]; if(!r) return;
+          if(r.none||r.tiered){ out.rules.push({kind:k, status:'info', note:r.basis}); return; }
+          var deadline=r.days?JurDate.addDays(d,r.days):JurDate.addYears(d,r.years);
+          var remaining=JurDate.diffDays(today,deadline), span=JurDate.diffDays(d,deadline);
+          var st=remaining<0?'barred':(remaining<span*0.2?'near':'ok');
+          var row={kind:k, status:st, deadline:deadline, remainingDays:remaining, limitLabel:r.days?(r.days+' ditë'):(r.years+' vjet')};
+          judged.push(row); out.rules.push(row);
+        });
+        function ruleTxt(r){ return '«'+r.kind+'» ('+r.limitLabel+', '+(r.remainingDays<0?('skadoi më '+JurDate.fmt(r.deadline)):('skadon më '+JurDate.fmt(r.deadline)))+')'; }
+        var barred=judged.filter(function(r){ return r.status==='barred'; });
+        var near=judged.filter(function(r){ return r.status==='near'; });
+        if(judged.length&&barred.length===judged.length){
+          out.status='likely-barred';
+          out.note='Kanë kaluar '+elapsedText+' — '+judged.map(ruleTxt).join('; ')+'. Kërkesa MUND të jetë parashkruar; verifikoni shkaqet e ndërprerjes/pezullimit.';
+        } else if(barred.length){
+          out.status='partial';
+          out.note='Kanë kaluar '+elapsedText+'. Afati për '+barred.map(ruleTxt).join('; ')+' ka skaduar, ndërsa '+judged.filter(function(r){ return r.status!=='barred'; }).map(ruleTxt).join('; ')+' është ende brenda afatit. Saktësoni natyrën e kërkesës.';
+        } else if(near.length){
+          out.status='near';
+          out.note='Kanë kaluar '+elapsedText+' — afati për '+near.map(ruleTxt).join('; ')+' po afrohet; veproni shpejt.';
+        } else if(judged.length){
+          out.note='Brenda afatit: '+judged.map(ruleTxt).join('; ')+'. Kanë kaluar '+elapsedText+'.';
+        } else {
+          out.note=out.rules.map(function(r){ return '«'+r.kind+'»: '+r.note; }).join('; ')+'. Kanë kaluar '+elapsedText+'.';
+        }
         return out;
       }
 
@@ -953,6 +1117,7 @@
         }
         if(limitation){
           if(limitation.status==='likely-barred'){ score=Math.min(score,3); adj.push('Mundësisht i parashkruar → kufizim te 3.0'); if(!capNote) capNote='mundësisht i parashkruar'; }
+          else if(limitation.status==='partial'){ score-=1; adj.push('Një nga afatet e mundshme ka skaduar: −1.0'); }
           else if(limitation.status==='near'){ score-=1; adj.push('Afati po skadon: −1.0'); }
         }
         score=Math.max(0,Math.min(10,score));
@@ -965,7 +1130,7 @@
         sc.factors.forEach(function(fa){ var pct=Math.round((fa.v/fa.max)*100); html+='<div class="op-bd-row"><span class="op-bd-k">'+esc(fa.k)+'</span><span class="op-bd-track"><span class="op-bd-fill" style="width:'+pct+'%"></span></span><span class="op-bd-v">'+(Math.round(fa.v*10)/10)+'/'+fa.max+'</span></div>'+(fa.why?'<div class="op-bd-why">'+esc(fa.why)+'</div>':''); });
         if(sc.adjustments&&sc.adjustments.length){ html+='<p class="op-subhead" style="margin:12px 0 4px;">Rregullime logjike (deterministe)</p><ul class="op-checklist">'+sc.adjustments.map(function(a){ return '<li>'+esc(a)+'</li>'; }).join('')+'</ul>'; }
         var L=store.limitation;
-        if(L&&L.status&&L.status!=='na'){ var cls=L.status==='likely-barred'?'op-red':(L.status==='near'?'op-amber':'op-green'); html+='<p class="op-subhead '+cls+'" style="margin:12px 0 4px;">Afati &amp; Parashkrimi</p><div class="op-deadline-note"><div>'+esc(L.note||'')+'</div></div>'; }
+        if(L&&L.status&&L.status!=='na'){ var cls=L.status==='likely-barred'?'op-red':(L.status==='near'||L.status==='partial'||L.status==='future')?'op-amber':'op-green'; html+='<p class="op-subhead '+cls+'" style="margin:12px 0 4px;">Afati &amp; Parashkrimi</p><div class="op-deadline-note"><div>'+esc(L.note||'')+'</div></div>'; }
         html+='<p class="op-bd-final">Rezultati i llogaritur: <strong>'+sc.score.toFixed(1)+'/10</strong>'+(sc.capNote?(' · i kufizuar: '+esc(sc.capNote)):'')+'</p>';
         el.innerHTML=html+'</div></details>';
       }
@@ -1091,11 +1256,10 @@
         var html='<div class="op-forecast-bar">'+seg('op-fc-win',win)+seg('op-fc-settle',settle)+seg('op-fc-lose',lose)+'</div>'
           +'<div class="op-fc-legend"><span><i class="op-fc-dot" style="background:#3d706a"></i>Fitim '+win.toFixed(0)+'%</span><span><i class="op-fc-dot" style="background:#b8923a"></i>Marrëveshje '+settle.toFixed(0)+'%</span><span><i class="op-fc-dot" style="background:#b15c44"></i>Humbje '+lose.toFixed(0)+'%</span></div>';
         html+='<div class="op-stat-grid">';
-        if(f.months_min!=null||f.months_max!=null) html+='<div class="op-stat"><div class="op-stat-label">Kohëzgjatja</div><div class="op-stat-value">'+esc(f.months_min)+'–'+esc(f.months_max)+' <small>muaj</small></div></div>';
+        if(f.months_min!=null||f.months_max!=null) html+='<div class="op-stat"><div class="op-stat-label">Kohëzgjatja (orientuese, jo afat ligjor)</div><div class="op-stat-value">'+esc(f.months_min)+'–'+esc(f.months_max)+' <small>muaj</small></div></div>';
         if(f.cost_min!=null||f.cost_max!=null) html+='<div class="op-stat"><div class="op-stat-label">Kosto e vlerësuar</div><div class="op-stat-value">'+fmtNum(f.cost_min)+'–'+fmtNum(f.cost_max)+' <small>'+esc(cur)+'</small></div></div>';
-        if(f.settle_min!=null||f.settle_max!=null) html+='<div class="op-stat"><div class="op-stat-label">Diapazoni i marrëveshjes</div><div class="op-stat-value">'+fmtNum(f.settle_min)+'–'+fmtNum(f.settle_max)+' <small>'+esc(cur)+'</small></div></div>';
         html+='</div>';
-        if(f.cost_min==null&&f.settle_min==null) html+='<p class="op-fc-note">Jepni «Vlerën e kontestit ose dëmin» në formular për një vlerësim të kostos dhe të marrëveshjes.</p>';
+        if(f.cost_min==null) html+='<p class="op-fc-note">Jepni «Vlerën e kontestit ose dëmin» në formular për një vlerësim të kostos.</p>';
         if(f.drivers&&f.drivers.length){ html+='<p class="op-subhead op-green">Faktorët vendimtarë</p><ul class="opinion-md-list">'; f.drivers.forEach(function(d){ html+='<li>'+esc(d)+'</li>'; }); html+='</ul>'; }
         if(f.damages&&f.damages.length){ html+='<p class="op-subhead">Zbërthimi i dëmit (orientues)</p>'; var DC=['#3d706a','#b8923a','#b15c44','#6a8caf'], dseg=''; f.damages.forEach(function(d,i){ dseg+='<div class="op-fc-seg" style="width:'+d.pct.toFixed(0)+'%;background:'+DC[i%4]+'">'+(d.pct>=12?d.pct.toFixed(0)+'%':'')+'</div>'; }); html+='<div class="op-forecast-bar">'+dseg+'</div><div class="op-stat-grid">'; f.damages.forEach(function(d){ html+='<div class="op-stat"><div class="op-stat-label">'+esc(d.head)+(d.basis?' <small>('+esc(d.basis)+')</small>':'')+'</div><div class="op-stat-value">'+fmtNum(d.amount)+' <small>'+esc(cur)+'</small></div></div>'; }); html+='</div>'; }
         if(f.basis&&f.basis.length){ html+='<p class="op-fc-basis"><strong>Si u llogarit:</strong> '+f.basis.map(function(b){ return esc(b); }).join(' ')+' <em>Vlerësime orientuese — verifikoni.</em></p>'; }
@@ -1107,12 +1271,11 @@
         var s=store.strength||{}, f=store.forecast||{};
         var score=parseFloat(s.score); if(!isFinite(score)) score=5;
         var path=(f.win>=55)?'ndjekje gjyqësore':((f.settle>=f.win&&f.settle>=f.lose)?'zgjidhje me marrëveshje':((f.lose>50)?'marrëveshje mbrojtëse ose rishikim strategjie':'ndjekje e kujdesshme'));
-        var money=(f.settle_min!=null)?('Diapazoni i pritshëm i marrëveshjes ~'+fmtNum(f.settle_min)+'–'+fmtNum(f.settle_max)+' L. '):'';
         var risk=(s.weaknesses&&s.weaknesses[0])?s.weaknesses[0]:'';
-        var L=store.limitation, limWarn=(L&&L.status==='likely-barred')?'<strong style="color:#b15c44">⚠ Kujdes: kërkesa mund të jetë e parashkruar (~'+L.elapsedYears.toFixed(1)+' vjet nga ngjarja). </strong>':'';
+        var L=store.limitation, limWarn=(L&&L.status==='likely-barred')?'<strong style="color:#b15c44">⚠ Kujdes: kërkesa mund të jetë e parashkruar ('+esc(L.elapsedText||'')+' nga ngjarja). </strong>':(L&&L.status==='partial')?'<strong style="color:#b8923a">⚠ Kujdes: një nga afatet e mundshme ka skaduar — saktësoni natyrën e kërkesës. </strong>':'';
         el.innerHTML='<p>'+limWarn+'Pozicioni vlerësohet <strong>'+score.toFixed(1)+'/10</strong>'+(s.label?' ('+esc(s.label)+')':'')+'. '
           +'Gjasat: fitim ~'+Math.round(f.win||0)+'%, marrëveshje ~'+Math.round(f.settle||0)+'%, humbje ~'+Math.round(f.lose||0)+'%. '
-          +'Rruga e rekomanduar: <strong>'+path+'</strong>. '+money
+          +'Rruga e rekomanduar: <strong>'+path+'</strong>. '
           +'Kohëzgjatja orientuese '+esc(f.months_min)+'–'+esc(f.months_max)+' muaj.'
           +(risk?(' Rreziku kryesor: '+esc(risk)+'.'):'')+'</p>';
         block.hidden=false;
@@ -1135,7 +1298,7 @@
         var block=$('op-strengthen-block'), el=$('op-out-strengthen'); if(!block||!el) return;
         var items=[];
         ((store.strength&&store.strength.missing_evidence)||[]).forEach(function(x){ if(x) items.push(esc(x)); });
-        if(!(store.claim>0)) items.push('Jepni vlerën e kontestit ose dëmit për një vlerësim financiar (kosto &amp; marrëveshje) më të saktë.');
+        if(!(store.claim>0)) items.push('Jepni vlerën e kontestit ose dëmit për një vlerësim më të saktë të kostos.');
         var d=store.doctrine; if(d&&d.kuadri){ d.kuadri.forEach(function(e){ var v=String(e&&e.vleresim||'').toLowerCase(); if(v.indexOf('plot')!==0&&(e&&(e.titull||e.id))) items.push('Forconi elementin «'+esc(e.titull||e.id)+'»'+(e.shenim?(': '+esc(e.shenim)):'')); }); }
         if(!items.length){ block.hidden=true; el.innerHTML=''; return; }
         el.innerHTML='<ul class="op-checklist">'+items.slice(0,8).map(function(x){ return '<li>'+x+'</li>'; }).join('')+'</ul>';
@@ -1146,14 +1309,14 @@
 
       function renderPlan(p, type, lim){
         var el=$('op-out-plan'), steps_=(p&&p.steps)||[];
-        var par=PARASHKRIM[type], hasDl=p&&p.deadlines&&p.deadlines.length;
+        var par=JUR_LIMITS.describe(type), hasDl=p&&p.deadlines&&p.deadlines.length;
         if(!steps_.length&&(!p||(!p.evidence&&!p.deadlines))&&!par){ el.innerHTML=DEGRADED; return; }
         var html='';
         steps_.forEach(function(s,i){ html+='<div class="op-plan-step"><div class="op-plan-num">'+(i+1)+'</div><div class="op-plan-body"><div class="op-plan-action">'+esc(s.action)+'</div><div class="op-plan-meta">'+priorityPill(s.priority)+(s.deadline?'<span class="op-pill op-pill-deadline">'+esc(s.deadline)+'</span>':'')+'</div></div></div>'; });
         if(p&&p.evidence&&p.evidence.length){ html+='<p class="op-subhead op-amber" style="margin-top:18px;">Prova për t\'u siguruar</p><ul class="op-checklist">'; p.evidence.forEach(function(e){ html+='<li>'+esc(e)+'</li>'; }); html+='</ul>'; }
         if(par||hasDl||(lim&&lim.status&&lim.status!=='na')){
           html+='<p class="op-subhead op-red" style="margin-top:18px;">Afate kritike</p>';
-          if(lim&&lim.status&&lim.status!=='na') html+='<div class="op-deadline-note"><div><strong>Llogaritje afati'+(lim.status==='likely-barred'?' — ⚠ MUND TË JETË PARASHKRUAR':(lim.status==='near'?' — afati po skadon':''))+'</strong> — '+esc(lim.note||'')+'</div></div>';
+          if(lim&&lim.status&&lim.status!=='na') html+='<div class="op-deadline-note"><div><strong>Llogaritje afati'+(lim.status==='likely-barred'?' — ⚠ MUND TË JETË PARASHKRUAR':(lim.status==='partial'?' — ⚠ një afat i mundshëm ka skaduar':(lim.status==='near'?' — afati po skadon':'')))+'</strong> — '+esc(lim.note||'')+'</div></div>';
           if(par) html+='<div class="op-deadline-note"><div><strong>Parashkrimi (orientues)</strong> — '+esc(par)+'. Verifikoni për rastin tuaj konkret.</div></div>';
           if(hasDl) p.deadlines.forEach(function(d){ html+='<div class="op-deadline-note"><div><strong>'+esc(d.what)+'</strong>'+(d.timeframe?' - '+esc(d.timeframe):'')+'</div></div>'; });
         }
@@ -1489,6 +1652,7 @@
         else { try{ var ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }catch(e){} }
       });
       $('opinion-restart-btn').addEventListener('click',restart);
+      if($('opinion-cancel-btn')) $('opinion-cancel-btn').addEventListener('click',closeModal);
       $('opinion-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
       document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('opinion-modal').hidden) closeModal(); });
 
@@ -1496,14 +1660,12 @@
       (function(){
         var inp=$('opinion-pdf'), status=$('opinion-pdf-status'), clr=$('opinion-pdf-clear'), view=$('opinion-pdf-view'), preview=$('opinion-pdf-preview');
         if(!inp) return;
-        if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         attachPdfPreview(view, preview, function(){ return attachedText; });
         function reset(){ attachedText=''; inp.value=''; if(status){ status.textContent=''; status.classList.remove('warn'); } if(clr) clr.hidden=true; if(view){ view.hidden=true; view.textContent='Shiko tekstin'; } if(preview){ preview.hidden=true; preview.textContent=''; } }
         resetPdf=reset;
         if(clr) clr.addEventListener('click',reset);
         inp.addEventListener('change',function(){
           var f=inp.files&&inp.files[0]; if(!f) return;
-          if(!window.pdfjsLib){ status.textContent='Lexuesi i PDF nuk u ngarkua — provoni sërish.'; status.classList.add('warn'); return; }
           status.classList.remove('warn'); status.textContent='Duke lexuar PDF…'; clr.hidden=false; attachedText=''; if(view){ view.hidden=true; view.textContent='Shiko tekstin'; } if(preview){ preview.hidden=true; preview.textContent=''; }
           extractPdfText(f, 8000, function(m){ status.textContent=m; }).then(function(txt){
             if(!txt){ status.textContent='PDF-ja duket e skanuar (pa tekst) — shkruani faktet manualisht.'; status.classList.add('warn'); attachedText=''; return; }
@@ -1534,7 +1696,6 @@
     (function(){
       'use strict';
       function $(id){ return document.getElementById(id); }
-      function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
       function fmtN(n){ n=Math.round(Number(n)||0); return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
       function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ var t=b; b=a%b; a=t; } return a||1; }
       function fracStr(x){ if(!isFinite(x)||x<=0) return '0'; for(var den=1;den<=24;den++){ var num=x*den; if(Math.abs(num-Math.round(num))<1e-6){ var nu=Math.round(num); var g=gcd(nu,den); return (nu/g)+'/'+(den/g); } } return (x*100).toFixed(1)+'%'; }
@@ -1742,7 +1903,7 @@
           tasks.push(adrApplicableInh(c,inp) ? iCall(ADR_SYS, ctx+'\n\nVlerëso nëse mosmarrëveshja e mundshme mes trashëgimtarëve (ndarja ose kontestimi i testamentit) mund të zgjidhet me ndërmjetësim familjar ose arbitrazh, sa gjasa ka, dhe skenarët më të mirë e më të keq.'+ADR_JSON, 700,0.4).catch(function(e){ if(e&&e.name==='AbortError') throw e; return null; }) : Promise.resolve(null));
           return Promise.all(tasks).then(function(res){
             step(1,res[0]?'done':'failed'); step(2,attachedWill?(res[1]?'done':'failed'):'done'); step(3,res[2]?'done':'failed'); step(4,res[3]?'done':'failed');
-            try{ $('inherit-doc-meta').textContent=new Date().toLocaleDateString('sq-AL')+' · Trashëgimi ligjore'; }catch(e){ $('inherit-doc-meta').textContent='Trashëgimi ligjore'; }
+            $('inherit-doc-meta').textContent=JurDate.fmt(new Date())+' · Trashëgimi ligjore';
             renderPropertyDivision(c);
             renderShares(c);
             $('inh-out-explain').innerHTML=iMd(enforceShares(res[0], c));
@@ -1776,6 +1937,7 @@
       $('inherit-close').addEventListener('click',closeModal);
       $('inherit-generate-btn').addEventListener('click',generate);
       $('inherit-restart-btn').addEventListener('click',restart);
+      if($('inherit-cancel-btn')) $('inherit-cancel-btn').addEventListener('click',closeModal);
       $('inherit-print-btn').addEventListener('click',function(){ var ds=Array.prototype.slice.call(document.querySelectorAll('#inherit-modal .op-breakdown')); var were=ds.map(function(d){ return d.open; }); ds.forEach(function(d){ d.open=true; }); function restore(){ ds.forEach(function(d,i){ d.open=were[i]; }); window.removeEventListener('afterprint',restore); } window.addEventListener('afterprint',restore); setTimeout(restore,3000); window.print(); });
       $('inherit-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
       document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('inherit-modal').hidden) closeModal(); });
@@ -1787,7 +1949,6 @@
       'use strict';
       if(typeof aiFetch!=='function' || !document.getElementById('tool-report-modal')) return;
       function $(id){ return document.getElementById(id); }
-      function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
       function inl(t){ return t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>'); }
       function md(raw, lawFile){
         var lines=esc(raw||'').split('\n'), out='', list=false;
@@ -1837,7 +1998,7 @@
         return html+'</ul>'; }
       var BLK=['opinion-block-a','opinion-block-b','opinion-block-c','opinion-block-d','opinion-block-e','opinion-block-f'];
       function section(label, body, i){ return '<div class="opinion-section-block '+BLK[i%BLK.length]+'"><div class="opinion-block-label">'+esc(label)+'</div><div class="opinion-section-body">'+body+'</div></div>'; }
-      function openModal(){ $('tool-report-modal').hidden=false; document.body.style.overflow='hidden'; }
+      function openModal(){ $('tool-report-modal').hidden=false; document.body.style.overflow='hidden'; $('tool-close').focus(); }
       function closeModal(){ if(abort) abort.abort(); running=false; $('tool-report-modal').hidden=true; document.body.style.overflow=''; }
 
       function showToolError(msg, cfg){
@@ -1848,13 +2009,17 @@
         b.addEventListener('click', function(){ e.hidden=true; running=false; runToolReport(cfg); }); e.appendChild(b);
         e.hidden=false;
       }
+      var lastRun=null; // context for per-section retry after a partial failure
+      function failedSectionBody(idx){
+        return '<p class="op-degraded">Kjo pjesë nuk u gjenerua. <button type="button" class="tool-sec-retry tool-retry-btn" data-sec="'+idx+'" style="margin-left:8px">Provo sërish</button></p>';
+      }
       function runToolReport(cfg){
         if(running) return;
         var primary=(cfg.lawFiles&&cfg.lawFiles[0])||'kodi-civil.html';
         openModal();
         $('tool-modal-title').textContent=cfg.title||'Raport';
         $('tool-doc-eyebrow').textContent=cfg.eyebrow||cfg.title||'Raport Ligjor';
-        try{ $('tool-doc-meta').textContent=new Date().toLocaleDateString('sq-AL'); }catch(e){ $('tool-doc-meta').textContent=''; }
+        $('tool-doc-meta').textContent=JurDate.fmt(new Date());
         $('tool-error').hidden=true; $('tool-output').hidden=true; $('tool-sections').innerHTML='';
         if(!aiConfigured()){ showToolError('Shërbimi AI nuk është i konfiguruar (mungon çelësi). Analiza me AI nuk mund të kryhet.', cfg); return; }
         running=true; abort=new AbortController();
@@ -1863,17 +2028,24 @@
         ground(cfg.lawFiles, cfg.input).then(function(g){
           $('tool-progress-label').textContent='Duke analizuar…';
           var GT=g.textBlock?('\n\n'+g.textBlock):'';
-          var tasks=(cfg.aiSections||[]).map(function(sec){
+          lastRun={cfg:cfg, GT:GT, primary:primary};
+          // Deterministic block first — computed from the grounded refs, independent of the AI.
+          var det=null;
+          if(typeof cfg.compute==='function'){ try{ det=cfg.compute(cfg.input, g); }catch(e){ det=null; } }
+          var tasks=(cfg.aiSections||[]).map(function(sec, idx){
             return ai(sec.sys, sec.usr(cfg.input, GT), sec.maxTok, sec.temp)
               .then(function(t){ return {label:sec.label, body:md(t, primary), ok:true}; })
-              .catch(function(e){ if(e&&e.name==='AbortError') throw e; if(e&&e.status&&!hardErr) hardErr=e; return {label:sec.label, body:'<p class="op-degraded">Kjo pjesë nuk u gjenerua.</p>', ok:false}; });
+              .catch(function(e){ if(e&&e.name==='AbortError') throw e; if(e&&e.status&&!hardErr) hardErr=e; return {label:sec.label, body:failedSectionBody(idx), ok:false}; });
           });
           return Promise.all(tasks).then(function(aiRes){
             var okCount=aiRes.filter(function(r){ return r&&r.ok; }).length;
-            var hasDet=(typeof cfg.compute==='function');
-            if(aiRes.length && okCount===0 && !hasDet){ showToolError(aiErrMsg(hardErr&&hardErr.status, hardErr), cfg); return; }
+            if(aiRes.length && okCount===0 && !(det&&det.body)){ showToolError(aiErrMsg(hardErr&&hardErr.status, hardErr), cfg); return; }
             var html='', i=0;
-            if(hasDet){ var det=cfg.compute(cfg.input); if(det&&det.body) html+=section(det.label, det.body, i++); }
+            // Deterministic block survived but every AI section failed → say so, don't degrade silently.
+            if(aiRes.length && okCount===0 && det&&det.body){
+              html+='<div class="opinion-form-error" style="margin:0 0 16px">Seksionet me AI nuk u gjeneruan — '+esc(aiErrMsg(hardErr&&hardErr.status, hardErr))+' Përdorni «Provo sërish» te secili seksion.</div>';
+            }
+            if(det&&det.body) html+=section(det.label, det.body, i++);
             aiRes.forEach(function(r){ if(r) html+=section(r.label, r.body, i++); });
             if(g.refs&&g.refs.length) html+=section('Referencat (nene të lidhura)', refsHtml(g.refs), i++);
             $('tool-sections').innerHTML=html;
@@ -1881,6 +2053,85 @@
           });
         }).catch(function(err){ if(err&&err.name==='AbortError') return; showToolError(aiErrMsg(err&&err.status, err), cfg); })
         .then(function(){ running=false; });
+      }
+      // Re-run just one failed section in place.
+      $('tool-sections').addEventListener('click', function(ev){
+        var btn=ev.target&&ev.target.closest?ev.target.closest('.tool-sec-retry'):null;
+        if(!btn||!lastRun) return;
+        var sec=(lastRun.cfg.aiSections||[])[+btn.getAttribute('data-sec')]; if(!sec) return;
+        var blk=btn.closest('.opinion-section-block'), bodyEl=blk?blk.querySelector('.opinion-section-body'):null; if(!bodyEl) return;
+        btn.disabled=true; btn.textContent='Duke provuar…';
+        if(!abort||(abort.signal&&abort.signal.aborted)) abort=new AbortController();
+        ai(sec.sys, sec.usr(lastRun.cfg.input, lastRun.GT), sec.maxTok, sec.temp)
+          .then(function(t){ bodyEl.innerHTML=md(t, lastRun.primary); })
+          .catch(function(e){ if(e&&e.name==='AbortError') return; btn.disabled=false; btn.textContent='Provo sërish'; });
+      });
+
+      // ── Deterministic sanction ("diapazon") extraction from official article text.
+      // The range is shown ONLY when the grounded law text literally states it; if no
+      // sanction phrase is found in the retrieved articles, no range is shown at all.
+      // sqNum() (Albanian numeral parser) lives in ai.js — shared with extractDeadlines()
+      // there, since ai.js is loaded on both this page and every generated law page.
+      function fmtN(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
+      function extractSanctions(refs){
+        var out=[];
+        (refs||[]).forEach(function(a){
+          var t=String(a.text||'').replace(/\s+/g,' '), low=t.toLowerCase(), items=[], m;
+          function push(kind, m0, minPh, maxPh, unit){
+            items.push({ kind:kind, text:t.substr(m0.index,m0[0].length), min:minPh!=null?sqNum(minPh):null, max:maxPh!=null?sqNum(maxPh):null, unit:unit||'' });
+          }
+          var reBR=/me\s+burgim\s+nga\s+([^,;.()]{1,40}?)\s+(?:gjer|deri)\s+(?:në\s+)?([^,;.()]{1,40}?)\s+(vjet|muaj|javë|ditë)/g;
+          while((m=reBR.exec(low))!==null) push('burgim', m, m[1], m[2], m[3]);
+          var reBM=/me\s+burgim\s+(?:gjer|deri)\s+(?:në\s+)?([^,;.()]{1,40}?)\s+(vjet|muaj|javë|ditë)/g;
+          while((m=reBM.exec(low))!==null) push('burgim', m, null, m[1], m[2]);
+          var reGR=/me\s+gjobë\s+nga\s+([^,;()]{1,60}?)\s+(?:gjer|deri)\s+(?:në\s+)?([^,;()]{1,60}?)\s+lek[ëe]?/g;
+          while((m=reGR.exec(low))!==null) push('gjobë', m, m[1], m[2], 'lekë');
+          var reGM=/me\s+gjobë\s+(?:gjer|deri)\s+(?:në\s+)?([^,;()]{1,60}?)\s+lek[ëe]?/g;
+          while((m=reGM.exec(low))!==null) push('gjobë', m, null, m[1], 'lekë');
+          var mP=/burgimi?\s+(?:t[ëe]|i)\s+p[ëe]rjetsh[ëe]m/.exec(low);
+          if(mP) items.push({ kind:'përjetshëm', text:t.substr(mP.index,mP[0].length), min:null, max:null, unit:'' });
+          if(items.length) out.push({ file:a.file, num:a.num, items:items });
+        });
+        return out;
+      }
+      function penCompute(input, g){
+        var found=extractSanctions(g&&g.refs);
+        if(!found.length) return null; // s'ka masë dënimi në tekstin e gjetur → asnjë diapazon
+        var base=(typeof LAW_BASE!=='undefined')?LAW_BASE:'';
+        var body='<p>Diapazoni i nxjerrë automatikisht nga teksti zyrtar i neneve të gjetura (llogaritje, jo AI):</p><ul class="tool-checklist">';
+        found.forEach(function(a){
+          var href=base+a.file+'#neni-'+String(a.num).split('/')[0];
+          a.items.forEach(function(it){
+            var sum='';
+            if(it.kind==='përjetshëm') sum='burgim i përjetshëm';
+            else if(it.min!=null&&it.max!=null) sum=it.kind+' '+fmtN(it.min)+'–'+fmtN(it.max)+' '+it.unit;
+            else if(it.max!=null) sum=it.kind+' deri në '+fmtN(it.max)+' '+it.unit;
+            body+='<li><a href="'+href+'" target="_blank" rel="noopener noreferrer">Neni '+esc(a.num)+'</a>: «'+esc(it.text)+'»'+(sum?' <b>→ '+esc(sum)+'</b>':'')+'</li>';
+          });
+        });
+        body+='</ul><p class="sol-note">Diapazoni tregon kufijtë e nenit përkatës — dënimi konkret caktohet nga gjykata sipas rrethanave, dhe kualifikimi i saktë i veprës duhet verifikuar.</p>';
+        return { label:'Sanksioni sipas tekstit zyrtar (diapazoni)', body:body };
+      }
+
+      // Deterministic deadline list — a SUPPLEMENT to the AI's "Fazat & afatet" discussion,
+      // never a replacement (deadline phrasing is too varied to trust a regex for full
+      // coverage). Shown only when extractDeadlines() finds a confident match; omitted otherwise.
+      function deadlinesCompute(input, g){
+        var base=(typeof LAW_BASE!=='undefined')?LAW_BASE:'';
+        var rows=[];
+        (g&&g.refs||[]).forEach(function(a){
+          (typeof extractDeadlines==='function'?extractDeadlines(a.text):[]).forEach(function(d){
+            rows.push({ file:a.file, num:a.num, quote:d.quote, amount:d.amount, unit:d.unit });
+          });
+        });
+        if(!rows.length) return null;
+        var body='<p>Afate të gjetura automatikisht në tekstin zyrtar (llogaritje, jo AI) — diskutimi i plotë vijon më poshtë:</p><ul class="tool-checklist">';
+        rows.forEach(function(d){
+          var href=base+d.file+'#neni-'+String(d.num).split('/')[0];
+          body+='<li><a href="'+href+'" target="_blank" rel="noopener noreferrer">Neni '+esc(d.num)+'</a>: «'+esc(d.quote)+'» <b>→ '+d.amount+' '+esc(d.unit)+'</b></li>';
+        });
+        body+='</ul>';
+        return { label:'Afatet e gjetura në tekst', body:body };
       }
 
       // ── tool configs ──
@@ -1900,9 +2151,10 @@
       var PEN_LAW={'Shkelje penale':'kodi-penal.html','Shkelje rrugore':'kodi-rrugor.html','Shkelje doganore':'kodi-doganor.html','Shkelje kontraktuale':'kodi-civil.html','Shkelje e marrëdhënies së punës':'kodi-civil.html'};
       function penConfig(){ var typ=$('pen-type').value, sit=$('pen-sit').value.trim(); if(!sit){ $('pen-sit').focus(); return null; } var lf=PEN_LAW[typ]||'kodi-penal.html';
         return { title:'Analizë e Shkeljes & Sanksioni', eyebrow:'Analizë Sanksioni', lawFiles:[lf], input:(typ?('Lloji: '+typ+'. '):'')+sit,
+          compute:penCompute, // diapazoni vetëm nga teksti zyrtar; pa gjetje → pa diapazon
           aiSections:[
             { label:'Kualifikimi i shkeljes & përbërja', maxTok:1100, temp:0.3, sys:'Jeni jurist penalist shqiptar. Mbështetu te teksti zyrtar i neneve të dhëna; mos shpik numra nenesh apo emra veprash. Nëse është vepër penale, analizo përbërjen me 4 elementet (OBJEKTI, ANA OBJEKTIVE, SUBJEKTI, ANA SUBJEKTIVE); përndryshe kualifiko shkeljen.', usr:function(input,gt){ return 'Kualifiko shkeljen që vijon dhe analizo përbërjen e saj.'+gt+'\n\nSITUATA:\n'+input; } },
-            { label:'Sanksioni / dënimi i mundshëm', maxTok:700, temp:0.35, sys:'Jeni jurist shqiptar. Jep diapazonin orientues të dënimit/gjobës sipas tekstit zyrtar; mos shpik shifra jashtë tij.', usr:function(input,gt){ return 'Jep diapazonin orientues të sanksionit (dënim/gjobë), formën bazë vs të kualifikuar, dhe stadin (tentativë/e konsumuar) nëse zbatohet.'+gt+'\n\nSITUATA:\n'+input; } },
+            { label:'Forma e veprës & zbatimi i sanksionit', maxTok:700, temp:0.3, sys:'Jeni jurist shqiptar. Për masën e dënimit cito VETËM fjalë për fjalë nga teksti zyrtar i neneve të dhëna. Nëse asnjë nen i dhënë nuk përcakton masë dënimi, mos përmend fare shifra apo diapazon — thuaj se teksti i dhënë nuk e përcakton masën.', usr:function(input,gt){ return 'Shpjego formën bazë vs të kualifikuar të veprës dhe stadin (tentativë/e konsumuar) nëse zbatohet. Çdo masë dënimi që përmend duhet të jetë citim fjalë për fjalë nga nenet e dhëna; mos jep shifra që nuk gjenden në to.'+gt+'\n\nSITUATA:\n'+input; } },
             { label:'Rrethana lehtësuese/rënduese & mbrojtja', maxTok:700, temp:0.4, sys:'Jeni avokat mbrojtës shqiptar.', usr:function(input,gt){ return 'Listo rrethanat lehtësuese dhe rënduese, dhe linjat kryesore të mbrojtjes/kundërshtimit.'+gt+'\n\nSITUATA:\n'+input; } }
           ] }; }
       var NEGO_LAW={'Kontratë / detyrim civil':'kodi-civil.html','Qira / marrëdhënie pronësore':'kodi-civil.html','Punë / marrëdhënie pune':'kodi-civil.html','Familje / trashëgimi':'kodi-familjes.html','Biznes / ortakëri':'shoqerite-tregtare.html','Konsumator / garanci':'kodi-civil.html'};
@@ -1915,39 +2167,34 @@
             { label:'Draft kushtesh marrëveshjeje', maxTok:800, temp:0.4, sys:'Jeni jurist shqiptar që harton marrëveshje.', usr:function(input,gt){ return 'Harto një draft të shkurtër me 4–7 kushte kryesore për një marrëveshje/akord pajtimi mes palëve.'+gt+'\n\n'+input; } }
           ] }; }
 
-      // ── Parashkrim (statute-of-limitations): deterministic date math + grounded explanation ──
-      var SOL_RULES={
-        'Kërkesë civile (kontratë)':{ years:10, law:'kodi-civil.html', basis:'detyrimet kontraktore (Kodi Civil)' },
-        'Dëmshpërblim civil':{ years:3, law:'kodi-civil.html', basis:'dëmi jashtëkontraktor (Kodi Civil)' },
-        'Mosmarrëveshje pune':{ years:3, law:'kodi-civil.html', basis:'kërkesa nga marrëdhënia e punës' },
-        'Ankesë administrative':{ days:45, law:'kodi-procedure-civile.html', basis:'afati i ankimit ndaj aktit administrativ (KPA)' },
-        'Kërkesë pronësore':{ none:true, law:'kodi-civil.html', basis:'padia rivendikuese si rregull nuk parashkruhet' },
-        'Akuzë penale':{ tiered:true, law:'kodi-penal.html', basis:'parashkrimi i ndjekjes penale sipas peshës së veprës (neni 67 KP)' }
-      };
-      function fmtD(dt){ try{ return dt.toLocaleDateString('sq-AL'); }catch(e){ return dt.toISOString().slice(0,10); } }
+      // ── Parashkrim (statute-of-limitations): deterministic date math + grounded explanation.
+      // Rules come from the canonical JUR_LIMITS table (shared with the Opinion engine).
+      var SOL_RULES=JUR_LIMITS.rules;
       function solCompute(type, dateStr, rule){
-        var d=new Date(dateStr), now=new Date();
-        if(isNaN(d.getTime())) return { label:'Verdikti i afatit (llogaritje)', body:'<p class="op-degraded">Data e dhënë nuk është e vlefshme.</p>' };
-        var elapsedMs=now-d, elapsedDays=Math.floor(elapsedMs/86400000), elapsedYears=elapsedMs/(365.25*86400000);
+        var d=JurDate.parseISO(dateStr), today=JurDate.today();
+        if(!d) return { label:'Verdikti i afatit (llogaritje)', body:'<p class="op-degraded">Data e dhënë nuk është e vlefshme.</p>' };
+        if(d>today) return { label:'Verdikti i afatit (llogaritje)', body:'<p class="op-degraded">Data e ngjarjes është në të ardhmen — kontrolloni datën.</p>' };
+        var elapsedText=JurDate.spanText(d,today);
         var rows='<ul class="sol-facts"><li><span>Lloji</span><b>'+esc(type)+'</b></li>'
-               + '<li><span>Data e ngjarjes</span><b>'+fmtD(d)+'</b></li>'
-               + '<li><span>Koha e kaluar</span><b>'+(elapsedYears>=1?elapsedYears.toFixed(1)+' vjet':elapsedDays+' ditë')+'</b></li>';
+               + '<li><span>Data e ngjarjes</span><b>'+JurDate.fmt(d)+'</b></li>'
+               + '<li><span>Koha e kaluar</span><b>'+elapsedText+'</b></li>';
         var verdict;
         if(rule.none){
           verdict='<div class="sol-badge sol-info">Nuk parashkruhet</div><p>'+esc(rule.basis)+'. Afati varet nga kërkesa konkrete — verifikoni rastin specifik.</p>';
         } else if(rule.tiered){
-          verdict='<div class="sol-badge sol-info">Varion sipas veprës</div><p>Parashkrimi i ndjekjes penale ndryshon sipas dënimit maksimal të veprës (neni 67 i Kodit Penal) — p.sh. ~2, 5, 10 ose 20+ vjet. Përcaktoni veprën konkrete për afatin e saktë. Koha e kaluar: ~'+elapsedYears.toFixed(1)+' vjet.</p>';
+          verdict='<div class="sol-badge sol-info">Varion sipas veprës</div><p>Parashkrimi i ndjekjes penale ndryshon sipas dënimit maksimal të veprës (neni 67 i Kodit Penal) — p.sh. ~2, 5, 10 ose 20+ vjet. Përcaktoni veprën konkrete për afatin e saktë. Koha e kaluar: '+elapsedText+'.</p>';
         } else {
-          var deadline, label2;
-          if(rule.days){ deadline=new Date(d.getTime()+rule.days*86400000); label2=rule.days+' ditë'; }
-          else { deadline=new Date(d.getTime()); deadline.setFullYear(deadline.getFullYear()+rule.years); label2='~'+rule.years+' vjet'; }
-          var remMs=deadline-now;
-          rows+='<li><span>Afati ligjor</span><b>'+label2+'</b></li><li><span>Data e skadimit</span><b>'+fmtD(deadline)+'</b></li>';
-          if(remMs<0){
-            verdict='<div class="sol-badge sol-barred">Mund të jetë parashkruar</div><p>Afati ('+label2+') ka skaduar më '+fmtD(deadline)+' (~'+Math.abs(Math.round(remMs/86400000))+' ditë më parë). Verifikoni shkaqet e ndërprerjes/pezullimit që mund ta zgjasin.</p>';
+          var deadline=rule.days?JurDate.addDays(d,rule.days):JurDate.addYears(d,rule.years);
+          var label2=rule.days?(rule.days+' ditë'):(rule.years+' vjet');
+          var remDays=JurDate.diffDays(today,deadline), span=JurDate.diffDays(d,deadline);
+          rows+='<li><span>Afati ligjor</span><b>'+label2+'</b></li><li><span>Data e skadimit</span><b>'+JurDate.fmt(deadline)+'</b></li>';
+          if(remDays<0){
+            verdict='<div class="sol-badge sol-barred">Mund të jetë parashkruar</div><p>Afati ('+label2+') ka skaduar më '+JurDate.fmt(deadline)+' ('+Math.abs(remDays)+' ditë më parë). Verifikoni shkaqet e ndërprerjes/pezullimit që mund ta zgjasin.</p>';
+          } else if(remDays===0){
+            verdict='<div class="sol-badge sol-near">Afati skadon SOT</div><p>Dita e fundit e afatit ('+label2+') është sot, '+JurDate.fmt(deadline)+'. Veproni menjëherë.</p>';
           } else {
-            var remDays=Math.ceil(remMs/86400000), span=rule.days?rule.days*86400000:rule.years*365.25*86400000, near=remMs<span*0.2;
-            verdict='<div class="sol-badge '+(near?'sol-near':'sol-ok')+'">'+(near?'Afati po afrohet':'Brenda afatit')+'</div><p>Kanë mbetur ~'+remDays+' ditë (skadon më '+fmtD(deadline)+').'+(near?' Veproni shpejt.':'')+'</p>';
+            var near=remDays<span*0.2;
+            verdict='<div class="sol-badge '+(near?'sol-near':'sol-ok')+'">'+(near?'Afati po afrohet':'Brenda afatit')+'</div><p>Kanë mbetur '+remDays+' ditë (skadon më '+JurDate.fmt(deadline)+').'+(near?' Veproni shpejt.':'')+'</p>';
           }
         }
         return { label:'Verdikti i afatit (llogaritje)', body:verdict+rows+'</ul><p class="sol-note">Llogaritje orientuese mbi datën dhe llojin e dhënë — afati i saktë dhe ndërprerjet/pezullimet duhen verifikuar me tekstin e ligjit.</p>' };
@@ -2022,6 +2269,7 @@
       var TL_LAW={'Padi civile (gjykatë e shkallës I)':'kodi-procedure-civile.html','Apel civil':'kodi-procedure-civile.html','Procedim penal':'kodi-procedure-penale.html','Ankesë administrative':'kodi-procedure-civile.html','Divorc me marrëveshje':'kodi-familjes.html','Divorc i kontestuar':'kodi-familjes.html','Regjistrim biznesi (NIPT)':'shoqerite-tregtare.html','Ekzekutim vendimi gjyqësor':'sherbimi-permbarimor.html','Çregjistrimi i pronës':'kodi-civil.html'};
       function timelineConfig(){ var typ=$('timeline-type').value, det=$('timeline-details').value.trim(); if(!typ){ $('timeline-type').focus(); return null; } var lf=TL_LAW[typ]||'kodi-procedure-civile.html';
         return { title:'Vija Kohore Procedurale', eyebrow:'Procedura — '+typ, lawFiles:[lf], input:'Procedura: '+typ+(det?('. Detaje: '+det):'.'),
+          compute:deadlinesCompute,
           aiSections:[
             { label:'Fazat & afatet', maxTok:1000, temp:0.35, sys:'Jeni jurist shqiptar ekspert në procedurë. Jep një vijë kohore me faza dhe afate. Mbështetu te nenet e dhëna; mos shpik numra.', usr:function(inp,gt){ return 'Jep vijën kohore hap-pas-hapi (faza + afate + veprime) për këtë procedurë.'+gt+'\n\n'+inp; } },
             { label:'Këshilla & rreziqe', maxTok:600, temp:0.4, sys:'Jeni jurist shqiptar praktik.', usr:function(inp,gt){ return 'Jep këshilla praktike dhe afatet/rreziqet kritike që s\'duhen humbur.'+gt+'\n\n'+inp; } }
@@ -2046,6 +2294,10 @@
       // rewire the upgraded tool buttons (clone to drop the old single-call handlers)
       function rewire(id, build){ var b=$(id); if(!b) return; var nb=b.cloneNode(true); b.parentNode.replaceChild(nb,b);
         nb.addEventListener('click', function(){ var cfg=build(); if(cfg) runToolReport(cfg); }); }
+      // Future dates make no sense for a limitation check — block them in the picker too.
+      if($('sol-date')) $('sol-date').max=JurDate.todayISO();
+      if($('opinion-event-date')) $('opinion-event-date').max=JurDate.todayISO();
+
       rewire('ca-btn', function(){ var t=$('ca-text').value.trim(); if(!t){ $('ca-text').focus(); return null; } return Object.assign({},CONTRACT,{input:t}); });
       rewire('pen-btn', penConfig);
       rewire('nego-btn', negoConfig);
@@ -2061,6 +2313,7 @@
       rewire('biz-btn', bizConfig);
 
       $('tool-close').addEventListener('click', closeModal);
+      if($('tool-cancel-btn')) $('tool-cancel-btn').addEventListener('click', closeModal);
       $('tool-restart-btn').addEventListener('click', closeModal);
       $('tool-report-modal').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
       document.addEventListener('keydown', function(e){ if(e.key==='Escape'&&!$('tool-report-modal').hidden) closeModal(); });

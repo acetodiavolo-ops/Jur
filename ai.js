@@ -31,6 +31,24 @@ function aiChain(strong) {
   return s.length ? s.concat(AI_PROVIDERS.filter(function (p) { return !p.strong; })) : AI_PROVIDERS;
 }
 
+// Per-provider timeout: a hung provider must advance the fallback chain instead of
+// blocking the whole tool until the browser gives up (there was previously NO timeout).
+var AI_TIMEOUT_MS = 45000;
+// Combine the caller's cancel signal with a per-attempt timeout signal.
+function withTimeout(signal, ms) {
+  var ctrl = new AbortController();
+  var timer = setTimeout(function () { ctrl.abort(new DOMException('timeout', 'TimeoutError')); }, ms);
+  function onAbort() { clearTimeout(timer); ctrl.abort(signal.reason); }
+  if (signal) {
+    if (signal.aborted) onAbort();
+    else signal.addEventListener('abort', onAbort, { once: true });
+  }
+  return {
+    signal: ctrl.signal,
+    done: function () { clearTimeout(timer); if (signal) signal.removeEventListener('abort', onAbort); }
+  };
+}
+
 // Drop-in replacement for fetch() to the chat endpoint. Accepts the same options object
 // the call sites already build; it ignores the url/headers/model in there and instead
 // tries each provider in order, returning the first OK Response (caller still does r.json()).
@@ -44,15 +62,20 @@ function aiFetch(opts, strong) {
   function tryP(i) {
     var p = chain[i];
     var body = JSON.stringify(Object.assign({ model: p.model }, payload));
+    var t = withTimeout(signal, AI_TIMEOUT_MS);
     return fetch(p.url, {
-      method: 'POST', signal: signal,
+      method: 'POST', signal: t.signal,
       headers: { 'Authorization': 'Bearer ' + p.key, 'Content-Type': 'application/json' },
       body: body
     }).then(function (res) {
+      t.done();
       if (res.ok) return res;                                   // success
       if (i + 1 < chain.length) return tryP(i + 1);             // bad key / rate-limit -> next provider
       return res;                                               // last one: let caller read the error
     }).catch(function (err) {
+      t.done();
+      // user cancel propagates; a timeout only advances the chain
+      if (err && err.name === 'AbortError' && !(signal && signal.aborted) && i + 1 < chain.length) return tryP(i + 1);
       if (err && err.name === 'AbortError') throw err;
       if (i + 1 < chain.length) return tryP(i + 1);             // network error -> next provider
       throw err;
@@ -67,17 +90,85 @@ function aiFetch(opts, strong) {
 function aiEmbed(texts) {
   var k = (typeof GEMINI_KEY !== 'undefined') ? GEMINI_KEY : '';
   if (!k || String(k).indexOf('YOUR_') === 0) return Promise.reject(new Error('no embed key'));
+  var t = withTimeout(undefined, AI_TIMEOUT_MS);
   return fetch('https://generativelanguage.googleapis.com/v1beta/openai/embeddings', {
-    method: 'POST',
+    method: 'POST', signal: t.signal,
     headers: { 'Authorization': 'Bearer ' + k, 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: 'gemini-embedding-001', input: texts })
   }).then(function (r) {
+    t.done();
     if (!r.ok) throw new Error('embed HTTP ' + r.status);
     return r.json();
-  }).then(function (d) {
+  }, function (e) { t.done(); throw e; }).then(function (d) {
     return (d.data || []).slice().sort(function (a, b) { return (a.index || 0) - (b.index || 0); })
       .map(function (x) { return x.embedding; });
   });
+}
+
+// Maps an HTTP status (or a network/abort error) to a specific Albanian message.
+// Shared by mjete-ai.js and app.js so every AI feature on every page speaks consistently.
+function aiErrMsg(status, err){
+  if (err && err.name === 'AbortError') return '';
+  if (status === 429) return 'Limiti i kërkesave u arrit — provoni sërish pas pak.';
+  if (status === 401 || status === 403) return 'Qasja te shërbimi AI u refuzua (çelës i pavlefshëm ose i skaduar).';
+  if (status && status >= 500) return 'Shërbimi AI ka një problem të përkohshëm — provoni sërish.';
+  if (status && status >= 400) return 'Shërbimi AI s\'u përgjigj siç duhet — provoni sërish.';
+  return 'Gabim rrjeti — kontrolloni lidhjen dhe provoni sërish.';
+}
+
+// ── Shared Albanian legal-text parsing helpers ──
+// Loaded on both mjete-ai.html and every generated law page, so both surfaces can pull
+// numbers/deadlines straight from official article text instead of asking the AI for them.
+
+// Albanian numeral words -> integers (covers 1-99, "qind"=100, "mijë"=1000, "milion"=1e6,
+// including compounds like "njëzet e pesë" or "dyqind mijë"). Returns null on anything
+// it doesn't recognize — callers must treat null as "don't guess a number here".
+var SQ_NUM={ 'një':1,'nje':1,'dy':2,'tre':3,'tri':3,'katër':4,'kater':4,'pesë':5,'pese':5,'gjashtë':6,'gjashte':6,'shtatë':7,'shtate':7,'tetë':8,'tete':8,'nëntë':9,'nente':9,'dhjetë':10,'dhjete':10,
+  'njëmbëdhjetë':11,'dymbëdhjetë':12,'trembëdhjetë':13,'katërmbëdhjetë':14,'pesëmbëdhjetë':15,'gjashtëmbëdhjetë':16,'shtatëmbëdhjetë':17,'tetëmbëdhjetë':18,'nëntëmbëdhjetë':19,
+  'njëzet':20,'njezet':20,'tridhjetë':30,'tridhjete':30,'dyzet':40,'pesëdhjetë':50,'pesedhjete':50,'gjashtëdhjetë':60,'shtatëdhjetë':70,'tetëdhjetë':80,'nëntëdhjetë':90 };
+function sqNum(phrase){
+  var s=String(phrase||'').toLowerCase().trim();
+  if(/^[\d.\s]+$/.test(s)){ var n=parseInt(s.replace(/[.\s]/g,''),10); return isFinite(n)?n:null; }
+  var toks=s.split(/[\s-]+/), val=0, cur=0, seen=false;
+  for(var i=0;i<toks.length;i++){ var w=toks[i];
+    if(!w||w==='e'||w==='dhe') continue;
+    if(/^\d+$/.test(w)){ cur+=parseInt(w,10); seen=true; continue; }
+    if(w==='qind'||w==='njëqind'||w==='njeqind'){ cur=(cur||1)*100; seen=true; continue; }
+    if(w==='mijë'||w==='mije'){ val+=(cur||1)*1000; cur=0; seen=true; continue; }
+    if(w==='milion'||w==='milionë'||w==='milione'){ val+=(cur||1)*1000000; cur=0; seen=true; continue; }
+    if(SQ_NUM[w]!=null){ cur+=SQ_NUM[w]; seen=true; continue; }
+    if(w.length>4&&w.slice(-4)==='qind'&&SQ_NUM[w.slice(0,-4)]!=null){ cur+=SQ_NUM[w.slice(0,-4)]*100; seen=true; continue; }
+    return null; // fjalë e panjohur → mos hamendëso numër
+  }
+  return seen?(val+cur):null;
+}
+
+// Extracts confidently-matched deadline phrases ("brenda 30 ditësh", "jo më vonë se
+// pesëmbëdhjetë ditë", "afati është 60 ditë") from a plain-text law excerpt. Deadline
+// phrasing is far more varied across Albanian law than sentencing phrasing, so this is
+// deliberately conservative: only the handful of well-defined patterns below match, and
+// an unparsable numeral phrase is skipped rather than guessed. Returns [] when nothing
+// matches — callers must treat that as "no deterministic deadline found here", not an error.
+function extractDeadlines(text){
+  var t=String(text||'').replace(/\s+/g,' '), low=t.toLowerCase(), out=[], seen={}, m;
+  var UNIT='(dit[ëe](?:sh)?|jav[ëe](?:sh)?|muaj(?:sh)?|vjet(?:[ëe]sh)?)';
+  var PATTERNS=[
+    new RegExp('brenda\\s+([^,;.()]{1,30}?)\\s+'+UNIT,'g'),
+    new RegExp('jo\\s+m[ëe]\\s+von[ëe]\\s+se\\s+([^,;.()]{1,30}?)\\s+'+UNIT,'g'),
+    new RegExp('afati\\s+(?:[ëe]sht[ëe]|prej)\\s+([^,;.()]{1,30}?)\\s+'+UNIT,'g')
+  ];
+  PATTERNS.forEach(function(re){
+    while((m=re.exec(low))!==null){
+      var amount=sqNum(m[1]);
+      if(amount==null) continue; // fraza numerike s'u kuptua → mos e trego
+      var raw=m[2].toLowerCase(), unit=raw.indexOf('dit')===0?'ditë':raw.indexOf('jav')===0?'javë':raw.indexOf('muaj')===0?'muaj':'vjet';
+      var quote=t.substr(m.index,m[0].length).trim();
+      var key=amount+'|'+unit;
+      if(seen[key]) continue; seen[key]=1; // same deadline stated twice in one excerpt → one entry
+      out.push({ quote:quote, amount:amount, unit:unit });
+    }
+  });
+  return out;
 }
 
 // Web-grounded answer via Gemini's native Google-Search tool: returns { text, sources:[{title,uri}] }.
@@ -85,15 +176,16 @@ function aiEmbed(texts) {
 function aiGroundedSearch(query, signal) {
   var k = (typeof GEMINI_KEY !== 'undefined') ? GEMINI_KEY : '';
   if (!k || String(k).indexOf('YOUR_') === 0) return Promise.reject(new Error('no gemini key'));
+  var t = withTimeout(signal, AI_TIMEOUT_MS);
   return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(k), {
-    method: 'POST', signal: signal,
+    method: 'POST', signal: t.signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: String(query || '') }] }],
       tools: [{ google_search: {} }],
       generationConfig: { temperature: 0.2, maxOutputTokens: 700 }
     })
-  }).then(function (r) { if (!r.ok) throw new Error('ground HTTP ' + r.status); return r.json(); })
+  }).then(function (r) { t.done(); if (!r.ok) throw new Error('ground HTTP ' + r.status); return r.json(); }, function (e) { t.done(); throw e; })
     .then(function (d) {
       var cand = d && d.candidates && d.candidates[0];
       var text = ((cand && cand.content && cand.content.parts) || []).map(function (p) { return p.text || ''; }).join(' ').replace(/\s+/g, ' ').trim();
